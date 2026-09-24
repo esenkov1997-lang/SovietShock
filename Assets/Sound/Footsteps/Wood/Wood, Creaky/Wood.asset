@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 816a21c0b402bd4448b269c1466b2ba1, type: 3}
+  m_Name: Wood
+  m_EditorClassIdentifier: 
+  FootstepClips:
+  - {fileID: 8300000, guid: dd0396094271348508143f397fe7eb73, type: 3}
+  - {fileID: 8300000, guid: c31ccfaa17f254a2d8e7355feac3f93d, type: 3}
+  - {fileID: 8300000, guid: cb41a5bef1d2446749ff40a00b2fd96a, type: 3}
+  - {fileID: 8300000, guid: c168f6452b1844d4baec06827b60ce54, type: 3}
+  - {fileID: 8300000, guid: 407f4de28ca534121a008ff3f21c673d, type: 3}
+  - {fileID: 8300000, guid: 105f43f56ef4342bba06a3bb9699781c, type: 3}
+  - {fileID: 8300000, guid: f9b7314822fc94e4a92dca595e21cd0d, type: 3}
+  - {fileID: 8300000, guid: 66388751e757f48d6bde10ed31fcf98e, type: 3}
+  - {fileID: 8300000, guid: 5b9630ac1a80b4d38a97e3c01dec2bda, type: 3}
+  - {fileID: 8300000, guid: abd3c086215574a08968000d52fa8f94, type: 3}
+  FootstepPitchRange: {x: 0.95, y: 1.05}
+  FootstepVolume: 0.2
+  LandingClips:
+  - {fileID: 8300000, guid: 78e225db419594d96910363852407394, type: 3}
+  - {fileID: 8300000, guid: 5681de1ba343e45d0a3e7f56593ee651, type: 3}
+  - {fileID: 8300000, guid: 2f58661421e954c168d941fca0251cfc, type: 3}
+  LandingPitchRange: {x: 0.95, y: 1.05}
+  LandingVolume: 0.5
+  LightImpactClips:
+  - {fileID: 8300000, guid: 3afa14426ae3c4d3297b6f5f765b6474, type: 3}
+  MediumImpactClips: []
+  HeavyImpactClips: []
+  ImpactMinSpeed: 0.8
+  ImpactMediumSpeed: 3
+  ImpactHeavySpeed: 7
+  ImpactPitchRange: {x: 0.9, y: 1.1}
+  ImpactVolume: 1
+  BulletHitClips: []
+  MeleeHitClips: []
+  HitPitchRange: {x: 0.9, y: 1.1}
+  HitVolume: 1
