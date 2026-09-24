@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 838067264429207065}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Wrench_new2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -42,7 +42,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3583004927944631693}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: root
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -75,7 +75,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2794483729352054530}
   - component: {fileID: 8518874159177836972}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Wrench
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -169,7 +169,7 @@ GameObject:
   - component: {fileID: 8798418030228303884}
   - component: {fileID: -2271271277577942599}
   - component: {fileID: 4499704388853789622}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Wrench_World
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -377,7 +377,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5557193172452126589}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: trigger_bone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -408,7 +408,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8347320659309498097}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: w_base
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -441,7 +441,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6689258849147726948}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: mag_bone
   m_TagString: Untagged
   m_Icon: {fileID: 0}

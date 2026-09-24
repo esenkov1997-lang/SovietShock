@@ -28,9 +28,9 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1215092510891642691}
   - {fileID: 7154919354173546585}
   - {fileID: 8794760589098939150}
-  - {fileID: 1215092510891642691}
   m_Father: {fileID: 3927862393572921296}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -832,6 +832,17 @@ MonoBehaviour:
       m_TableReference:
         m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
       m_TableEntryReference:
+        m_KeyId: 635769790464
+        m_Key: 
+      m_FallbackState: 0
+      m_WaitForCompletion: 0
+      m_LocalVariables: []
+    window: {fileID: 9212773582651622740}
+    app: {fileID: 3014303391116117788}
+  - title:
+      m_TableReference:
+        m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
+      m_TableEntryReference:
         m_KeyId: 5313656070144
         m_Key: 
       m_FallbackState: 0
@@ -850,17 +861,6 @@ MonoBehaviour:
       m_LocalVariables: []
     window: {fileID: 1516583707458828569}
     app: {fileID: 0}
-  - title:
-      m_TableReference:
-        m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
-      m_TableEntryReference:
-        m_KeyId: 635769790464
-        m_Key: 
-      m_FallbackState: 0
-      m_WaitForCompletion: 0
-      m_LocalVariables: []
-    window: {fileID: 9212773582651622740}
-    app: {fileID: 3014303391116117788}
   fullScreenWindow: {fileID: 4564451010871008962}
   references:
     version: 2
@@ -1545,7 +1545,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Padding: {x: 0, y: 0, z: 0, w: 0}
+  m_Padding: {x: 8, y: 8, z: 8, w: 8}
   m_Softness: {x: 0, y: 0}
 --- !u!1 &7099259338403165273
 GameObject:

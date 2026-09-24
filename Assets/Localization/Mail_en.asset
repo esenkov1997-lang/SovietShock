@@ -28,11 +28,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 19644795920384
-    m_Localized: "I'll send you a {smart:\"char.ivan\"} with a new one. Name * feels
-      bad,\nI literally pull him out of the medical bay, \nlet the young man deal
-      with the problem, and {smart:\"char.ivan\"} \nlet him come to his senses\LJust
-      don't put it in the report. Name* is afraid that he will be fired for his frequent
-      sick days lately"
+    m_Localized: "I'll send you a Ivan with a new one. Ivan feels bad,\nI literally
+      pull him out of the medical bay, \nlet the young man deal with the problem,
+      and Ivan \nlet him come to his senses\LJust don't put it in the report. Ivan
+      is afraid that he will be fired for his frequent sick days lately"
     m_Metadata:
       m_Items: []
   references:

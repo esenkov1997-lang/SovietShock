@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4135013735270702856}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: PlayerCameraRoot
   m_TagString: CinemachineTarget
   m_Icon: {fileID: 0}
@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 5393215578589016654}
   - component: {fileID: 5393215578589016655}
   - component: {fileID: 5393215578589016640}
-  m_Layer: 8
+  m_Layer: 10
   m_Name: Capsule
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -164,7 +164,7 @@ GameObject:
   - component: {fileID: -200789017432963245}
   - component: {fileID: 8833699517623865729}
   - component: {fileID: 3633138235754001187}
-  m_Layer: 8
+  m_Layer: 10
   m_Name: PlayerCapsule
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -265,9 +265,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pushLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 4294967295
   canPush: 1
-  strength: 1.1
+  strength: 2
 --- !u!114 &5420857361349278248
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -759,7 +759,7 @@ GameObject:
   - component: {fileID: 644952344579631668}
   - component: {fileID: 2416962190482147113}
   - component: {fileID: 3201567144705791627}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: WeaponHolder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -793,9 +793,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6cd338920dd45dc4581c5ef435cfef05, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startingWeapons: []
+  startingWeapons:
+  - {fileID: 11400000, guid: 3b1241eb04c1bed4a82671fef79a3af4, type: 2}
   handPlacementOverrides: []
-  defaultHitSurface: {fileID: 0}
+  defaultHitSurface: {fileID: 11400000, guid: 3105519c5a7de6944ac877c5579f1667, type: 2}
   dropPoint: {fileID: 1422877502142922238}
   dropForce: 4
   weaponLayerName: FirstPersonWeapon

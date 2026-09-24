@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Localization;
+using Player;
 
 namespace Interactables
 {
@@ -26,6 +27,22 @@ namespace Interactables
 		public virtual bool HandleBack() => false;
 		// число на окне каскада (Number): писем, камер, файлов. -1 — не показывать
 		public virtual int ItemCount => -1;
+
+		// звуки интерфейса этого терминала (TerminalAudio на корне префаба). Может быть null — тогда без звука
+		private TerminalAudio _audio;
+		private bool _audioSearched;
+		protected TerminalAudio Audio
+		{
+			get
+			{
+				if (!_audioSearched)
+				{
+					_audio = GetComponentInParent<TerminalAudio>(true);
+					_audioSearched = true;
+				}
+				return _audio;
+			}
+		}
 	}
 
 	// Главный менеджер терминала. Вешается на TerminalCanvas (объект, который всегда активен).
@@ -34,7 +51,7 @@ namespace Interactables
 	// тоже делает этот скрипт (см. HandlesExitKeyExternally) — PlayerCameraFocus в это не вмешивается.
 	//
 	//   Password    — ввод пароля. Enter — проверка, Escape — выход из терминала
-	//   CascadeMenu — 3 каскадных окна. W/S, ↑/↓ — выбор, Enter — открыть модуль, Escape — выход
+	//   CascadeMenu — 3 каскадных окна. W/S, ↑/↓ — выбор, Enter или клавиша взаимодействия — открыть модуль, Escape — выход
 	//   FullScreen  — открытый модуль. Escape — сначала модулю (TerminalApp.HandleBack), если тот не
 	//                 обработал — назад в CascadeMenu. Остальной ввод — модулю
 	public class TerminalMainController : MonoBehaviour
@@ -92,6 +109,8 @@ namespace Interactables
 		private int _selectedWindow;
 		private TerminalApp _activeApp;
 		private Coroutine _focusRoutine;
+		private TerminalAudio _audio; // необязателен — без него терминал просто беззвучный
+		private int _openedFrame = -1;
 
 		private bool NeedsPassword => requirePassword && !(rememberUnlock && _unlocked);
 
@@ -116,13 +135,16 @@ namespace Interactables
 			TerminalInstance instance = GetComponentInParent<TerminalInstance>();
 			if (instance != null) instance.ApplySettings();
 
+			_audio = GetComponentInParent<TerminalAudio>(true);
+			if (_audio == null && instance != null) _audio = instance.GetComponentInChildren<TerminalAudio>(true);
+
 			if (focusObject == null) focusObject = GetComponentInParent<InteractableFocusObject>();
 			// в префабе терминала InteractableFocusObject обычно висит на экране — соседе, а не родителе canvas
 			if (focusObject == null && instance != null) focusObject = instance.GetComponentInChildren<InteractableFocusObject>(true);
 			if (focusObject == null)
 			{
 				Debug.LogError($"{nameof(TerminalMainController)} на {name}: не найден {nameof(InteractableFocusObject)} — " +
-					"терминал не откроется по E. Назначь его в поле Focus Object", this);
+					"терминал не откроется по клавише взаимодействия. Назначь его в поле Focus Object", this);
 			}
 			else
 			{
@@ -143,6 +165,7 @@ namespace Interactables
 
 		private void OnEnable()
 		{
+			if (passwordInput != null) passwordInput.onValueChanged.AddListener(HandlePasswordTyped);
 			if (focusObject == null) return;
 			focusObject.OnInteractionStart.AddListener(OpenTerminal);
 			focusObject.OnInteractionEnd.AddListener(CloseTerminal);
@@ -150,6 +173,7 @@ namespace Interactables
 
 		private void OnDisable()
 		{
+			if (passwordInput != null) passwordInput.onValueChanged.RemoveListener(HandlePasswordTyped);
 			if (focusObject == null) return;
 			focusObject.OnInteractionStart.RemoveListener(OpenTerminal);
 			focusObject.OnInteractionEnd.RemoveListener(CloseTerminal);
@@ -162,6 +186,8 @@ namespace Interactables
 		{
 			if (IsOpen) return;
 			IsOpen = true;
+			_openedFrame = Time.frameCount;
+			if (_audio != null) _audio.PlayEnter();
 
 			if (NeedsPassword) EnterPassword();
 			else EnterCascade();
@@ -173,6 +199,8 @@ namespace Interactables
 		{
 			if (!IsOpen) return;
 			IsOpen = false;
+			// здесь, а не в ExitTerminal: сюда приходит любой выход, в том числе прерванный извне
+			if (_audio != null) _audio.PlayExit();
 
 			CloseActiveApp();
 			StopFocusRoutine();
@@ -210,6 +238,9 @@ namespace Interactables
 		private void Update()
 		{
 			if (!IsOpen) return;
+			// терминал открывается нажатием клавиши взаимодействия — в этом же кадре она ещё "нажата", и без
+			// этой проверки то же нажатие сразу открыло бы выбранное окно меню
+			if (Time.frameCount == _openedFrame) return;
 
 			// по одному состоянию за кадр: если Enter/Escape переключили состояние, новое начнёт
 			// читать ввод только со следующего кадра — одно нажатие не срабатывает дважды
@@ -229,7 +260,7 @@ namespace Interactables
 				return;
 			}
 
-			if (SubmitPressed()) CheckPassword();
+			if (EnterKeyPressed()) CheckPassword();
 		}
 
 		private void UpdateCascade()
@@ -240,9 +271,17 @@ namespace Interactables
 				return;
 			}
 
-			if (UpPressed()) SelectWindow(_selectedWindow - 1);
-			else if (DownPressed()) SelectWindow(_selectedWindow + 1);
+			if (UpPressed()) NavigateWindow(-1);
+			else if (DownPressed()) NavigateWindow(+1);
 			else if (SubmitPressed()) EnterFullScreen();
+		}
+
+		private void NavigateWindow(int direction)
+		{
+			int previous = _selectedWindow;
+			SelectWindow(_selectedWindow + direction);
+			// с одним окном выделение никуда не сдвинулось — и щёлкать нечему
+			if (_selectedWindow != previous && _audio != null) _audio.PlayNavigate();
 		}
 
 		private void UpdateFullScreen()
@@ -252,6 +291,7 @@ namespace Interactables
 				// сначала даём модулю шанс обработать "назад" самому — выходим в меню, только если ему некуда
 				if (_activeApp != null && _activeApp.HandleBack()) return;
 
+				if (_audio != null) _audio.PlayBack();
 				CloseActiveApp();
 				EnterCascade();
 				return;
@@ -268,7 +308,10 @@ namespace Interactables
 		// "зажато" — для плавных действий (прокрутка), в отличие от "нажато в этом кадре" выше
 		public static bool UpHeld() => Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W);
 		public static bool DownHeld() => Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S);
-		public static bool SubmitPressed() => Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+		public static bool EnterKeyPressed() => Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+		// "выбрать": Enter или клавиша взаимодействия (та же, что открывает терминал, см. Player.InteractKey).
+		// Не для поля пароля — там клавиша взаимодействия может оказаться обычной буквой пароля
+		public static bool SubmitPressed() => EnterKeyPressed() || InteractKey.WasPressedThisFrame;
 
 		// ---------- Password ----------
 
@@ -287,18 +330,28 @@ namespace Interactables
 			{
 				_unlocked = true;
 				if (passwordInput != null) passwordInput.DeactivateInputField();
+				if (_audio != null) _audio.PlayAccessGranted();
 				EnterCascade();
 				return;
 			}
 
+			if (_audio != null) _audio.PlayAccessDenied();
 			SetStatus(deniedMessage, DefaultDeniedText, deniedColor);
-			if (passwordInput != null) passwordInput.text = string.Empty;
+			// WithoutNotify — очистка поля не должна звучать как нажатие клавиши (см. HandlePasswordTyped)
+			if (passwordInput != null) passwordInput.SetTextWithoutNotify(string.Empty);
 			FocusPasswordField(); // TMP_InputField сам снимает фокус по Enter — возвращаем, чтобы можно было сразу вводить снова
+		}
+
+		// Любое изменение текста игроком — ввод или стирание символа. Программные очистки идут через
+		// SetTextWithoutNotify и сюда не попадают
+		private void HandlePasswordTyped(string _)
+		{
+			if (IsOpen && State == TerminalState.Password && _audio != null) _audio.PlayTyping();
 		}
 
 		private void ResetPasswordField()
 		{
-			if (passwordInput != null) passwordInput.text = string.Empty;
+			if (passwordInput != null) passwordInput.SetTextWithoutNotify(string.Empty);
 			// idleStatusMessage не задан — возвращаем то, что было в Text_Status в префабе
 			SetStatus(idleStatusMessage, _defaultStatusText, _defaultStatusColor);
 		}
@@ -318,7 +371,7 @@ namespace Interactables
 		}
 
 		// Фокус ставится через кадр, а не сразу:
-		// 1) терминал открывается по нажатию E — сфокусируй поле в тот же кадр, и "e" попадёт в пароль;
+		// 1) терминал открывается клавишей взаимодействия — сфокусируй поле в тот же кадр, и её буква попадёт в пароль;
 		// 2) после неверного пароля TMP_InputField может снять фокус по Enter уже после нашего Update.
 		private void FocusPasswordField()
 		{
@@ -396,6 +449,8 @@ namespace Interactables
 				Debug.LogWarning($"{nameof(TerminalMainController)}: у окна \"{entry.title}\" не назначен модуль (app)", this);
 				return;
 			}
+
+			if (_audio != null) _audio.PlayConfirm();
 
 			// сначала включаем окно, потом модуль: модулю для корутин (прокрутка чата) нужен активный объект
 			SetState(TerminalState.FullScreen);

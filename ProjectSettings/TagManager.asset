@@ -15,9 +15,9 @@ TagManager:
   - WeaponHolder
   - FirstPersonWeapon
   - UITerminal
-  - 
-  - 
-  - 
+  - PostProcessScreen
+  - Player
+  - IgnorePlayer
   - 
   - 
   - 

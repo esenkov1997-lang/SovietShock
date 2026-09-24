@@ -134,8 +134,8 @@ namespace Interactables
 
 			// ← / → — переключение колонки; в этом кадре больше ничего не делаем, чтобы одно нажатие
 			// не успело и сменить фокус, и сработать уже в новой колонке
-			if (TerminalMainController.LeftPressed() && _focus != Column.List) { SetFocus(Column.List); return; }
-			if (TerminalMainController.RightPressed() && _focus != Column.Chat) { SetFocus(Column.Chat); return; }
+			if (TerminalMainController.LeftPressed() && _focus != Column.List) { SetFocus(Column.List); PlayNavigate(); return; }
+			if (TerminalMainController.RightPressed() && _focus != Column.Chat) { SetFocus(Column.Chat); PlayNavigate(); return; }
 
 			if (_focus == Column.List)
 			{
@@ -157,7 +157,13 @@ namespace Interactables
 		{
 			if (_focus != Column.Chat) return false;
 			SetFocus(Column.List);
+			if (Audio != null) Audio.PlayBack();
 			return true;
+		}
+
+		private void PlayNavigate()
+		{
+			if (Audio != null) Audio.PlayNavigate();
 		}
 
 		private void SetFocus(Column column)
@@ -246,7 +252,11 @@ namespace Interactables
 		{
 			int next = _selected + direction;
 			if (wrapNavigation) next = (next % _tabs.Count + _tabs.Count) % _tabs.Count;
+
+			int previous = _selected;
 			SelectMail(next);
+			// упёрлись в край списка без wrap — выделение не сдвинулось, звука нет
+			if (_selected != previous) PlayNavigate();
 		}
 
 		public void SelectMail(int index)

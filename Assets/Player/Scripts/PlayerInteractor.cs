@@ -1,12 +1,13 @@
 using Interactables;
 using StarterAssets;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Localization;
 
 namespace Player
 {
-	// Прицел + подсказка + E: рейкаст из камеры игрока находит любой IInteractable (WorldItem — любой
-	// предмет, включая оружие, или что угодно ещё, реализующее интерфейс) и по нажатию E
+	// Прицел + подсказка + клавиша взаимодействия (Interact, см. InteractKey): рейкаст из камеры игрока находит любой IInteractable (WorldItem — любой
+	// предмет, включая оружие, или что угодно ещё, реализующее интерфейс) и по её нажатию
 	// вызывает IInteractable.Interact(...), передавая корневой GameObject игрока. Сам PlayerInteractor
 	// не знает ни про InventoryHolder, ни про WeaponController — каждый IInteractable сам находит нужные
 	// компоненты через GetComponentInParent. Замена узкоспециализированного WeaponInteractor.
@@ -29,6 +30,7 @@ namespace Player
 		{
 			if (rayOrigin == null && Camera.main != null) rayOrigin = Camera.main.transform;
 			if (input == null) input = GetComponentInParent<StarterAssetsInputs>();
+			InteractKey.Register(GetComponentInParent<PlayerInput>());
 
 			SetPromptVisible(false);
 		}
@@ -86,9 +88,9 @@ namespace Player
 			}
 
 			// перевод подтянется сам и обновится при смене языка (см. PickupPromptUI.SetPrompt);
-			// "[E] " — подпись клавиши, а не текст, поэтому остаётся в коде
+			// "[F] " — подпись клавиши, а не текст: берётся из реального биндинга Interact (см. InteractKey)
 			_shownPrompt = prompt;
-			if (found != null) PickupPromptUI.Instance?.SetPrompt(prompt, "[E] ");
+			if (found != null) PickupPromptUI.Instance?.SetPrompt(prompt, $"[{InteractKey.DisplayName}] ");
 			SetPromptVisible(found != null);
 		}
 

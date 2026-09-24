@@ -135,6 +135,15 @@ namespace StarterAssets
 			_verticalVelocity = 0f;
 		}
 
+		// while disabled (e.g. PlayerCameraFocus takes over for a terminal) Update() doesn't run, so
+		// CurrentSpeed/JustLanded would stay frozen at their last values — and every add-on reading them
+		// (FootstepPlayer, CameraHeadBob, ProceduralWeaponAnimation) would keep "walking" in place
+		private void OnDisable()
+		{
+			_horizontalVelocity = Vector3.zero;
+			JustLanded = false;
+		}
+
 		// base local position (X/Z from the original prefab setup, Y adjusted for crouch) — set at Start
 		// and by ApplyCrouchHeight(), actually written to the Transform once, together, in CameraRotation()
 		private Vector3 _cameraBaseLocalPosition;
