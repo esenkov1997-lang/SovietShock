@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 816a21c0b402bd4448b269c1466b2ba1, type: 3}
+  m_Name: Concrete
+  m_EditorClassIdentifier: 
+  FootstepClips:
+  - {fileID: 8300000, guid: 63d937c8921ce45c6b05782569443e84, type: 3}
+  - {fileID: 8300000, guid: 196ed1f402cc2440dbdb24b48e7d81dc, type: 3}
+  - {fileID: 8300000, guid: 8fa773a551603473ba873d616f03ca8d, type: 3}
+  - {fileID: 8300000, guid: a1dcd1b19bccd41b994501f0bfd11a8a, type: 3}
+  - {fileID: 8300000, guid: 378f2c9621f7c4b58bc668ef2f7a108b, type: 3}
+  - {fileID: 8300000, guid: a5bf0d16e4522402c881e048ff7a1eb8, type: 3}
+  - {fileID: 8300000, guid: 085d2041a74a44fffb2ad1937a4b650f, type: 3}
+  - {fileID: 8300000, guid: 8fa17e682c1f04cc99fd63eb5e5a2850, type: 3}
+  - {fileID: 8300000, guid: 02b7930aadf754c7289a159b018b8ed1, type: 3}
+  - {fileID: 8300000, guid: d413ae4e1ba384f99b2e9b385e7b52fd, type: 3}
+  FootstepPitchRange: {x: 0.8, y: 1.05}
+  FootstepVolume: 0.493
+  LandingClips:
+  - {fileID: 8300000, guid: a281139bf0e3649e6ae77d8b98989f2e, type: 3}
+  LandingPitchRange: {x: 0.95, y: 1.05}
+  LandingVolume: 1
+  LightImpactClips:
+  - {fileID: 8300000, guid: 1195cffe8db19c045b69f10303dfa3bc, type: 3}
+  MediumImpactClips: []
+  HeavyImpactClips: []
+  ImpactMinSpeed: 0.8
+  ImpactMediumSpeed: 3
+  ImpactHeavySpeed: 7
+  ImpactPitchRange: {x: 0.9, y: 1.1}
+  ImpactVolume: 1
+  BulletHitClips: []
+  MeleeHitClips:
+  - {fileID: 8300000, guid: 1195cffe8db19c045b69f10303dfa3bc, type: 3}
+  HitPitchRange: {x: 0.9, y: 1.1}
+  HitVolume: 1

@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 825c56d53b10a32418e3410628175cc7, type: 3}
+  m_Name: TerminalData_Reception
+  m_EditorClassIdentifier: 
+  mails:
+  - subject:
+      m_TableReference:
+        m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
+      m_TableEntryReference:
+        m_KeyId: 3115018690560
+        m_Key: 
+      m_FallbackState: 0
+      m_WaitForCompletion: 0
+      m_LocalVariables: []
+    sender:
+      m_TableReference:
+        m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
+      m_TableEntryReference:
+        m_KeyId: 1229708402688
+        m_Key: 
+      m_FallbackState: 0
+      m_WaitForCompletion: 0
+      m_LocalVariables: []
+    messages:
+    - isOutgoing: 1
+      author:
+        m_TableReference:
+          m_TableCollectionName: 
+        m_TableEntryReference:
+          m_KeyId: 0
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+      time: 09.11
+      body:
+        m_TableReference:
+          m_TableCollectionName: 
+        m_TableEntryReference:
+          m_KeyId: 0
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+  references:
+    version: 2
+    RefIds: []

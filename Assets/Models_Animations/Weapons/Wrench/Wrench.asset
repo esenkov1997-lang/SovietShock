@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afa3cf38d18612d49aac96be653e6eb9, type: 3}
+  m_Name: Wrench
+  m_EditorClassIdentifier: 
+  WeaponId: 1
+  WeaponName: Wrench
+  Damage: 10
+  MagazineSize: 100
+  Range: 1
+  MeleeHitRadius: 0.15
+  AmmoId: Gas
+  Mode: 2
+  FireRate: 5
+  AttackTrigger: Attack
+  AttackMissTrigger: AttackMiss
+  DrawTrigger: Draw
+  ReloadTrigger: Reload
+  RecoilKick: 1.5
+  RecoilDriftPerShot: 0.5
+  MaxDrift: 4
+  DriftRecoverySpeed: 10
+  AimRecoilKick: 0.8
+  AimRecoilDriftPerShot: 0.25
+  AimMaxDrift: 2
+  AimDriftRecoverySpeed: 10
+  AimPosition: {x: -1.42, y: 0, z: 0}
+  AimRotation: {x: 0, y: 0, z: 0}
+  AimTransitionSpeed: 0
+  AimFOV: 40
+  CanRepair: 1
+  RepairAmountPerSecond: 20
+  RepairDamagePerSecond: 5
+  HealBoolParam: Healing
+  AttackSound: {fileID: 8300000, guid: 5c39ec0074165fb4eaf789fc68f5379b, type: 3}
+  AttackPitchRange: {x: 0.7, y: 1.05}
+  DecalPrefab: {fileID: 0}
+  DecalLifetime: 15
+  BulletPrefab: {fileID: 7140458130500485017, guid: 0466286b710de19439b9140e4f7122e8, type: 3}
+  BulletSpeed: 1
+  BulletLifetime: 3
+  InHandPrefab: {fileID: 4030566846764498208, guid: 2c1647193fbcfd34bb5764ae711aced5, type: 3}
+  PickupPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
+  HandPosition: {x: 0.22, y: -0.05, z: 0.27}
+  HandRotation: {x: 0, y: 0, z: 0}
+  AnimationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}

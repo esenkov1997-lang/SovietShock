@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b21e9efd27499994aa147d3c310c2d1e, type: 3}
+  m_Name: WrenchItem
+  m_EditorClassIdentifier: 
+  id: 1
+  itemName: Wrench
+  icon: {fileID: 21300000, guid: 40cc2d77481114c4f89d930c5b8762c8, type: 3}
+  type: 0
+  worldPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
+  maxStack: 1
+  gridSize: {x: 1, y: 2}
+  weaponData: {fileID: 11400000, guid: 3b1241eb04c1bed4a82671fef79a3af4, type: 2}

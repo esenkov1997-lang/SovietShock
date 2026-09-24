@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(1..20 | ForEach-Object { [guid]::NewGuid\\(\\).ToString\\(\\) })",
+      "Bash(tasklist //FI \"IMAGENAME eq Unity.exe\")",
+      "Bash(python3 -c \"import uuid; print\\(uuid.uuid4\\(\\).hex\\)\")",
+      "Bash(python -c \"import uuid; print\\(uuid.uuid4\\(\\).hex\\)\")",
+      "Bash(powershell -Command \"[guid]::NewGuid\\(\\).ToString\\('N'\\)\")",
+      "Read(//proc/sys/kernel/random/**)",
+      "Read(//dev/**)"
+    ]
+  }
+}
