@@ -15,18 +15,18 @@ MonoBehaviour:
   mails:
   - subject:
       m_TableReference:
-        m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
+        m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd
       m_TableEntryReference:
-        m_KeyId: 3115018690560
+        m_KeyId: 18432264577024
         m_Key: 
       m_FallbackState: 0
       m_WaitForCompletion: 0
       m_LocalVariables: []
     sender:
       m_TableReference:
-        m_TableCollectionName: GUID:c694fbba295bcb44085159f22b80550f
+        m_TableCollectionName: GUID:6b55c8acccb79b240bf56ede783a28ec
       m_TableEntryReference:
-        m_KeyId: 1229708402688
+        m_KeyId: 1064842895360
         m_Key: 
       m_FallbackState: 0
       m_WaitForCompletion: 0
@@ -35,9 +35,9 @@ MonoBehaviour:
     - isOutgoing: 1
       author:
         m_TableReference:
-          m_TableCollectionName: 
+          m_TableCollectionName: GUID:6b55c8acccb79b240bf56ede783a28ec
         m_TableEntryReference:
-          m_KeyId: 0
+          m_KeyId: 1064842895360
           m_Key: 
         m_FallbackState: 0
         m_WaitForCompletion: 0
@@ -45,9 +45,29 @@ MonoBehaviour:
       time: 09.11
       body:
         m_TableReference:
-          m_TableCollectionName: 
+          m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd
         m_TableEntryReference:
-          m_KeyId: 0
+          m_KeyId: 19214212866048
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - isOutgoing: 0
+      author:
+        m_TableReference:
+          m_TableCollectionName: GUID:6b55c8acccb79b240bf56ede783a28ec
+        m_TableEntryReference:
+          m_KeyId: 1399749681152
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+      time: 09.11
+      body:
+        m_TableReference:
+          m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd
+        m_TableEntryReference:
+          m_KeyId: 19644795920384
           m_Key: 
         m_FallbackState: 0
         m_WaitForCompletion: 0
