@@ -50,6 +50,6 @@ MonoBehaviour:
   BulletLifetime: 3
   InHandPrefab: {fileID: 4030566846764498208, guid: 2c1647193fbcfd34bb5764ae711aced5, type: 3}
   PickupPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
-  HandPosition: {x: 0.22, y: -0.05, z: 0.27}
+  HandPosition: {x: 0.22, y: -0.05, z: 0.25}
   HandRotation: {x: 0, y: 0, z: 0}
   AnimationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}

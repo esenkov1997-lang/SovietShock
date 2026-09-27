@@ -20,5 +20,11 @@ namespace Interactables
 		// interactor — корневой GameObject того, кто взаимодействует (обычно игрок), чтобы реализация
 		// сама нашла нужные компоненты (InventoryHolder, WeaponController и т.п.) через GetComponentInParent.
 		void Interact(GameObject interactor);
+
+		// Можно ли взаимодействовать, глядя из этой точки (обычно — камера игрока). false — объект ведёт себя
+		// так, будто на него не смотрят: ни подсказки, ни подсветки, нажатие не срабатывает. Например,
+		// терминал доступен только спереди (InteractableFocusObject.restrictApproachAngle).
+		// Реализация по умолчанию — "откуда угодно", поэтому остальным объектам ничего добавлять не нужно
+		bool CanInteractFrom(Vector3 viewerPosition) => true;
 	}
 }

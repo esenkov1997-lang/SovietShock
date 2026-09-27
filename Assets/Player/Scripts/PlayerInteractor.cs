@@ -70,6 +70,8 @@ namespace Player
 			if (rayOrigin != null && Physics.Raycast(rayOrigin.position, rayOrigin.forward, out RaycastHit hit, interactRange, ~0, QueryTriggerInteraction.Ignore))
 			{
 				found = hit.collider.GetComponentInParent<IInteractable>();
+				// объект может разрешать взаимодействие не с любой стороны (терминал — только спереди)
+				if (found != null && !found.CanInteractFrom(rayOrigin.position)) found = null;
 				if (found != null) foundOutline = hit.collider.GetComponentInParent<Outline>();
 			}
 
