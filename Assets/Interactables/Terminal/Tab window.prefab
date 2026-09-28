@@ -67,15 +67,15 @@ MonoBehaviour:
       m_Calls: []
   m_text: Titul Name
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: e2ceb0588f8af8740b3829ff61d562af, type: 2}
-  m_sharedMaterial: {fileID: -37560381623271091, guid: e2ceb0588f8af8740b3829ff61d562af, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
+  m_sharedMaterial: {fileID: 8806399889118609116, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4284111962
-  m_fontColor: {r: 0.3529412, g: 0.36078432, b: 0.3529412, a: 1}
+    rgba: 4294962688
+  m_fontColor: {r: 0, g: 0.93424654, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -203,7 +203,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 1746984137, guid: 7e30e8e4627217347a2cab079df09639, type: 3}
+  m_Sprite: {fileID: 1746984137, guid: 15c15a5ee713dab4b9daf7b7b77dd9e0, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -309,8 +309,8 @@ MonoBehaviour:
   highlightGraphics:
   - {fileID: 4911838600541130658}
   - {fileID: 7757986728042665724}
-  normalColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
-  selectedColor: {r: 1, g: 1, b: 1, a: 1}
+  normalColor: {r: 1, g: 1, b: 1, a: 1}
+  selectedColor: {r: 0, g: 0.932251, b: 1, a: 1}
   selectedMarker: {fileID: 0}
 --- !u!1 &5635876089617507962
 GameObject:
@@ -379,15 +379,15 @@ MonoBehaviour:
       m_Calls: []
   m_text: 02
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: e2ceb0588f8af8740b3829ff61d562af, type: 2}
-  m_sharedMaterial: {fileID: -37560381623271091, guid: e2ceb0588f8af8740b3829ff61d562af, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
+  m_sharedMaterial: {fileID: 8806399889118609116, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4284111962
-  m_fontColor: {r: 0.3529412, g: 0.36078432, b: 0.3529412, a: 1}
+    rgba: 4294962944
+  m_fontColor: {r: 0, g: 0.9384773, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
