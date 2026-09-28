@@ -34,6 +34,10 @@ namespace Weapons
 		[Tooltip("Звуки попадания для поверхностей без компонента SoundSurface (стены и прочее окружение) — тот же принцип, что декаль по умолчанию в WeaponData. Пусто — по таким поверхностям попадание беззвучное")]
 		[SerializeField] private SurfaceSoundSet defaultHitSurface;
 
+		[Header("Repair Sound")]
+		[Tooltip("Отдельный AudioSource под зацикленный звук горелки (RepairLoopSound). Пусто — создаётся автоматически с настройками основного AudioSource (микшер, 2D/3D, громкость)")]
+		[SerializeField] private AudioSource repairLoopSource;
+
 		[Header("Drop Settings")]
 		[Tooltip("Точка/направление выброса оружия. Если не задано — используется сам WeaponHolder")]
 		[SerializeField] private Transform dropPoint;
@@ -145,6 +149,9 @@ namespace Weapons
 		private void Start()
 		{
 			_audioSource = GetComponent<AudioSource>();
+			if (repairLoopSource == null) repairLoopSource = CreateRepairLoopSource(_audioSource);
+			repairLoopSource.loop = true;
+			repairLoopSource.playOnAwake = false;
 			_movement = GetComponentInParent<FirstPersonController>();
 
 			foreach (WeaponHandPlacementOverride placement in handPlacementOverrides)
@@ -238,6 +245,53 @@ namespace Weapons
 
 			if (_currentMuzzleFlash != null) _currentMuzzleFlash.SetContinuous(on);
 			if (_currentMuzzle != null) _currentMuzzle.SetContinuous(on);
+
+			PlayRepairSound(CurrentWeaponData, on);
+		}
+
+		// начало — one-shot на основном AudioSource, луп — на отдельном repairLoopSource, запланирован ровно
+		// на конец звука начала (PlayScheduled), чтобы стык был без щелчка и паузы. Конец — стоп лупа
+		// (заодно отменяет ещё не начавшийся запланированный луп) и one-shot затухания
+		private void PlayRepairSound(WeaponData data, bool on)
+		{
+			if (data == null || _audioSource == null) return;
+
+			// у основного источника мог остаться случайный питч от PlayAttackSound — горелка звучит ровно
+			_audioSource.pitch = 1f;
+
+			if (on)
+			{
+				double loopStart = AudioSettings.dspTime;
+				if (data.RepairStartSound != null)
+				{
+					_audioSource.PlayOneShot(data.RepairStartSound);
+					loopStart += data.RepairStartSound.length;
+				}
+
+				if (data.RepairLoopSound != null)
+				{
+					repairLoopSource.clip = data.RepairLoopSound;
+					repairLoopSource.PlayScheduled(loopStart);
+				}
+			}
+			else
+			{
+				repairLoopSource.Stop();
+				if (data.RepairEndSound != null) _audioSource.PlayOneShot(data.RepairEndSound);
+			}
+		}
+
+		private AudioSource CreateRepairLoopSource(AudioSource template)
+		{
+			AudioSource source = gameObject.AddComponent<AudioSource>();
+			source.outputAudioMixerGroup = template.outputAudioMixerGroup;
+			source.spatialBlend = template.spatialBlend;
+			source.volume = template.volume;
+			source.priority = template.priority;
+			source.rolloffMode = template.rolloffMode;
+			source.minDistance = template.minDistance;
+			source.maxDistance = template.maxDistance;
+			return source;
 		}
 
 		// расход баллона идёт всегда, пока зажата кнопка и есть газ — как у настоящего баллона: жмёшь
@@ -329,6 +383,11 @@ namespace Weapons
 		{
 			if (index < 0 || index >= _inventory.Count) return;
 
+			// гасим горелку ещё со старым оружием (_currentIndex не сменён) — выключится его пламя/свет,
+			// остановится луп и сыграет его звук затухания
+			SetRepairFlame(false);
+			_repairStartFallbackTime = float.PositiveInfinity;
+
 			_currentIndex = index;
 
 			if (_currentVisual != null) Destroy(_currentVisual);
@@ -337,9 +396,6 @@ namespace Weapons
 			_currentMuzzle = null;
 			_currentMuzzleFlash = null;
 			_currentAnimator = null;
-			// старый визуал (с его пламенем/светом) уже уничтожен — просто забываем, что горелка горела
-			_repairFlameActive = false;
-			_repairStartFallbackTime = float.PositiveInfinity;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
 			_aimBlend = 0f; // смена оружия сбрасывает прицел — новое оружие всегда начинается от бедра
 
@@ -474,6 +530,10 @@ namespace Weapons
 		public void DropCurrentWeapon()
 		{
 			if (IsHolstered || _currentIndex < 0) return;
+
+			// выбросили прямо во время ремонта — гасим горелку, пока оружие ещё текущее
+			SetRepairFlame(false);
+			_repairStartFallbackTime = float.PositiveInfinity;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;

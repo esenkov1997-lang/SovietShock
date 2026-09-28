@@ -81,6 +81,12 @@ namespace Weapons
 		public float RepairDamagePerSecond = 5f;
 		[Tooltip("Имя Bool-параметра в Animator Controller модели — включается, пока зажата ПКМ и идёт ремонт/прожиг, выключается при отпускании. Можно оставить пустым, если анимации нет")]
 		public string HealBoolParam = "Healing";
+		[Tooltip("Звук зажигания горелки — играется один раз в момент, когда появляются пламя и свет (Animation Event RepairStart)")]
+		public AudioClip RepairStartSound;
+		[Tooltip("Зацикленный звук горения — начинается сразу после RepairStartSound и играет, пока горит горелка")]
+		public AudioClip RepairLoopSound;
+		[Tooltip("Звук затухания — играется один раз, когда горелка гаснет (ПКМ отпущена или кончился газ)")]
+		public AudioClip RepairEndSound;
 
 		[Header("Audio")]
 		[Tooltip("Звук самого выстрела или взмаха (у Melee играется в начале удара, независимо от попадания). Звук попадания по поверхности задаётся не здесь, а в SurfaceSoundSet цели")]

@@ -42,6 +42,9 @@ MonoBehaviour:
   RepairAmmoPerSecond: 1
   RepairDamagePerSecond: 5
   HealBoolParam: Healing
+  RepairStartSound: {fileID: 8300000, guid: aec8aa1f26398c047950574730219a60, type: 3}
+  RepairLoopSound: {fileID: 8300000, guid: d6209a287c66040478381e1a95bc5ab7, type: 3}
+  RepairEndSound: {fileID: 8300000, guid: 731874aece3306547af8250c947b6e27, type: 3}
   AttackSound: {fileID: 8300000, guid: 5c39ec0074165fb4eaf789fc68f5379b, type: 3}
   AttackPitchRange: {x: 0.7, y: 1.05}
   DecalPrefab: {fileID: 0}
