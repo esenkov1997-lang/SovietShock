@@ -39,6 +39,7 @@ MonoBehaviour:
   AimFOV: 40
   CanRepair: 1
   RepairAmountPerSecond: 20
+  RepairAmmoPerSecond: 1
   RepairDamagePerSecond: 5
   HealBoolParam: Healing
   AttackSound: {fileID: 8300000, guid: 5c39ec0074165fb4eaf789fc68f5379b, type: 3}

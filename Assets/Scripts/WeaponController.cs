@@ -90,7 +90,8 @@ namespace Weapons
 
 		// ремонт/прожиг (ПКМ у Melee-оружия с CanRepair): копят дробный остаток между кадрами —
 		// см. ApplyAccumulated, иначе на высоком FPS Repair/DamagePerSecond срабатывали бы каждый кадр
-		private float _healAccumulator;
+		private float _gasAccumulator;
+		private float _repairAccumulator;
 		private float _burnAccumulator;
 
 		// горелка "зажглась": ставится Animation Event RepairStart в клипе Repair_Start (см. NotifyRepairStart),
@@ -189,7 +190,7 @@ namespace Weapons
 		// вызывать каждый кадр с сырым (не toggle) состоянием ПКМ — ремонт/прожиг это удержание,
 		// а не прицел, поэтому сюда всегда передаётся именно "зажата ли кнопка сейчас".
 		// Расходует MagazineSize/CurrentAmmo того же слота, что и обычная стрельба — баллон горелки
-		// это тот же "магазин", просто тратится по 1 заряду за каждую единицу лечения/урона
+		// это тот же "магазин", просто тратится со своей скоростью RepairAmmoPerSecond
 		public void TickHeal(bool held)
 		{
 			if (IsHolstered) return;
@@ -244,14 +245,9 @@ namespace Weapons
 		// это отдельный вопрос, что этот газ дальше делает (лечит IRepairable / жжёт IDamageable)
 		private void PerformHealTick(WeaponData data, WeaponSlot slot)
 		{
-			_healAccumulator += data.RepairAmountPerSecond * Time.deltaTime;
-			int whole = Mathf.FloorToInt(_healAccumulator);
-			if (whole <= 0) return;
-			_healAccumulator -= whole;
-
-			int spend = Mathf.Min(whole, slot.CurrentAmmo);
-			slot.CurrentAmmo -= spend;
-			if (spend <= 0) return; // баллон уже пуст в момент этого тика — дальше некуда бить/лечить
+			// газ тратится по своей ставке (RepairAmmoPerSecond), ремонт и урон — по своим, независимо от расхода
+			ApplyAccumulated(ref _gasAccumulator, data.RepairAmmoPerSecond,
+				spend => slot.CurrentAmmo = Mathf.Max(0, slot.CurrentAmmo - spend));
 
 			if (_movement == null || _movement.CinemachineCameraTarget == null) return;
 
@@ -261,14 +257,13 @@ namespace Weapons
 			IRepairable repairable = hit.collider.GetComponentInParent<IRepairable>();
 			if (repairable != null)
 			{
-				repairable.Repair(spend); // 1 потраченный заряд = 1 очко ремонта — та же ставка RepairAmountPerSecond
+				ApplyAccumulated(ref _repairAccumulator, data.RepairAmountPerSecond, repairable.Repair);
 				return;
 			}
 
 			IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
 			if (damageable != null)
 			{
-				// урон идёт по своей отдельной ставке (RepairDamagePerSecond), газ на него уже потрачен выше
 				ApplyAccumulated(ref _burnAccumulator, data.RepairDamagePerSecond, damageable.TakeDamage);
 			}
 		}

@@ -75,6 +75,8 @@ namespace Weapons
 		public bool CanRepair;
 		[Tooltip("Прочности в секунду объектам с IRepairable (например, кнопке-триггеру), пока наведён на них и зажата ПКМ")]
 		public float RepairAmountPerSecond = 20f;
+		[Tooltip("Расход газа (патронов из магазина) в секунду, пока горит горелка — независимо от того, попадаешь ли во что-то. Меньше — баллона хватает дольше. Не связан с RepairAmountPerSecond")]
+		public float RepairAmmoPerSecond = 5f;
 		[Tooltip("Урона в секунду целям с IDamageable (например, врагам), если навести ПКМ на них вместо ремонтируемого объекта")]
 		public float RepairDamagePerSecond = 5f;
 		[Tooltip("Имя Bool-параметра в Animator Controller модели — включается, пока зажата ПКМ и идёт ремонт/прожиг, выключается при отпускании. Можно оставить пустым, если анимации нет")]
