@@ -51,10 +51,11 @@ namespace Weapons
 			public int CurrentAmmo;
 			public float NextFireTime;
 
-			public WeaponSlot(WeaponData data)
+			// loadedAmmo < 0 — полный магазин
+			public WeaponSlot(WeaponData data, int loadedAmmo)
 			{
 				Data = data;
-				CurrentAmmo = data.MagazineSize;
+				CurrentAmmo = loadedAmmo < 0 ? data.MagazineSize : Mathf.Min(loadedAmmo, data.MagazineSize);
 			}
 		}
 
@@ -92,6 +93,13 @@ namespace Weapons
 		private float _healAccumulator;
 		private float _burnAccumulator;
 
+		// горелка "зажглась": ставится Animation Event RepairStart в клипе Repair_Start (см. NotifyRepairStart),
+		// сбрасывается, как только ПКМ отпущена/кончился газ. До этого момента играет только анимация
+		// замаха — пламя, свет, расход газа и ремонт ждут события. _repairStartFallbackTime — подстраховка
+		// на случай, если событие в клипе не проставлено (тот же принцип, что FallbackAnimationDuration)
+		private bool _repairFlameActive;
+		private float _repairStartFallbackTime = float.PositiveInfinity;
+
 		// Опционально подключается извне (см. Inventory.InventoryReloadHandler): CompleteReload спрашивает
 		// здесь, сколько патронов реально удалось взять из пула инвентаря (0..amountRequested), и добавляет
 		// в магазин ровно столько — если патронов в пуле меньше, чем нужно, перезарядка выйдет частичной.
@@ -100,10 +108,18 @@ namespace Weapons
 		// та же идея, что и с TriggerAction/BaseTrigger.
 		public System.Func<WeaponData, int, int> ConsumeAmmo;
 
+		// Тоже из InventoryReloadHandler: сколько патронов под это оружие сейчас лежит в пуле (ничего не списывает).
+		// Reload смотрит сюда ДО запуска анимации — без патронов в инвентаре перезарядка не начинается вовсе,
+		// а не проигрывает клип вхолостую. Не назначено — считаем, что патроны есть (сцены без инвентаря)
+		public System.Func<WeaponData, int> GetAvailableAmmo;
+
 		// Тоже опционально слушается извне (см. Inventory.InventoryWeaponEquipHandler) — сигнал "это оружие
 		// больше не при мне", чтобы соответствующий слот в инвентаре тоже освободился. WeaponController
 		// сам не трогает InventoryHolder — по той же причине, что и ConsumeAmmo выше
-		public event System.Action<WeaponData> WeaponDropped;
+		// Кроме самого оружия передаёт заспавненный PickupPrefab (null, если он не задан) и сколько патронов
+		// оставалось в магазине — слушатель записывает их в лежащий предмет, чтобы при повторном подборе
+		// магазин был тем же, а не снова полным
+		public event System.Action<WeaponData, GameObject, int> WeaponDropped;
 
 		// данные текущего оружия — читает, например, ProceduralWeaponAnimation для AnimationProfile
 		public WeaponData CurrentWeaponData => _currentIndex >= 0 ? _inventory[_currentIndex].Data : null;
@@ -192,10 +208,35 @@ namespace Weapons
 				_currentAnimator.SetBool(data.HealBoolParam, healing);
 			}
 
-			if (_currentMuzzleFlash != null) _currentMuzzleFlash.SetContinuous(healing);
-			if (_currentMuzzle != null) _currentMuzzle.SetContinuous(healing);
+			if (!healing)
+			{
+				SetRepairFlame(false);
+				_repairStartFallbackTime = float.PositiveInfinity;
+				return;
+			}
 
-			if (healing) PerformHealTick(data, slot);
+			// начало ремонта — ждём RepairStart из анимации; таймер только чтобы не застрять без пламени навсегда
+			if (float.IsPositiveInfinity(_repairStartFallbackTime)) _repairStartFallbackTime = Time.time + FallbackAnimationDuration;
+			if (!_repairFlameActive && Time.time >= _repairStartFallbackTime) SetRepairFlame(true);
+
+			if (_repairFlameActive) PerformHealTick(data, slot);
+		}
+
+		// вызывается из WeaponAnimationEvents по Animation Event RepairStart — кадр в Repair_Start, где горелка зажигается.
+		// Если ПКМ к этому моменту уже отпустили, событие игнорируется: анимация всё равно уходит в Repair_End
+		public void NotifyRepairStart()
+		{
+			if (IsHolstered || float.IsPositiveInfinity(_repairStartFallbackTime)) return;
+			SetRepairFlame(true);
+		}
+
+		private void SetRepairFlame(bool on)
+		{
+			if (_repairFlameActive == on) return;
+			_repairFlameActive = on;
+
+			if (_currentMuzzleFlash != null) _currentMuzzleFlash.SetContinuous(on);
+			if (_currentMuzzle != null) _currentMuzzle.SetContinuous(on);
 		}
 
 		// расход баллона идёт всегда, пока зажата кнопка и есть газ — как у настоящего баллона: жмёшь
@@ -301,6 +342,9 @@ namespace Weapons
 			_currentMuzzle = null;
 			_currentMuzzleFlash = null;
 			_currentAnimator = null;
+			// старый визуал (с его пламенем/светом) уже уничтожен — просто забываем, что горелка горела
+			_repairFlameActive = false;
+			_repairStartFallbackTime = float.PositiveInfinity;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
 			_aimBlend = 0f; // смена оружия сбрасывает прицел — новое оружие всегда начинается от бедра
 
@@ -340,8 +384,8 @@ namespace Weapons
 				_isReloading = false; // незаконченная перезарядка отменяется — патроны из пула ещё не списаны
 
 				// ремонтный луч мог гореть в момент блокировки — TickHeal больше не вызывается и сам его не погасит
-				if (_currentMuzzleFlash != null) _currentMuzzleFlash.SetContinuous(false);
-				if (_currentMuzzle != null) _currentMuzzle.SetContinuous(false);
+				SetRepairFlame(false);
+				_repairStartFallbackTime = float.PositiveInfinity;
 
 				_visualRoot.gameObject.SetActive(false);
 			}
@@ -371,6 +415,9 @@ namespace Weapons
 			// обычный Melee (удар) патронов не тратит — перезаряжать нечего. Но Melee с CanRepair
 			// (баллон горелки) — тратит, и его как раз нужно уметь перезарядить
 			if ((data.Mode == FireMode.Melee && !data.CanRepair) || slot.CurrentAmmo >= data.MagazineSize) return;
+
+			// в инвентаре нечем перезаряжаться — не играем анимацию впустую
+			if (GetAvailableAmmo != null && GetAvailableAmmo(data) <= 0) return;
 
 			_isReloading = true;
 			_reloadFinishTime = Time.time + FallbackAnimationDuration; // подстраховка, см. FallbackAnimationDuration
@@ -418,12 +465,13 @@ namespace Weapons
 			Debug.Log($"{data.WeaponName}: перезарядка завершена, патроны {slot.CurrentAmmo}/{data.MagazineSize}");
 		}
 
-		// добавляет оружие в инвентарь и сразу берёт его в руки — всегда с полным магазином
-		public void PickupWeapon(WeaponData data)
+		// добавляет оружие в инвентарь и сразу берёт его в руки. loadedAmmo — сколько патронов в магазине,
+		// < 0 — полный магазин (стартовое оружие, свежий предмет на уровне)
+		public void PickupWeapon(WeaponData data, int loadedAmmo = -1)
 		{
 			if (data == null) return;
 
-			_inventory.Add(new WeaponSlot(data));
+			_inventory.Add(new WeaponSlot(data, loadedAmmo));
 			EquipByIndex(_inventory.Count - 1);
 		}
 
@@ -432,12 +480,14 @@ namespace Weapons
 		{
 			if (IsHolstered || _currentIndex < 0) return;
 
-			WeaponData data = _inventory[_currentIndex].Data;
+			WeaponSlot slot = _inventory[_currentIndex];
+			WeaponData data = slot.Data;
 			Transform origin = dropPoint != null ? dropPoint : transform;
 
+			GameObject dropped = null;
 			if (data.PickupPrefab != null)
 			{
-				GameObject dropped = Instantiate(data.PickupPrefab, origin.position + origin.forward, origin.rotation);
+				dropped = Instantiate(data.PickupPrefab, origin.position + origin.forward, origin.rotation);
 
 				if (dropped.TryGetComponent(out Rigidbody rb))
 				{
@@ -446,7 +496,7 @@ namespace Weapons
 			}
 
 			_inventory.RemoveAt(_currentIndex);
-			WeaponDropped?.Invoke(data);
+			WeaponDropped?.Invoke(data, dropped, slot.CurrentAmmo);
 
 			if (_inventory.Count == 0)
 			{

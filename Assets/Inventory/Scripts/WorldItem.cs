@@ -13,6 +13,10 @@ namespace Inventory
 		[SerializeField] private ItemData item;
 		[SerializeField] private int amount = 1;
 
+		[Tooltip("Только для оружия: сколько патронов в магазине при подборе. -1 — полный магазин (MagazineSize из WeaponData). " +
+			"При выбрасывании оружия сюда автоматически записывается, сколько в нём оставалось")]
+		[SerializeField] private int loadedAmmo = -1;
+
 		[Tooltip("Шаблон подсказки. Запись в таблице должна быть Smart String с переменной {item} — " +
 			"туда подставится уже переведённое название предмета: \"Подобрать: {item}\" / \"Pick up: {item}\"")]
 		[SerializeField] private LocalizedString pickupPrompt = new LocalizedString("UI", "prompt.pickup");
@@ -45,6 +49,12 @@ namespace Inventory
 			UpdatePromptItemVariable();
 		}
 
+		// выброшенное оружие помнит, сколько патронов в нём оставалось (см. InventoryWeaponEquipHandler)
+		public void SetLoadedAmmo(int ammo)
+		{
+			loadedAmmo = ammo;
+		}
+
 		// Название предмета — вложенная LocalizedString внутри шаблона: Localization сам переведёт её и
 		// подставит в {item}, и оба текста обновятся при смене языка
 		private void UpdatePromptItemVariable()
@@ -60,7 +70,7 @@ namespace Inventory
 			if (_pickedUp || item == null) return;
 
 			InventoryHolder inventory = interactor.GetComponentInParent<InventoryHolder>();
-			if (inventory == null || !inventory.AddItem(item, amount)) return;
+			if (inventory == null || !inventory.AddItem(item, amount, loadedAmmo)) return;
 
 			_pickedUp = true;
 			Destroy(gameObject);

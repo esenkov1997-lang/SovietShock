@@ -22,10 +22,14 @@ namespace Inventory
 		// для UI (список/слоты обновляются целиком по этому событию)
 		public event Action OnInventoryChanged;
 		// для точечных реакций на конкретный предмет (например, эквип оружия) — без пересчёта всего инвентаря
-		public event Action<ItemData, int> OnItemAdded;
+		// третий аргумент — loadedAmmo из AddItem (см. ниже)
+		public event Action<ItemData, int, int> OnItemAdded;
 		public event Action<ItemData, int> OnItemRemoved;
 
-		public bool AddItem(ItemData item, int amount)
+		// loadedAmmo — сколько патронов в магазине у подобранного оружия (< 0 — полный). Сам инвентарь
+		// его не хранит, только передаёт слушателям OnItemAdded (InventoryWeaponEquipHandler) — для
+		// остальных предметов не используется
+		public bool AddItem(ItemData item, int amount, int loadedAmmo = -1)
 		{
 			if (item == null || amount <= 0) return false;
 
@@ -57,7 +61,7 @@ namespace Inventory
 			}
 
 			items = scratch;
-			OnItemAdded?.Invoke(item, amount);
+			OnItemAdded?.Invoke(item, amount, loadedAmmo);
 			OnInventoryChanged?.Invoke();
 			return true;
 		}

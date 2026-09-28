@@ -793,8 +793,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6cd338920dd45dc4581c5ef435cfef05, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startingWeapons:
-  - {fileID: 11400000, guid: 3b1241eb04c1bed4a82671fef79a3af4, type: 2}
+  startingWeapons: []
   handPlacementOverrides: []
   defaultHitSurface: {fileID: 11400000, guid: 3105519c5a7de6944ac877c5579f1667, type: 2}
   dropPoint: {fileID: 1422877502142922238}

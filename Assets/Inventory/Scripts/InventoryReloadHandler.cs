@@ -28,12 +28,26 @@ namespace Inventory
 
 		private void OnEnable()
 		{
-			if (weaponController != null) weaponController.ConsumeAmmo = TryTakeFromPool;
+			if (weaponController == null) return;
+			weaponController.ConsumeAmmo = TryTakeFromPool;
+			weaponController.GetAvailableAmmo = GetAvailable;
 		}
 
 		private void OnDisable()
 		{
-			if (weaponController != null) weaponController.ConsumeAmmo = null;
+			if (weaponController == null) return;
+			weaponController.ConsumeAmmo = null;
+			weaponController.GetAvailableAmmo = null;
+		}
+
+		// сколько патронов под это оружие лежит в пуле, ничего не списывая — по этому Reload решает, начинать ли анимацию
+		private int GetAvailable(WeaponData data)
+		{
+			// AmmoId не задан — бесконечные патроны, как и в TryTakeFromPool
+			if (string.IsNullOrEmpty(data.AmmoId)) return int.MaxValue;
+
+			AmmoItemData ammo = FindAmmo(data.AmmoId);
+			return ammo != null ? _inventory.GetTotalCount(ammo) : 0;
 		}
 
 		// сколько реально взяли из пула (0..amountRequested) — WeaponController сам добавит это в магазин

@@ -44,15 +44,18 @@ namespace Inventory
 			if (weaponController != null) weaponController.WeaponDropped -= HandleWeaponDropped;
 		}
 
-		private void HandleItemAdded(ItemData item, int amount)
+		private void HandleItemAdded(ItemData item, int amount, int loadedAmmo)
 		{
 			if (weaponController == null || !(item is WeaponItemData weaponItem)) return;
 
-			weaponController.PickupWeapon(weaponItem.weaponData);
+			weaponController.PickupWeapon(weaponItem.weaponData, loadedAmmo);
 		}
 
-		private void HandleWeaponDropped(WeaponData data)
+		private void HandleWeaponDropped(WeaponData data, GameObject dropped, int ammoLeft)
 		{
+			// лежащий предмет запоминает остаток магазина — при повторном подборе он вернётся как был
+			if (dropped != null && dropped.TryGetComponent(out WorldItem worldItem)) worldItem.SetLoadedAmmo(ammoLeft);
+
 			foreach (ItemStack stack in _inventory.Items)
 			{
 				if (stack.item is WeaponItemData weaponItem && weaponItem.weaponData == data)

@@ -39,5 +39,12 @@ namespace Weapons
 		{
 			if (_weaponController != null) _weaponController.NotifyMeleeHit();
 		}
+
+		// повесь Animation Event с этим методом на кадр в клипе Repair_Start, где горелка зажигается —
+		// с этого момента появляются пламя и свет, тратится газ и идёт ремонт/прожиг
+		public void RepairStart()
+		{
+			if (_weaponController != null) _weaponController.NotifyRepairStart();
+		}
 	}
 }
