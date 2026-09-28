@@ -1911,7 +1911,7 @@ Transform:
   m_GameObject: {fileID: 5526839518657203104}
   serializedVersion: 2
   m_LocalRotation: {x: 3.5527137e-15, y: 0.00000011922384, z: -1.0289751e-11, w: 1}
-  m_LocalPosition: {x: -0.011719981, y: 0.14174001, z: 0.07649634}
+  m_LocalPosition: {x: -0.0117, y: 0.1298, z: 0.0765}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1932,6 +1932,9 @@ MonoBehaviour:
   particles: {fileID: 0}
   flameMesh: {fileID: 5014380893961228241}
   flashDuration: 0.05
+  flameFadeProperty: _Fade
+  flameFadeDuration: 0.1
+  flickerSource: {fileID: 8144171081627838366}
 --- !u!1 &5682571186911612203
 GameObject:
   m_ObjectHideFlags: 0
@@ -2809,6 +2812,7 @@ GameObject:
   - component: {fileID: 7293687447114822650}
   - component: {fileID: 2792926668732125727}
   - component: {fileID: 7138467095566533037}
+  - component: {fileID: 8144171081627838366}
   m_Layer: 0
   m_Name: Light
   m_TagString: Untagged
@@ -2842,8 +2846,8 @@ Light:
   serializedVersion: 11
   m_Type: 2
   m_Color: {r: 0.7311321, g: 0.8637494, b: 1, a: 1}
-  m_Intensity: 0.1
-  m_Range: 4
+  m_Intensity: 0.05
+  m_Range: 1
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
@@ -2931,8 +2935,45 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4bbe78f61518c54584f8be7b70ccfdf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  FlashDuration: 1
+  FlashDuration: 0.01
   FlashIntensity: 0.01
+--- !u!114 &8144171081627838366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8495269440216747318}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae2eaff6195f7d74689abd517c3c3e04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startOn: 0
+  baseIntensity: 0.02
+  fadeDuration: 0.1
+  randomizePhase: 0
+  flicker: 1
+  flickerAmount: 0.3
+  flickerSpeed: 8
+  pulse: 0
+  pulseMin: 0.2
+  pulsePeriod: 2
+  blink: 0
+  blinkOnTime: 0.5
+  blinkOffTime: 0.5
+  blinkJitter: 0
+  failure: 0
+  failureInterval: {x: 3, y: 8}
+  failureDuration: {x: 0.2, y: 0.8}
+  failureStutterRate: 20
+  failureDimLevel: 0
+  materialRenderers: []
+  materialProperty: _Fade
+  materialPropertyType: 1
+  emissionColor: {r: 1, g: 1, b: 1, a: 1}
+  materialFloatMax: 1
+  hideRenderersWhenOff: 1
 --- !u!1 &8597144980783280342
 GameObject:
   m_ObjectHideFlags: 0
