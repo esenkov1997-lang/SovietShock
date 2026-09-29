@@ -31,8 +31,10 @@ MonoBehaviour:
   LandingVolume: 1
   LightImpactClips:
   - {fileID: 8300000, guid: a04e8112fb4cca944baabc0048ff839d, type: 3}
-  MediumImpactClips: []
-  HeavyImpactClips: []
+  MediumImpactClips:
+  - {fileID: 8300000, guid: a04e8112fb4cca944baabc0048ff839d, type: 3}
+  HeavyImpactClips:
+  - {fileID: 8300000, guid: a04e8112fb4cca944baabc0048ff839d, type: 3}
   ImpactMinSpeed: 0.8
   ImpactMediumSpeed: 3
   ImpactHeavySpeed: 7

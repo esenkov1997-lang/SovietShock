@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 1222782833733069378}
   - component: {fileID: 7910676426768802148}
   - component: {fileID: 9160649395631589195}
+  - component: {fileID: 1302076537992877929}
   m_Layer: 0
   m_Name: Grate
   m_TagString: Untagged
@@ -51,7 +52,7 @@ MeshRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 137085785535620125}
   m_Enabled: 1
-  m_CastShadows: 1
+  m_CastShadows: 2
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
@@ -141,6 +142,19 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 1
         m_CallState: 2
+--- !u!114 &1302076537992877929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 137085785535620125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11dba105fe571c44081bb0d86e7fa87a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SoundSet: {fileID: 11400000, guid: ac2c8487aaf820443832842e66fec874, type: 2}
 --- !u!1 &3455923051346733339
 GameObject:
   m_ObjectHideFlags: 0
@@ -188,6 +202,8 @@ GameObject:
   - component: {fileID: 2531282070582762596}
   - component: {fileID: 9160636086862747418}
   - component: {fileID: 4985293370412584941}
+  - component: {fileID: 8709518515522485410}
+  - component: {fileID: 9211790947150716739}
   m_Layer: 0
   m_Name: Grate_destroyed
   m_TagString: Untagged
@@ -204,7 +220,7 @@ Transform:
   m_GameObject: {fileID: 4436469399948054782}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.5, y: 0.602, z: 0.000000029802322}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -329,5 +345,63 @@ MonoBehaviour:
   LaunchForce: 3
   SpreadAngle: 15
   RandomTorque: 1
-  FreezeEnabled: 0
+  FreezeEnabled: 1
   FreezeDelay: 3
+--- !u!114 &8709518515522485410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4436469399948054782}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11dba105fe571c44081bb0d86e7fa87a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SoundSet: {fileID: 11400000, guid: ac2c8487aaf820443832842e66fec874, type: 2}
+--- !u!114 &9211790947150716739
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4436469399948054782}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 044ce3fcb5705af488890cd27ec056c4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactionPrompt:
+    m_TableReference:
+      m_TableCollectionName: UI
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: prompt.carry
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  holdOffsetPosition: {x: 0, y: -0.3, z: 0}
+  holdOffsetRotation: {x: 0, y: 0, z: 0}
+  transparentMaterial: {fileID: 0}
+  OnPickedUp:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 4985293370412584941}
+        m_TargetAssemblyTypeName: Weapons.BreakableDebris, Assembly-CSharp
+        m_MethodName: CancelFreeze
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  OnReleased:
+    m_PersistentCalls:
+      m_Calls: []
+  references:
+    version: 2
+    RefIds: []
