@@ -128,7 +128,19 @@ MonoBehaviour:
       m_Calls: []
   OnDeath:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 4436469399948054782}
+        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
+        m_MethodName: SetActive
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
 --- !u!1 &3455923051346733339
 GameObject:
   m_ObjectHideFlags: 0
@@ -175,13 +187,14 @@ GameObject:
   - component: {fileID: 5210095609985262168}
   - component: {fileID: 2531282070582762596}
   - component: {fileID: 9160636086862747418}
+  - component: {fileID: 4985293370412584941}
   m_Layer: 0
   m_Name: Grate_destroyed
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &453928299694181439
 Transform:
   m_ObjectHideFlags: 0
@@ -299,3 +312,22 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &4985293370412584941
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4436469399948054782}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26600dfb023734e40908c33bc6836d10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  LaunchDirection: {x: 0, y: 1, z: 1}
+  LocalSpace: 1
+  LaunchForce: 3
+  SpreadAngle: 15
+  RandomTorque: 1
+  FreezeEnabled: 0
+  FreezeDelay: 3

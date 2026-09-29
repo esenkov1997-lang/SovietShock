@@ -21,6 +21,8 @@ namespace Weapons
 		public float Range = 100f;
 		[Tooltip("Выстрелов (или ударов) в секунду")]
 		public float FireRate = 5f;
+		[Tooltip("Физический толчок при попадании (импульс) по объекту с Rigidbody — по направлению взгляда, в точку попадания. Зависит от массы цели: при Mass = 1 значения 2–5 дают заметный отлёт. 0 — без толчка")]
+		public float HitForce = 3f;
 
 		[Header("Animation")]
 		[Tooltip("Имя Trigger-параметра в Animator Controller модели (InHandPrefab), включается в момент удара/выстрела. У холодного — анимация удара с попаданием")]

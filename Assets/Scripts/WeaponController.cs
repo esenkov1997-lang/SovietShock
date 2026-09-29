@@ -639,6 +639,7 @@ namespace Weapons
 
 			SpawnImpactDecal(data, hit);
 			PlayHitSound(data, hit);
+			ApplyHitForce(data, hit);
 
 			IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
 			if (damageable != null)
@@ -650,6 +651,17 @@ namespace Weapons
 			{
 				Debug.Log($"{data.WeaponName}: попадание в {hit.collider.name} (без IDamageable, урон не нанесён)");
 			}
+		}
+
+		// толкает Rigidbody цели в точку попадания по направлению взгляда — ящики, обломки и т.п. отлетают от удара/пули.
+		// Вызывается до урона: если попадание добивает объект, толчок всё равно успевает примениться.
+		// Kinematic-тела (в т.ч. замороженные обломки BreakableDebris) AddForce просто игнорируют
+		private void ApplyHitForce(WeaponData data, RaycastHit hit)
+		{
+			if (data.HitForce <= 0f || hit.rigidbody == null) return;
+
+			Vector3 direction = _movement.CinemachineCameraTarget.transform.forward;
+			hit.rigidbody.AddForceAtPosition(direction * data.HitForce, hit.point, ForceMode.Impulse);
 		}
 
 		// единственное место, где определяется "есть ли перед оружием что-то с коллизией" — общий луч
