@@ -40,6 +40,10 @@ MonoBehaviour:
     m_Localized: Locker is damaged
     m_Metadata:
       m_Items: []
+  - m_Id: 1865189546074112
+    m_Localized: Pick up
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

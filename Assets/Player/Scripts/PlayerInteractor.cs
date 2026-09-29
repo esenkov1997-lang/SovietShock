@@ -17,6 +17,9 @@ namespace Player
 		[SerializeField] private Transform rayOrigin;
 		[SerializeField] private float interactRange = 3f;
 		[SerializeField] private StarterAssetsInputs input;
+		[Tooltip("Необязательно: удержание физических предметов. Пока предмет в руках, взаимодействие с остальным отключено, " +
+			"а кнопка Interact отпускает предмет. Если не задано — ищется на этом объекте и его родителях")]
+		[SerializeField] private ItemHoldController holdController;
 
 		private IInteractable _lookedAt;
 		// QuickOutline (необязателен) — если есть на найденном объекте, подсвечиваем вместе с подсказкой.
@@ -30,6 +33,7 @@ namespace Player
 		{
 			if (rayOrigin == null && Camera.main != null) rayOrigin = Camera.main.transform;
 			if (input == null) input = GetComponentInParent<StarterAssetsInputs>();
+			if (holdController == null) holdController = GetComponentInParent<ItemHoldController>();
 			InteractKey.Register(GetComponentInParent<PlayerInput>());
 
 			SetPromptVisible(false);
@@ -37,12 +41,21 @@ namespace Player
 
 		private void Update()
 		{
-			UpdateLookedAt();
-
 			// потребляем нажатие всегда, а не только когда есть цель — иначе нажатие "в пустоту"
 			// останется висеть true и активирует следующий интерактивный объект перед прицелом без нового нажатия
 			bool pressedThisFrame = input.interact;
 			input.interact = false;
+
+			// в руках физический предмет — ни подсказок, ни других взаимодействий: он сам висит перед прицелом
+			// и перекрывал бы луч. Кнопка Interact в этом режиме — "отпустить"
+			if (holdController != null && holdController.IsHolding)
+			{
+				ClearLookedAt();
+				if (pressedThisFrame) holdController.Drop();
+				return;
+			}
+
+			UpdateLookedAt();
 
 			if (_lookedAt != null && pressedThisFrame)
 			{
@@ -50,10 +63,7 @@ namespace Player
 				// (Destroy откладывается до конца кадра), но ссылку и подсказку прячем немедленно, иначе
 				// рейкаст в этом же кадре снова найдёт ещё "живую" цель
 				IInteractable target = _lookedAt;
-				_lookedAt = null;
-				_lookedAtOutline = null;
-				_shownPrompt = null;
-				SetPromptVisible(false);
+				ClearLookedAt();
 
 				// не transform.root — WeaponController/InventoryHolder обычно висят на предках именно
 				// этого объекта (например, WeaponHolder), а GetComponentInParent ищет только вверх по
@@ -94,6 +104,16 @@ namespace Player
 			_shownPrompt = prompt;
 			if (found != null) PickupPromptUI.Instance?.SetPrompt(prompt, $"[{InteractKey.DisplayName}] ");
 			SetPromptVisible(found != null);
+		}
+
+		// забыть текущую цель: погасить её контур и спрятать подсказку
+		private void ClearLookedAt()
+		{
+			if (_lookedAtOutline != null) _lookedAtOutline.enabled = false;
+			_lookedAt = null;
+			_lookedAtOutline = null;
+			_shownPrompt = null;
+			SetPromptVisible(false);
 		}
 
 		private void SetPromptVisible(bool visible)

@@ -312,6 +312,22 @@ namespace StarterAssets
 			return jumpPressed;
 		}
 
+		// layers the character's CharacterController collides with, taken from the Physics layer collision matrix —
+		// clearance checks use it so they agree with what actually blocks the character
+		public int CollisionMask
+		{
+			get
+			{
+				int layer = gameObject.layer;
+				int mask = 0;
+				for (int other = 0; other < 32; other++)
+				{
+					if (!Physics.GetIgnoreLayerCollision(layer, other)) mask |= 1 << other;
+				}
+				return mask;
+			}
+		}
+
 		private bool CanStandUp()
 		{
 			float radius = Mathf.Max(_controller.radius - _controller.skinWidth, 0.01f);
@@ -324,8 +340,9 @@ namespace StarterAssets
 			Vector3 standingTop = transform.position;
 			standingTop.y = feetY + _standingHeight - radius;
 
-			// check every layer, but ignore the character's own CharacterController collider
-			Collider[] hits = Physics.OverlapCapsule(currentTop, standingTop, radius, ~0, QueryTriggerInteraction.Ignore);
+			// only layers the character actually collides with (Physics layer matrix) — e.g. a carried item on the
+			// IgnorePlayer layer must not block standing up — and ignore the character's own CharacterController collider
+			Collider[] hits = Physics.OverlapCapsule(currentTop, standingTop, radius, CollisionMask, QueryTriggerInteraction.Ignore);
 			foreach (Collider hit in hits)
 			{
 				if (hit != _controller) return false;
@@ -345,7 +362,7 @@ namespace StarterAssets
 			Vector3 top = feetPosition;
 			top.y += _standingHeight - radius;
 
-			Collider[] hits = Physics.OverlapCapsule(bottom, top, radius, ~0, QueryTriggerInteraction.Ignore);
+			Collider[] hits = Physics.OverlapCapsule(bottom, top, radius, CollisionMask, QueryTriggerInteraction.Ignore);
 			foreach (Collider hit in hits)
 			{
 				if (hit != _controller) return false;

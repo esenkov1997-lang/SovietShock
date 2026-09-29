@@ -126,10 +126,12 @@ namespace StarterAssets
 		// and edge cases than a single-point raycast. Casts from the character's own centre and uses
 		// SphereCastAll to skip past the self-hit, rather than offsetting the origin forward first —
 		// an earlier version offset the origin by (own radius + probe radius), which could overshoot
-		// past thin walls entirely and never register a hit no matter the distance
+		// past thin walls entirely and never register a hit no matter the distance.
+		// Only layers the character collides with (Physics layer matrix): an item carried on the IgnorePlayer
+		// layer (see Player.ItemHoldController) must not be mistaken for a wall or a ledge to climb onto
 		private bool SphereCast(Vector3 origin, float probeRadius, Vector3 direction, float maxDistance, out RaycastHit hit)
 		{
-			RaycastHit[] hits = Physics.SphereCastAll(origin, probeRadius, direction, maxDistance, ~0, QueryTriggerInteraction.Ignore);
+			RaycastHit[] hits = Physics.SphereCastAll(origin, probeRadius, direction, maxDistance, _movement != null ? _movement.CollisionMask : ~0, QueryTriggerInteraction.Ignore);
 
 			bool found = false;
 			hit = default;
