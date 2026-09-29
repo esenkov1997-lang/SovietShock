@@ -14,7 +14,7 @@ namespace Inventory
 	[RequireComponent(typeof(InventoryHolder))]
 	public class InventoryReloadHandler : MonoBehaviour
 	{
-		[Tooltip("Все типы патронов/газа в игре — сопоставляются с WeaponData.AmmoId по совпадению строки")]
+		[Tooltip("Все типы патронов/газа в игре — сопоставляются с AmmoId магазина оружия (WeaponData.Ammo) по совпадению строки")]
 		[SerializeField] private List<AmmoItemData> ammoTypes = new List<AmmoItemData>();
 		[SerializeField] private WeaponController weaponController;
 
@@ -44,9 +44,10 @@ namespace Inventory
 		private int GetAvailable(WeaponData data)
 		{
 			// AmmoId не задан — бесконечные патроны, как и в TryTakeFromPool
-			if (string.IsNullOrEmpty(data.AmmoId)) return int.MaxValue;
+			string ammoId = data.Ammo?.AmmoId;
+			if (string.IsNullOrEmpty(ammoId)) return int.MaxValue;
 
-			AmmoItemData ammo = FindAmmo(data.AmmoId);
+			AmmoItemData ammo = FindAmmo(ammoId);
 			return ammo != null ? _inventory.GetTotalCount(ammo) : 0;
 		}
 
@@ -56,9 +57,10 @@ namespace Inventory
 			if (amountRequested <= 0) return 0;
 
 			// AmmoId не задан — оружие ещё не подключено к системе патронов, старое бесконечное поведение
-			if (string.IsNullOrEmpty(data.AmmoId)) return amountRequested;
+			string ammoId = data.Ammo?.AmmoId;
+			if (string.IsNullOrEmpty(ammoId)) return amountRequested;
 
-			AmmoItemData ammo = FindAmmo(data.AmmoId);
+			AmmoItemData ammo = FindAmmo(ammoId);
 			if (ammo == null) return 0;
 
 			int available = _inventory.GetTotalCount(ammo);

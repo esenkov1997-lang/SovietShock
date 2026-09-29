@@ -7,7 +7,7 @@ namespace Interactables
 	// Кнопка: переключает дверь (открывает/закрывает по очереди) по нажатию E через существующую систему
 	// интеракции (см. IInteractable, PlayerInteractor) — но только пока сама кнопка полностью исправна
 	// (Repairable.IsActive). Сломанную кнопку (см. Repairable.OnBroken) сначала нужно починить оружием
-	// с WeaponData.CanRepair — до этого нажатие E ничего не делает, в каком бы состоянии ни была дверь.
+	// с MeleeWeaponData.Repair.CanRepair — до этого нажатие E ничего не делает, в каком бы состоянии ни была дверь.
 	[RequireComponent(typeof(Repairable))]
 	public class DoorButton : MonoBehaviour, IInteractable
 	{

@@ -13,7 +13,7 @@ namespace Inventory
 		[SerializeField] private ItemData item;
 		[SerializeField] private int amount = 1;
 
-		[Tooltip("Только для оружия: сколько патронов в магазине при подборе. -1 — полный магазин (MagazineSize из WeaponData). " +
+		[Tooltip("Только для оружия: сколько патронов в магазине при подборе. -1 — полный магазин (ёмкость магазина из WeaponData). " +
 			"При выбрасывании оружия сюда автоматически записывается, сколько в нём оставалось")]
 		[SerializeField] private int loadedAmmo = -1;
 

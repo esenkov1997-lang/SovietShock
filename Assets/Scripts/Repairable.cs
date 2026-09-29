@@ -4,7 +4,7 @@ using UnityEngine.Events;
 namespace Weapons
 {
 	// Реализует и IRepairable, и IDamageable на одной прочности — повесь на объект, который можно
-	// и чинить, и ломать (например, кнопка-триггер): почини оружием с WeaponData.CanRepair, чтобы
+	// и чинить, и ломать (например, кнопка-триггер): почини оружием с MeleeWeaponData.Repair.CanRepair, чтобы
 	// активировать, или нанеси урон обычным оружием, чтобы сломать. Логику самих триггеров сюда не
 	// кладём — только состояние "прочность/активен", остальное подпишется на OnRepaired/OnFullyRepaired/OnDamaged/OnBroken.
 	public class Repairable : MonoBehaviour, IRepairable, IDamageable

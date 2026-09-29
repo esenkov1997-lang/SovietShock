@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Weapons
 {
 	// Вешается на WeaponHolder — точку в руках игрока, где появляется модель текущего оружия.
-	[RequireComponent(typeof(AudioSource))]
+	// Данные оружия — WeaponData и его наследники FirearmData/MeleeWeaponData, звуки — WeaponAudio на модели в руках.
 	public class WeaponController : MonoBehaviour
 	{
 		// Позволяет переопределить HandPosition/HandRotation из WeaponData для конкретного WeaponHolder —
@@ -34,10 +34,6 @@ namespace Weapons
 		[Tooltip("Звуки попадания для поверхностей без компонента SoundSurface (стены и прочее окружение) — тот же принцип, что декаль по умолчанию в WeaponData. Пусто — по таким поверхностям попадание беззвучное")]
 		[SerializeField] private SurfaceSoundSet defaultHitSurface;
 
-		[Header("Repair Sound")]
-		[Tooltip("Отдельный AudioSource под зацикленный звук горелки (RepairLoopSound). Пусто — создаётся автоматически с настройками основного AudioSource (микшер, 2D/3D, громкость)")]
-		[SerializeField] private AudioSource repairLoopSource;
-
 		[Header("Drop Settings")]
 		[Tooltip("Точка/направление выброса оружия. Если не задано — используется сам WeaponHolder")]
 		[SerializeField] private Transform dropPoint;
@@ -55,11 +51,12 @@ namespace Weapons
 			public int CurrentAmmo;
 			public float NextFireTime;
 
-			// loadedAmmo < 0 — полный магазин
+			// loadedAmmo < 0 — полный магазин. Оружие без магазина (обычное холодное) — всегда 0
 			public WeaponSlot(WeaponData data, int loadedAmmo)
 			{
 				Data = data;
-				CurrentAmmo = loadedAmmo < 0 ? data.MagazineSize : Mathf.Min(loadedAmmo, data.MagazineSize);
+				int magazineSize = data.Ammo != null ? data.Ammo.MagazineSize : 0;
+				CurrentAmmo = loadedAmmo < 0 ? magazineSize : Mathf.Min(loadedAmmo, magazineSize);
 			}
 		}
 
@@ -73,9 +70,9 @@ namespace Weapons
 		private WeaponMuzzle _currentMuzzle;
 		private MuzzleFlash _currentMuzzleFlash;
 		private Animator _currentAnimator;
+		private WeaponAudio _currentAudio;
 		private bool _firePreviouslyHeld;
 		private float _readyToFireTime;
-		private AudioSource _audioSource;
 		private bool _isReloading;
 		private float _reloadFinishTime;
 
@@ -129,6 +126,31 @@ namespace Weapons
 		// данные текущего оружия — читает, например, ProceduralWeaponAnimation для AnimationProfile
 		public WeaponData CurrentWeaponData => _currentIndex >= 0 ? _inventory[_currentIndex].Data : null;
 
+		// --- состояние для HUD (только чтение) ---
+
+		// патронов/газа в магазине текущего оружия; 0, если оружия нет или магазина у него нет
+		public int CurrentAmmo => _currentIndex >= 0 ? _inventory[_currentIndex].CurrentAmmo : 0;
+		public bool IsReloading => _isReloading;
+		public bool IsAiming => _isAiming;
+
+		// сколько патронов под текущее оружие лежит в инвентаре (через GetAvailableAmmo). -1 — неизвестно
+		// или бесконечно (сцена без инвентаря, у оружия не задан AmmoId); 0 — если у оружия нет магазина
+		public int ReserveAmmo
+		{
+			get
+			{
+				WeaponData data = CurrentWeaponData;
+				if (data == null || data.Ammo == null) return 0;
+				if (GetAvailableAmmo == null) return -1;
+
+				int available = GetAvailableAmmo(data);
+				return available == int.MaxValue ? -1 : available;
+			}
+		}
+
+		// каждый выстрел огнестрела и начало каждого взмаха холодного оружия — например, для раскрытия прицела
+		public event System.Action<WeaponData> Fired;
+
 		// pivot, который каждый кадр ставится в HandPosition/AimPosition текущего оружия (см. UpdateAimPose).
 		// Модель оружия (_currentVisual) висит на нём с нулевым локальным смещением, поэтому
 		// ProceduralWeaponAnimation, вращая/двигая именно VisualRoot, делает это вокруг точки, где
@@ -148,10 +170,6 @@ namespace Weapons
 
 		private void Start()
 		{
-			_audioSource = GetComponent<AudioSource>();
-			if (repairLoopSource == null) repairLoopSource = CreateRepairLoopSource(_audioSource);
-			repairLoopSource.loop = true;
-			repairLoopSource.playOnAwake = false;
 			_movement = GetComponentInParent<FirstPersonController>();
 
 			foreach (WeaponHandPlacementOverride placement in handPlacementOverrides)
@@ -186,34 +204,34 @@ namespace Weapons
 			UpdateAimPose();
 		}
 
-		// вызывать каждый кадр с текущим состоянием ПКМ. Melee никогда не переходит в прицел
+		// вызывать каждый кадр с текущим состоянием ПКМ. Прицел есть только у огнестрела
 		public void SetAiming(bool held)
 		{
 			if (IsHolstered) held = false;
-			WeaponData data = CurrentWeaponData;
-			_isAiming = held && data != null && data.Mode != FireMode.Melee;
+			_isAiming = held && CurrentWeaponData is FirearmData;
 		}
 
 		// вызывать каждый кадр с сырым (не toggle) состоянием ПКМ — ремонт/прожиг это удержание,
 		// а не прицел, поэтому сюда всегда передаётся именно "зажата ли кнопка сейчас".
-		// Расходует MagazineSize/CurrentAmmo того же слота, что и обычная стрельба — баллон горелки
-		// это тот же "магазин", просто тратится со своей скоростью RepairAmmoPerSecond
+		// Расходует CurrentAmmo слота — баллон горелки (Repair.Tank) это тот же "магазин", что у огнестрела,
+		// просто тратится со своей скоростью Repair.AmmoPerSecond
 		public void TickHeal(bool held)
 		{
 			if (IsHolstered) return;
 
 			WeaponSlot slot = _currentIndex >= 0 ? _inventory[_currentIndex] : null;
-			WeaponData data = slot?.Data;
+			MeleeWeaponData tool = slot?.Data as MeleeWeaponData;
+			bool canRepair = tool != null && tool.CanRepair;
 
 			// оружие ещё достаётся/перезаряжается — как и обычная стрельба, лечить в этот момент нельзя
-			bool wantsToHeal = held && data != null && data.CanRepair && Time.time >= _readyToFireTime;
+			bool wantsToHeal = held && canRepair && Time.time >= _readyToFireTime;
 			bool healing = wantsToHeal && slot.CurrentAmmo > 0;
 
-			// параметр актуален только для оружия с CanRepair — у остальных Animator Controller
+			// параметр актуален только для ремонтного инструмента — у остальных Animator Controller
 			// про него ничего не знает, SetBool на несуществующий параметр каждый кадр сыпал бы ошибку в консоль
-			if (_currentAnimator != null && data != null && data.CanRepair && !string.IsNullOrEmpty(data.HealBoolParam))
+			if (_currentAnimator != null && canRepair && !string.IsNullOrEmpty(tool.Repair.HealBoolParam))
 			{
-				_currentAnimator.SetBool(data.HealBoolParam, healing);
+				_currentAnimator.SetBool(tool.Repair.HealBoolParam, healing);
 			}
 
 			if (!healing)
@@ -227,7 +245,7 @@ namespace Weapons
 			if (float.IsPositiveInfinity(_repairStartFallbackTime)) _repairStartFallbackTime = Time.time + FallbackAnimationDuration;
 			if (!_repairFlameActive && Time.time >= _repairStartFallbackTime) SetRepairFlame(true);
 
-			if (_repairFlameActive) PerformHealTick(data, slot);
+			if (_repairFlameActive) PerformHealTick(tool, slot);
 		}
 
 		// вызывается из WeaponAnimationEvents по Animation Event RepairStart — кадр в Repair_Start, где горелка зажигается.
@@ -246,79 +264,36 @@ namespace Weapons
 			if (_currentMuzzleFlash != null) _currentMuzzleFlash.SetContinuous(on);
 			if (_currentMuzzle != null) _currentMuzzle.SetContinuous(on);
 
-			PlayRepairSound(CurrentWeaponData, on);
-		}
-
-		// начало — one-shot на основном AudioSource, луп — на отдельном repairLoopSource, запланирован ровно
-		// на конец звука начала (PlayScheduled), чтобы стык был без щелчка и паузы. Конец — стоп лупа
-		// (заодно отменяет ещё не начавшийся запланированный луп) и one-shot затухания
-		private void PlayRepairSound(WeaponData data, bool on)
-		{
-			if (data == null || _audioSource == null) return;
-
-			// у основного источника мог остаться случайный питч от PlayAttackSound — горелка звучит ровно
-			_audioSource.pitch = 1f;
-
-			if (on)
-			{
-				double loopStart = AudioSettings.dspTime;
-				if (data.RepairStartSound != null)
-				{
-					_audioSource.PlayOneShot(data.RepairStartSound);
-					loopStart += data.RepairStartSound.length;
-				}
-
-				if (data.RepairLoopSound != null)
-				{
-					repairLoopSource.clip = data.RepairLoopSound;
-					repairLoopSource.PlayScheduled(loopStart);
-				}
-			}
-			else
-			{
-				repairLoopSource.Stop();
-				if (data.RepairEndSound != null) _audioSource.PlayOneShot(data.RepairEndSound);
-			}
-		}
-
-		private AudioSource CreateRepairLoopSource(AudioSource template)
-		{
-			AudioSource source = gameObject.AddComponent<AudioSource>();
-			source.outputAudioMixerGroup = template.outputAudioMixerGroup;
-			source.spatialBlend = template.spatialBlend;
-			source.volume = template.volume;
-			source.priority = template.priority;
-			source.rolloffMode = template.rolloffMode;
-			source.minDistance = template.minDistance;
-			source.maxDistance = template.maxDistance;
-			return source;
+			if (_currentAudio != null) _currentAudio.SetRepairLoop(on);
 		}
 
 		// расход баллона идёт всегда, пока зажата кнопка и есть газ — как у настоящего баллона: жмёшь
 		// и он травит газ, даже если светишь "в воздух" и никуда не попадаешь. Попадание в цель —
 		// это отдельный вопрос, что этот газ дальше делает (лечит IRepairable / жжёт IDamageable)
-		private void PerformHealTick(WeaponData data, WeaponSlot slot)
+		private void PerformHealTick(MeleeWeaponData tool, WeaponSlot slot)
 		{
-			// газ тратится по своей ставке (RepairAmmoPerSecond), ремонт и урон — по своим, независимо от расхода
-			ApplyAccumulated(ref _gasAccumulator, data.RepairAmmoPerSecond,
+			RepairToolData repair = tool.Repair;
+
+			// газ тратится по своей ставке (AmmoPerSecond), ремонт и урон — по своим, независимо от расхода
+			ApplyAccumulated(ref _gasAccumulator, repair.AmmoPerSecond,
 				spend => slot.CurrentAmmo = Mathf.Max(0, slot.CurrentAmmo - spend));
 
 			if (_movement == null || _movement.CinemachineCameraTarget == null) return;
 
 			Transform origin = _movement.CinemachineCameraTarget.transform;
-			if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, data.Range, ~0, QueryTriggerInteraction.Ignore)) return;
+			if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, tool.Range, ~0, QueryTriggerInteraction.Ignore)) return;
 
 			IRepairable repairable = hit.collider.GetComponentInParent<IRepairable>();
 			if (repairable != null)
 			{
-				ApplyAccumulated(ref _repairAccumulator, data.RepairAmountPerSecond, repairable.Repair);
+				ApplyAccumulated(ref _repairAccumulator, repair.RepairPerSecond, repairable.Repair);
 				return;
 			}
 
 			IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
 			if (damageable != null)
 			{
-				ApplyAccumulated(ref _burnAccumulator, data.RepairDamagePerSecond, damageable.TakeDamage);
+				ApplyAccumulated(ref _burnAccumulator, repair.DamagePerSecond, damageable.TakeDamage);
 			}
 		}
 
@@ -356,12 +331,22 @@ namespace Weapons
 			WeaponData data = CurrentWeaponData;
 			if (data == null) return;
 
-			float targetBlend = _isAiming ? 1f : 0f;
-			_aimBlend = Mathf.MoveTowards(_aimBlend, targetBlend, data.AimTransitionSpeed * Time.deltaTime);
+			// без прицела (холодное оружие) — всегда поза от бедра
+			AimData aim = (data as FirearmData)?.Aim;
+			if (aim == null)
+			{
+				_aimBlend = 0f;
+				_visualRoot.localPosition = GetHandPosition(data);
+				_visualRoot.localRotation = Quaternion.Euler(GetHandRotation(data));
+				return;
+			}
 
-			_visualRoot.localPosition = Vector3.Lerp(GetHandPosition(data), data.AimPosition, _aimBlend);
+			float targetBlend = _isAiming ? 1f : 0f;
+			_aimBlend = Mathf.MoveTowards(_aimBlend, targetBlend, aim.TransitionSpeed * Time.deltaTime);
+
+			_visualRoot.localPosition = Vector3.Lerp(GetHandPosition(data), aim.Position, _aimBlend);
 			_visualRoot.localRotation = Quaternion.Slerp(
-				Quaternion.Euler(GetHandRotation(data)), Quaternion.Euler(data.AimRotation), _aimBlend);
+				Quaternion.Euler(GetHandRotation(data)), Quaternion.Euler(aim.Rotation), _aimBlend);
 		}
 
 		public void Next()
@@ -396,6 +381,7 @@ namespace Weapons
 			_currentMuzzle = null;
 			_currentMuzzleFlash = null;
 			_currentAnimator = null;
+			_currentAudio = null;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
 			_aimBlend = 0f; // смена оружия сбрасывает прицел — новое оружие всегда начинается от бедра
 
@@ -408,7 +394,14 @@ namespace Weapons
 				_currentMuzzle = _currentVisual.GetComponentInChildren<WeaponMuzzle>();
 				_currentMuzzleFlash = _currentVisual.GetComponentInChildren<MuzzleFlash>();
 				_currentAnimator = _currentVisual.GetComponentInChildren<Animator>();
+				_currentAudio = _currentVisual.GetComponentInChildren<WeaponAudio>();
 			}
+			else
+			{
+				Debug.LogWarning($"{data.name}: не задан In Hand Prefab — оружие экипировано, но в руках ничего не появится", data);
+			}
+
+			if (_currentAudio != null) _currentAudio.PlayDraw();
 
 			// готовность обычно приходит раньше через Animation Event (см. NotifyWeaponReady/WeaponAnimationEvents) —
 			// FallbackAnimationDuration здесь лишь подстраховка на случай, если событие в клипе не проставлено
@@ -462,10 +455,11 @@ namespace Weapons
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;
+			AmmoData ammo = data.Ammo;
 
-			// обычный Melee (удар) патронов не тратит — перезаряжать нечего. Но Melee с CanRepair
-			// (баллон горелки) — тратит, и его как раз нужно уметь перезарядить
-			if ((data.Mode == FireMode.Melee && !data.CanRepair) || slot.CurrentAmmo >= data.MagazineSize) return;
+			// у обычного холодного оружия магазина нет — перезаряжать нечего. У огнестрела это патроны,
+			// у ремонтного инструмента — баллон горелки
+			if (ammo == null || slot.CurrentAmmo >= ammo.MagazineSize) return;
 
 			// в инвентаре нечем перезаряжаться — не играем анимацию впустую
 			if (GetAvailableAmmo != null && GetAvailableAmmo(data) <= 0) return;
@@ -474,10 +468,11 @@ namespace Weapons
 			_reloadFinishTime = Time.time + FallbackAnimationDuration; // подстраховка, см. FallbackAnimationDuration
 			_readyToFireTime = Mathf.Max(_readyToFireTime, _reloadFinishTime); // на время перезарядки стрелять нельзя
 
-			if (_currentAnimator != null && !string.IsNullOrEmpty(data.ReloadTrigger))
+			if (_currentAnimator != null && !string.IsNullOrEmpty(ammo.ReloadTrigger))
 			{
-				_currentAnimator.SetTrigger(data.ReloadTrigger);
+				_currentAnimator.SetTrigger(ammo.ReloadTrigger);
 			}
+			if (_currentAudio != null) _currentAudio.PlayReload();
 		}
 
 		// вызывается из WeaponAnimationEvents по Animation Event в клипе Reload — магазин пополняется раньше таймера
@@ -493,7 +488,7 @@ namespace Weapons
 			if (_currentIndex < 0) return;
 
 			WeaponData data = _inventory[_currentIndex].Data;
-			if (data.Mode != FireMode.Melee) return;
+			if (!(data is MeleeWeaponData)) return;
 
 			PerformHitscan(data);
 		}
@@ -505,15 +500,17 @@ namespace Weapons
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;
+			AmmoData ammo = data.Ammo;
+			if (ammo == null) return;
 
 			// спрашиваем пул патронов именно сейчас (не в момент нажатия R) — если между началом
 			// и концом перезарядки сменили оружие, _isReloading уже сброшен в EquipByIndex и сюда
 			// не дойдёт, так что патроны из пула не спишутся впустую за незавершённую перезарядку
-			int needed = data.MagazineSize - slot.CurrentAmmo;
+			int needed = ammo.MagazineSize - slot.CurrentAmmo;
 			int given = ConsumeAmmo != null ? ConsumeAmmo(data, needed) : needed;
 			slot.CurrentAmmo += Mathf.Clamp(given, 0, needed);
 
-			Debug.Log($"{data.WeaponName}: перезарядка завершена, патроны {slot.CurrentAmmo}/{data.MagazineSize}");
+			Debug.Log($"{data.WeaponName}: перезарядка завершена, патроны {slot.CurrentAmmo}/{ammo.MagazineSize}");
 		}
 
 		// добавляет оружие в инвентарь и сразу берёт его в руки. loadedAmmo — сколько патронов в магазине,
@@ -575,7 +572,8 @@ namespace Weapons
 			if (IsHolstered || _currentIndex < 0 || Time.time < _readyToFireTime) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
-			bool wantsToFire = slot.Data.Mode == FireMode.Auto ? triggerHeld : triggerPressed;
+			bool automatic = slot.Data is FirearmData firearm && firearm.Mode == FireMode.Auto;
+			bool wantsToFire = automatic ? triggerHeld : triggerPressed;
 			if (!wantsToFire || Time.time < slot.NextFireTime) return;
 
 			slot.NextFireTime = Time.time + (slot.Data.FireRate > 0f ? 1f / slot.Data.FireRate : 0f);
@@ -591,7 +589,7 @@ namespace Weapons
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;
 
-			if (data.Mode == FireMode.Melee)
+			if (data is MeleeWeaponData melee)
 			{
 				// взмах — такое же "занятое" действие, как Draw и Reload: следующий удар не начнётся, пока
 				// Animation Event WeaponReady в конце клипа удара не вернёт готовность (см. NotifyWeaponReady).
@@ -606,26 +604,31 @@ namespace Weapons
 				// сам урон наносится не здесь, а в NotifyMeleeHit — по Animation Event в нужном кадре клипа
 				// попадания. На клипе промаха MeleeHit ставить не нужно
 				Debug.Log($"{data.WeaponName}: удар начат ({(willHit ? "попадание" : "промах")})");
-				PlayMeleeAnimation(data, willHit);
-				PlayAttackSound(data);
+				PlayMeleeAnimation(melee, willHit);
+				if (_currentAudio != null) _currentAudio.PlayAttack();
+				Fired?.Invoke(data);
 				return;
 			}
+
+			if (!(data is FirearmData firearm)) return;
 
 			if (slot.CurrentAmmo <= 0)
 			{
 				Debug.Log($"{data.WeaponName}: патронов нет, нужна перезарядка");
+				if (_currentAudio != null) _currentAudio.PlayDryFire();
 				return;
 			}
 
 			slot.CurrentAmmo--;
-			Debug.Log($"{data.WeaponName}: выстрел, урон {data.Damage}, патроны {slot.CurrentAmmo}/{data.MagazineSize}");
-			SpawnBulletVisual(data);
+			Debug.Log($"{data.WeaponName}: выстрел, урон {data.Damage}, патроны {slot.CurrentAmmo}/{firearm.Magazine.MagazineSize}");
+			SpawnBulletVisual(firearm);
 			PlayAttackAnimation(data);
-			PlayAttackSound(data);
+			if (_currentAudio != null) _currentAudio.PlayAttack();
 			if (_currentMuzzleFlash != null) _currentMuzzleFlash.Flash();
 			if (_currentMuzzle != null) _currentMuzzle.Flash();
-			ApplyRecoil(data);
+			ApplyRecoil(firearm);
 			PerformHitscan(data);
+			Fired?.Invoke(data);
 		}
 
 		// мгновенное попадание лучом от камеры — визуальная пуля (SpawnBulletVisual) чисто декоративна
@@ -664,23 +667,23 @@ namespace Weapons
 
 			// SphereCast не замечает коллайдеры, которые сфера перекрывает уже в начальной точке — это как
 			// раз и отсекает собственную капсулу игрока (камера внутри неё), отдельного фильтра не нужно
-			if (data.Mode == FireMode.Melee && data.MeleeHitRadius > 0f)
+			if (data is MeleeWeaponData melee && melee.HitRadius > 0f)
 			{
-				return Physics.SphereCast(origin.position, data.MeleeHitRadius, origin.forward, out hit, data.Range, ~0, QueryTriggerInteraction.Ignore);
+				return Physics.SphereCast(origin.position, melee.HitRadius, origin.forward, out hit, data.Range, ~0, QueryTriggerInteraction.Ignore);
 			}
 
 			return Physics.Raycast(origin.position, origin.forward, out hit, data.Range, ~0, QueryTriggerInteraction.Ignore);
 		}
 
 		// звук попадания, как и декаль, зависит от того, во что попали, а не от оружия: одна и та же пуля по дереву
-		// и по металлу звучит по-разному. AttackSound из WeaponData — это звук самого выстрела/взмаха и играется
-		// отдельно (PlayAttackSound). Для Melee сюда попадаем из NotifyMeleeHit, т.е. ровно в кадр касания в клипе
+		// и по металлу звучит по-разному. Звук самого выстрела/взмаха — WeaponAudio.Attack на модели в руках,
+		// играется отдельно. Для холодного сюда попадаем из NotifyMeleeHit, т.е. ровно в кадр касания в клипе
 		private void PlayHitSound(WeaponData data, RaycastHit hit)
 		{
 			SurfaceSoundSet surface = SoundSurface.Find(hit.collider);
 			if (surface == null) surface = defaultHitSurface;
 
-			HitType type = data.Mode == FireMode.Melee ? HitType.Melee : HitType.Bullet;
+			HitType type = data is MeleeWeaponData ? HitType.Melee : HitType.Bullet;
 			SurfaceSoundManager.Instance.PlayHit(surface, type, hit.point);
 		}
 
@@ -690,10 +693,10 @@ namespace Weapons
 		private void SpawnImpactDecal(WeaponData data, RaycastHit hit)
 		{
 			ImpactSurface surface = hit.collider.GetComponentInParent<ImpactSurface>();
-			GameObject decalPrefab = surface != null && surface.DecalPrefab != null ? surface.DecalPrefab : data.DecalPrefab;
+			GameObject decalPrefab = surface != null && surface.DecalPrefab != null ? surface.DecalPrefab : data.VFX.DecalPrefab;
 			if (decalPrefab == null) return;
 
-			float lifetime = surface != null && surface.DecalLifetimeOverride > 0f ? surface.DecalLifetimeOverride : data.DecalLifetime;
+			float lifetime = surface != null && surface.DecalLifetimeOverride > 0f ? surface.DecalLifetimeOverride : data.VFX.DecalLifetime;
 
 			// forward декали смотрит "в" поверхность (-normal) — так ориентируется URP Decal Projector;
 			// для простого квада с текстурой вместо -hit.normal может понадобиться hit.normal (см. пояснение)
@@ -704,14 +707,15 @@ namespace Weapons
 		}
 
 		// подброс по X — постоянная добавка к прицелу за каждый выстрел; увод по Y — копится внутри
-		// очереди в случайно выбранную при её начале сторону, до WeaponData.MaxDrift
-		private void ApplyRecoil(WeaponData data)
+		// очереди в случайно выбранную при её начале сторону, до Recoil.MaxDrift
+		private void ApplyRecoil(FirearmData data)
 		{
 			if (_movement == null) return;
 
-			float kick = _isAiming ? data.AimRecoilKick : data.RecoilKick;
-			float driftPerShot = _isAiming ? data.AimRecoilDriftPerShot : data.RecoilDriftPerShot;
-			float maxDrift = _isAiming ? data.AimMaxDrift : data.MaxDrift;
+			RecoilSettings recoil = _isAiming ? data.Recoil.Aim : data.Recoil.Hip;
+			float kick = recoil.Kick;
+			float driftPerShot = recoil.DriftPerShot;
+			float maxDrift = recoil.MaxDrift;
 
 			float burstGap = data.FireRate > 0f ? (1f / data.FireRate) * 1.5f : 0.5f;
 			bool continuingBurst = (Time.time - _lastShotTime) <= burstGap;
@@ -736,13 +740,12 @@ namespace Weapons
 		{
 			if (_burstDrift <= 0f || _movement == null) return;
 
-			WeaponData data = CurrentWeaponData;
-			if (data == null) return;
+			if (!(CurrentWeaponData is FirearmData data)) return;
 
 			float burstGap = data.FireRate > 0f ? (1f / data.FireRate) * 1.5f : 0.5f;
 			if (Time.time - _lastShotTime < burstGap) return; // очередь ещё активна, ждём
 
-			float recoverySpeed = _isAiming ? data.AimDriftRecoverySpeed : data.DriftRecoverySpeed;
+			float recoverySpeed = (_isAiming ? data.Recoil.Aim : data.Recoil.Hip).DriftRecoverySpeed;
 
 			float previousDrift = _burstDrift;
 			_burstDrift = Mathf.MoveTowards(_burstDrift, 0f, recoverySpeed * Time.deltaTime);
@@ -758,9 +761,9 @@ namespace Weapons
 			}
 		}
 
-		// Melee: анимация попадания (AttackTrigger) или промаха (AttackMissTrigger). Если отдельный
-		// триггер промаха не задан в WeaponData — играется обычная анимация удара, как раньше
-		private void PlayMeleeAnimation(WeaponData data, bool hit)
+		// холодное: анимация попадания (AttackTrigger) или промаха (AttackMissTrigger). Если отдельный
+		// триггер промаха не задан — играется обычная анимация удара
+		private void PlayMeleeAnimation(MeleeWeaponData data, bool hit)
 		{
 			string trigger = !hit && !string.IsNullOrEmpty(data.AttackMissTrigger) ? data.AttackMissTrigger : data.AttackTrigger;
 
@@ -770,28 +773,20 @@ namespace Weapons
 			}
 		}
 
-		// PlayOneShot, а не Play — так звуки не обрывают друг друга при быстрой стрельбе/очереди
-		private void PlayAttackSound(WeaponData data)
+		private void SpawnBulletVisual(FirearmData data)
 		{
-			if (data.AttackSound == null) return;
-
-			_audioSource.pitch = Random.Range(data.AttackPitchRange.x, data.AttackPitchRange.y);
-			_audioSource.PlayOneShot(data.AttackSound);
-		}
-
-		private void SpawnBulletVisual(WeaponData data)
-		{
-			if (data.BulletPrefab == null) return;
+			BulletVisualData bulletData = data.Bullet;
+			if (bulletData.Prefab == null) return;
 
 			Transform origin = _currentMuzzle != null ? _currentMuzzle.transform : transform;
-			GameObject bullet = Instantiate(data.BulletPrefab, origin.position, origin.rotation);
+			GameObject bullet = Instantiate(bulletData.Prefab, origin.position, origin.rotation);
 
 			if (bullet.TryGetComponent(out Rigidbody rb))
 			{
-				rb.linearVelocity = origin.forward * data.BulletSpeed;
+				rb.linearVelocity = origin.forward * bulletData.Speed;
 			}
 
-			Destroy(bullet, data.BulletLifetime);
+			Destroy(bullet, bulletData.Lifetime);
 		}
 	}
 }

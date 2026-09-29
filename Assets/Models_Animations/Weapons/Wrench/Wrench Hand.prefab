@@ -1374,6 +1374,7 @@ GameObject:
   - component: {fileID: 3138376719017669223}
   - component: {fileID: 421377861538734530}
   - component: {fileID: 945132492386559363}
+  - component: {fileID: 4417310296631522802}
   m_Layer: 6
   m_Name: Wrench Hand
   m_TagString: Untagged
@@ -3197,3 +3198,49 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2143125839877028132}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4417310296631522802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4030566846764498208}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dc0527a0e6ec93195f8c81f4a8dbb17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  oneShotSource: {fileID: 0}
+  loopSource: {fileID: 0}
+  Attack:
+    Clips:
+    - {fileID: 8300000, guid: 5c39ec0074165fb4eaf789fc68f5379b, type: 3}
+    Volume: 1
+    PitchRange: {x: 0.7, y: 1.05}
+  DryFire:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  Draw:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  Reload:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  RepairStart:
+    Clips:
+    - {fileID: 8300000, guid: aec8aa1f26398c047950574730219a60, type: 3}
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  RepairLoop:
+    Clips:
+    - {fileID: 8300000, guid: d6209a287c66040478381e1a95bc5ab7, type: 3}
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  RepairEnd:
+    Clips:
+    - {fileID: 8300000, guid: 731874aece3306547af8250c947b6e27, type: 3}
+    Volume: 1
+    PitchRange: {x: 1, y: 1}

@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Weapons
 {
 	// Меняет FOV Cinemachine-камеры во время прицеливания (ПКМ) — лерпит между базовым FOV (снятым
-	// один раз при старте) и WeaponData.AimFOV текущего оружия. Использует тот же WeaponController.AimBlend,
+	// один раз при старте) и FirearmData.Aim.FOV текущего оружия. Использует тот же WeaponController.AimBlend,
 	// которым уже управляется HandPosition/AimPosition (см. WeaponController.UpdateAimPose) — зум синхронен
 	// с движением оружия без отдельного сглаживания. Для Melee AimBlend всегда 0, зум не включается.
 	[RequireComponent(typeof(WeaponController))]
@@ -33,7 +33,7 @@ namespace Weapons
 			if (virtualCamera == null) return;
 
 			WeaponData data = _weaponController.CurrentWeaponData;
-			float targetFOV = data != null ? data.AimFOV : _baseFOV;
+			float targetFOV = data is FirearmData firearm ? firearm.Aim.FOV : _baseFOV;
 			float fov = Mathf.Lerp(_baseFOV, targetFOV, _weaponController.AimBlend);
 
 			virtualCamera.Lens.FieldOfView = fov;

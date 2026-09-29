@@ -46,7 +46,18 @@ namespace Inventory
 
 		private void HandleItemAdded(ItemData item, int amount, int loadedAmmo)
 		{
-			if (weaponController == null || !(item is WeaponItemData weaponItem)) return;
+			if (!(item is WeaponItemData weaponItem)) return;
+
+			if (weaponController == null)
+			{
+				Debug.LogWarning($"{nameof(InventoryWeaponEquipHandler)} на {name}: не найден WeaponController — {item.name} попал в инвентарь, но в руки не возьмётся", this);
+				return;
+			}
+			if (weaponItem.weaponData == null)
+			{
+				Debug.LogWarning($"{item.name}: не задан Weapon Data (или ассет оружия не загрузился) — предмет в инвентаре, но в руки не возьмётся", weaponItem);
+				return;
+			}
 
 			weaponController.PickupWeapon(weaponItem.weaponData, loadedAmmo);
 		}
