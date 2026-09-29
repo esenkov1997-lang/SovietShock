@@ -17,6 +17,7 @@ MonoBehaviour:
   Damage: 10
   Range: 1
   FireRate: 5
+  HitForce: 3
   AttackTrigger: Attack
   DrawTrigger: Draw
   VFX:
@@ -24,7 +25,7 @@ MonoBehaviour:
     DecalLifetime: 15
   InHandPrefab: {fileID: 4030566846764498208, guid: 2c1647193fbcfd34bb5764ae711aced5, type: 3}
   PickupPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
-  HandPosition: {x: 0.18, y: -0.05, z: 0.22}
+  HandPosition: {x: 0.185, y: -0.05, z: 0.22}
   HandRotation: {x: 0, y: 0, z: 0}
   AnimationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}
   HitRadius: 0.15
@@ -39,3 +40,4 @@ MonoBehaviour:
     AmmoPerSecond: 10
     DamagePerSecond: 5
     HealBoolParam: Healing
+    SparksPrefab: {fileID: 7874249726457335832, guid: 1555e40cd7848344b931e3036ad99fbf, type: 3}

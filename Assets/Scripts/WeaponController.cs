@@ -102,6 +102,14 @@ namespace Weapons
 		private bool _repairFlameActive;
 		private float _repairStartFallbackTime = float.PositiveInfinity;
 
+		// искры горелки в точке касания луча (Repair.SparksPrefab): один экземпляр на весь WeaponController,
+		// переставляется каждый кадр. Живёт в мире, а не в модели оружия — иначе попал бы на слой оружия
+		// и рисовался бы WeaponCamera поверх стен. _repairSparksSource — из какого префаба он создан
+		private ParticleSystem _repairSparks;
+		private GameObject _repairSparksSource;
+		// отступ точки искр от поверхности по нормали — чтобы частицы не рождались внутри коллайдера
+		private const float SparksSurfaceOffset = 0.01f;
+
 		// Опционально подключается извне (см. Inventory.InventoryReloadHandler): CompleteReload спрашивает
 		// здесь, сколько патронов реально удалось взять из пула инвентаря (0..amountRequested), и добавляет
 		// в магазин ровно столько — если патронов в пуле меньше, чем нужно, перезарядка выйдет частичной.
@@ -265,6 +273,52 @@ namespace Weapons
 			if (_currentMuzzle != null) _currentMuzzle.SetContinuous(on);
 
 			if (_currentAudio != null) _currentAudio.SetRepairLoop(on);
+			if (!on) StopRepairSparks();
+		}
+
+		// ставит искры в точку касания луча горелки (развёрнуты по нормали) и включает эмиссию, если она ещё не идёт
+		private void UpdateRepairSparks(RepairToolData repair, RaycastHit hit)
+		{
+			if (repair.SparksPrefab == null)
+			{
+				StopRepairSparks();
+				return;
+			}
+
+			// у другого инструмента может быть свой префаб искр — пересоздаём экземпляр
+			if (_repairSparks == null || _repairSparksSource != repair.SparksPrefab)
+			{
+				if (_repairSparks != null) Destroy(_repairSparks.gameObject);
+
+				GameObject instance = Instantiate(repair.SparksPrefab);
+				_repairSparks = instance.GetComponentInChildren<ParticleSystem>();
+				_repairSparksSource = repair.SparksPrefab;
+				if (_repairSparks == null)
+				{
+					Debug.LogWarning($"{repair.SparksPrefab.name}: в префабе искр нет ParticleSystem", repair.SparksPrefab);
+					Destroy(instance);
+					return;
+				}
+				// Play On Awake в префабе не должен выстрелить искрами в точке спавна — эмиссию включаем сами ниже
+				_repairSparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+			}
+
+			_repairSparks.transform.SetPositionAndRotation(hit.point + hit.normal * SparksSurfaceOffset, Quaternion.LookRotation(hit.normal));
+			if (!_repairSparks.isEmitting) _repairSparks.Play(true);
+		}
+
+		// гасит эмиссию, но уже вылетевшие искры догорают сами, а не пропадают мгновенно
+		private void StopRepairSparks()
+		{
+			if (_repairSparks != null && _repairSparks.isEmitting)
+			{
+				_repairSparks.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+			}
+		}
+
+		private void OnDestroy()
+		{
+			if (_repairSparks != null) Destroy(_repairSparks.gameObject);
 		}
 
 		// расход баллона идёт всегда, пока зажата кнопка и есть газ — как у настоящего баллона: жмёшь
@@ -281,7 +335,14 @@ namespace Weapons
 			if (_movement == null || _movement.CinemachineCameraTarget == null) return;
 
 			Transform origin = _movement.CinemachineCameraTarget.transform;
-			if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, tool.Range, ~0, QueryTriggerInteraction.Ignore)) return;
+			if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, tool.Range, ~0, QueryTriggerInteraction.Ignore))
+			{
+				// горелка светит "в воздух" — до поверхности не достаёт, искр нет
+				StopRepairSparks();
+				return;
+			}
+
+			UpdateRepairSparks(repair, hit);
 
 			IRepairable repairable = hit.collider.GetComponentInParent<IRepairable>();
 			if (repairable != null)

@@ -93,5 +93,9 @@ namespace Weapons
 		public float DamagePerSecond = 5f;
 		[Tooltip("Имя Bool-параметра в Animator Controller — включён, пока зажата ПКМ и идёт ремонт/прожиг. Пусто — без анимации")]
 		public string HealBoolParam = "Healing";
+		[Tooltip("Префаб зацикленной системы частиц (искры), которая горит в точке, где луч горелки касается поверхности, пока пламя включено " +
+			"и до поверхности хватает Range. Ось Z префаба смотрит по нормали поверхности (от неё). Simulation Space — World, " +
+			"чтобы искры не ехали за точкой при движении. Пусто — без искр")]
+		public GameObject SparksPrefab;
 	}
 }
