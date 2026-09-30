@@ -493,6 +493,7 @@ GameObject:
   - component: {fileID: 6054519702760714992}
   - component: {fileID: 2388582700452715204}
   - component: {fileID: 7643171750560485366}
+  - component: {fileID: 2455903037544949726}
   m_Layer: 0
   m_Name: Point Light (2)
   m_TagString: Untagged
@@ -603,6 +604,43 @@ MonoBehaviour:
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 0
+--- !u!114 &2455903037544949726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7526684774555087079}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae2eaff6195f7d74689abd517c3c3e04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startOn: 1
+  baseIntensity: 2.1
+  fadeDuration: 0
+  randomizePhase: 1
+  flicker: 1
+  flickerAmount: 0.3
+  flickerSpeed: 8
+  pulse: 0
+  pulseMin: 0.2
+  pulsePeriod: 2
+  blink: 0
+  blinkOnTime: 0.5
+  blinkOffTime: 0.5
+  blinkJitter: 0
+  failure: 0
+  failureInterval: {x: 3, y: 8}
+  failureDuration: {x: 0.2, y: 0.8}
+  failureStutterRate: 20
+  failureDimLevel: 0
+  materialRenderers: []
+  materialProperty: _EmissionColor
+  materialPropertyType: 0
+  emissionColor: {r: 1, g: 1, b: 1, a: 1}
+  materialFloatMax: 1
+  hideRenderersWhenOff: 1
 --- !u!1 &8514196269424251758
 GameObject:
   m_ObjectHideFlags: 0
@@ -656,8 +694,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 0.18473244
-  MaxDistance: 0.40717697
+  MinDistance: 0.56679535
+  MaxDistance: 1.2821732
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -873,7 +911,7 @@ PrefabInstance:
       objectReference: {fileID: 9054652246231333750}
     - target: {fileID: 3059468469617474934, guid: 35812ab74f053684c9957461fe390fab, type: 3}
       propertyPath: m_fontSize
-      value: 22.05
+      value: 22.1
       objectReference: {fileID: 0}
     - target: {fileID: 3471857051207483889, guid: 35812ab74f053684c9957461fe390fab, type: 3}
       propertyPath: m_LocalPosition.x

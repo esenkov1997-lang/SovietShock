@@ -28,6 +28,7 @@ namespace Weapons
 
 		public int CurrentHealth => _currentHealth;
 		public bool IsActive => _isActive;
+		public float RepairProgress => MaxHealth > 0 ? (float)_currentHealth / MaxHealth : 1f;
 
 		private void Awake()
 		{

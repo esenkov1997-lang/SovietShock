@@ -140,6 +140,9 @@ namespace Weapons
 		public int CurrentAmmo => _currentIndex >= 0 ? _inventory[_currentIndex].CurrentAmmo : 0;
 		public bool IsReloading => _isReloading;
 		public bool IsAiming => _isAiming;
+		// что сейчас чинит горелка: пламя горит и луч попадает в IRepairable. null — ничего не чинится.
+		// Прогресс ремонта — IRepairable.RepairProgress (см. HUD.RepairProgressUI)
+		public IRepairable RepairTarget { get; private set; }
 
 		// сколько патронов под текущее оружие лежит в инвентаре (через GetAvailableAmmo). -1 — неизвестно
 		// или бесконечно (сцена без инвентаря, у оружия не задан AmmoId); 0 — если у оружия нет магазина
@@ -273,7 +276,11 @@ namespace Weapons
 			if (_currentMuzzle != null) _currentMuzzle.SetContinuous(on);
 
 			if (_currentAudio != null) _currentAudio.SetRepairLoop(on);
-			if (!on) StopRepairSparks();
+			if (!on)
+			{
+				StopRepairSparks();
+				RepairTarget = null;
+			}
 		}
 
 		// ставит искры в точку касания луча горелки (развёрнуты по нормали) и включает эмиссию, если она ещё не идёт
@@ -339,12 +346,14 @@ namespace Weapons
 			{
 				// горелка светит "в воздух" — до поверхности не достаёт, искр нет
 				StopRepairSparks();
+				RepairTarget = null;
 				return;
 			}
 
 			UpdateRepairSparks(repair, hit);
 
 			IRepairable repairable = hit.collider.GetComponentInParent<IRepairable>();
+			RepairTarget = repairable;
 			if (repairable != null)
 			{
 				ApplyAccumulated(ref _repairAccumulator, repair.RepairPerSecond, repairable.Repair);
