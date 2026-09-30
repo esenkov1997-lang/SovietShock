@@ -102,13 +102,11 @@ namespace Weapons
 		private bool _repairFlameActive;
 		private float _repairStartFallbackTime = float.PositiveInfinity;
 
-		// искры горелки в точке касания луча (Repair.SparksPrefab): один экземпляр на весь WeaponController,
-		// переставляется каждый кадр. Живёт в мире, а не в модели оружия — иначе попал бы на слой оружия
-		// и рисовался бы WeaponCamera поверх стен. _repairSparksSource — из какого префаба он создан
-		private ParticleSystem _repairSparks;
-		private GameObject _repairSparksSource;
-		// отступ точки искр от поверхности по нормали — чтобы частицы не рождались внутри коллайдера
-		private const float SparksSurfaceOffset = 0.01f;
+		// эффекты горелки в точке касания луча: искры (Repair.SparksPrefab), пока объект чинится, и дым
+		// (Repair.SmokePrefab) по всему остальному — не чинимая поверхность или уже починенный объект.
+		// Одновременно горит только один из них, второй догорает
+		private readonly RepairSurfaceEffect _repairSparks = new RepairSurfaceEffect();
+		private readonly RepairSurfaceEffect _repairSmoke = new RepairSurfaceEffect();
 
 		// Опционально подключается извне (см. Inventory.InventoryReloadHandler): CompleteReload спрашивает
 		// здесь, сколько патронов реально удалось взять из пула инвентаря (0..amountRequested), и добавляет
@@ -278,54 +276,39 @@ namespace Weapons
 			if (_currentAudio != null) _currentAudio.SetRepairLoop(on);
 			if (!on)
 			{
-				StopRepairSparks();
+				StopRepairEffects();
 				RepairTarget = null;
 			}
 		}
 
-		// ставит искры в точку касания луча горелки (развёрнуты по нормали) и включает эмиссию, если она ещё не идёт
-		private void UpdateRepairSparks(RepairToolData repair, RaycastHit hit)
+		// искры — пока объект реально чинится; дым — если луч упёрся во что-то, что не чинится (стена, враг)
+		// или в уже полностью починенный объект. Прогресс неизвестен (RepairProgress < 0) — считаем, что чинится
+		private void UpdateRepairEffects(RepairToolData repair, RaycastHit hit, IRepairable repairable)
 		{
-			if (repair.SparksPrefab == null)
+			bool repairing = repairable != null && repairable.RepairProgress < 1f;
+
+			if (repairing)
 			{
-				StopRepairSparks();
-				return;
+				_repairSmoke.Stop();
+				_repairSparks.Play(repair.SparksPrefab, hit);
 			}
-
-			// у другого инструмента может быть свой префаб искр — пересоздаём экземпляр
-			if (_repairSparks == null || _repairSparksSource != repair.SparksPrefab)
+			else
 			{
-				if (_repairSparks != null) Destroy(_repairSparks.gameObject);
-
-				GameObject instance = Instantiate(repair.SparksPrefab);
-				_repairSparks = instance.GetComponentInChildren<ParticleSystem>();
-				_repairSparksSource = repair.SparksPrefab;
-				if (_repairSparks == null)
-				{
-					Debug.LogWarning($"{repair.SparksPrefab.name}: в префабе искр нет ParticleSystem", repair.SparksPrefab);
-					Destroy(instance);
-					return;
-				}
-				// Play On Awake в префабе не должен выстрелить искрами в точке спавна — эмиссию включаем сами ниже
-				_repairSparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+				_repairSparks.Stop();
+				_repairSmoke.Play(repair.SmokePrefab, hit);
 			}
-
-			_repairSparks.transform.SetPositionAndRotation(hit.point + hit.normal * SparksSurfaceOffset, Quaternion.LookRotation(hit.normal));
-			if (!_repairSparks.isEmitting) _repairSparks.Play(true);
 		}
 
-		// гасит эмиссию, но уже вылетевшие искры догорают сами, а не пропадают мгновенно
-		private void StopRepairSparks()
+		private void StopRepairEffects()
 		{
-			if (_repairSparks != null && _repairSparks.isEmitting)
-			{
-				_repairSparks.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-			}
+			_repairSparks.Stop();
+			_repairSmoke.Stop();
 		}
 
 		private void OnDestroy()
 		{
-			if (_repairSparks != null) Destroy(_repairSparks.gameObject);
+			_repairSparks.Dispose();
+			_repairSmoke.Dispose();
 		}
 
 		// расход баллона идёт всегда, пока зажата кнопка и есть газ — как у настоящего баллона: жмёшь
@@ -344,16 +327,15 @@ namespace Weapons
 			Transform origin = _movement.CinemachineCameraTarget.transform;
 			if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, tool.Range, ~0, QueryTriggerInteraction.Ignore))
 			{
-				// горелка светит "в воздух" — до поверхности не достаёт, искр нет
-				StopRepairSparks();
+				// горелка светит "в воздух" — до поверхности не достаёт, ни искр, ни дыма
+				StopRepairEffects();
 				RepairTarget = null;
 				return;
 			}
 
-			UpdateRepairSparks(repair, hit);
-
 			IRepairable repairable = hit.collider.GetComponentInParent<IRepairable>();
 			RepairTarget = repairable;
+			UpdateRepairEffects(repair, hit, repairable);
 			if (repairable != null)
 			{
 				ApplyAccumulated(ref _repairAccumulator, repair.RepairPerSecond, repairable.Repair);

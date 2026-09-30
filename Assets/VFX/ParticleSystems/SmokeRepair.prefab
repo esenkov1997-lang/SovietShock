@@ -4947,8 +4947,8 @@ MonoBehaviour:
   particles: {fileID: 0}
   loopClips:
   - {fileID: 8300000, guid: 321380e4063075d4faf57870dc80ba7f, type: 3}
-  volume: 0.5
-  pitchRange: {x: 0.95, y: 1.05}
+  volume: 0.122
+  pitchRange: {x: 1, y: 1}
   randomStartTime: 1
   fadeInTime: 0.05
   fadeOutTime: 0.15
