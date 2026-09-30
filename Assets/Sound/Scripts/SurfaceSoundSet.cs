@@ -59,6 +59,14 @@ namespace Sound
 		[Range(0f, 1f)]
 		public float HitVolume = 1f;
 
+		[Header("Break (поломка)")]
+		[Tooltip("Разрушение предмета из этого материала — играет по SoundSurface.PlayBreak (например, из Health → On Death). Пусто — без звука")]
+		public AudioClip[] BreakClips;
+		[Tooltip("Случайный питч поломки")]
+		public Vector2 BreakPitchRange = new Vector2(0.9f, 1.1f);
+		[Range(0f, 1f)]
+		public float BreakVolume = 1f;
+
 		private void OnValidate()
 		{
 			ImpactMediumSpeed = Mathf.Max(ImpactMediumSpeed, ImpactMinSpeed);
@@ -72,6 +80,8 @@ namespace Sound
 
 		public AudioClip GetHitClip(HitType type, AudioClip exclude = null) =>
 			PickRandom(type == HitType.Melee ? MeleeHitClips : BulletHitClips, exclude);
+
+		public AudioClip GetBreakClip(AudioClip exclude = null) => PickRandom(BreakClips, exclude);
 
 		// Уровень выбирается по силе удара: >= Heavy — Heavy, >= Medium — Medium, иначе Light. Если в нужном
 		// уровне нет клипов, берётся ближайший непустой, так что набор с одним заполненным уровнем тоже работает

@@ -43,3 +43,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 5e94f3d51023c5446b59f52c71e0cade, type: 3}
   HitPitchRange: {x: 0.9, y: 1.1}
   HitVolume: 1
+  BreakClips:
+  - {fileID: 8300000, guid: c54ff0b6d3b73954192b62cdcf53f513, type: 3}
+  BreakPitchRange: {x: 0.7, y: 0.9}
+  BreakVolume: 0.7

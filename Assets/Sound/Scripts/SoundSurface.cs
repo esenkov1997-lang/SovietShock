@@ -18,5 +18,14 @@ namespace Sound
 			SoundSurface surface = collider.GetComponentInParent<SoundSurface>();
 			return surface != null ? surface.SoundSet : null;
 		}
+
+		// Звук поломки этого объекта (SurfaceSoundSet.BreakClips) — для события, например Health → On Death.
+		// Звучит из центра коллайдеров объекта, а не из pivot: у моделей он часто в углу или у основания
+		public void PlayBreak()
+		{
+			Collider body = GetComponentInChildren<Collider>();
+			Vector3 position = body != null && body.enabled ? body.bounds.center : transform.position;
+			SurfaceSoundManager.Instance.PlayBreak(SoundSet, position);
+		}
 	}
 }

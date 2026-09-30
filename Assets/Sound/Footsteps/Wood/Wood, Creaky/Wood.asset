@@ -33,14 +33,20 @@ MonoBehaviour:
   LandingVolume: 0.5
   LightImpactClips:
   - {fileID: 8300000, guid: 3afa14426ae3c4d3297b6f5f765b6474, type: 3}
-  MediumImpactClips: []
-  HeavyImpactClips: []
+  MediumImpactClips:
+  - {fileID: 8300000, guid: 3afa14426ae3c4d3297b6f5f765b6474, type: 3}
+  HeavyImpactClips:
+  - {fileID: 8300000, guid: 3afa14426ae3c4d3297b6f5f765b6474, type: 3}
   ImpactMinSpeed: 0.8
   ImpactMediumSpeed: 3
   ImpactHeavySpeed: 7
   ImpactPitchRange: {x: 0.9, y: 1.1}
   ImpactVolume: 1
   BulletHitClips: []
-  MeleeHitClips: []
-  HitPitchRange: {x: 0.9, y: 1.1}
+  MeleeHitClips:
+  - {fileID: 8300000, guid: ed9ec51d32ec9422982dace6c40adb98, type: 3}
+  HitPitchRange: {x: 0.9, y: 1}
   HitVolume: 1
+  BreakClips: []
+  BreakPitchRange: {x: 0.9, y: 1.1}
+  BreakVolume: 1

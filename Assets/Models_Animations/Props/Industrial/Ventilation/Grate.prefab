@@ -204,6 +204,7 @@ GameObject:
   - component: {fileID: 4985293370412584941}
   - component: {fileID: 8709518515522485410}
   - component: {fileID: 9211790947150716739}
+  - component: {fileID: 5311926707892992668}
   m_Layer: 0
   m_Name: Grate_destroyed
   m_TagString: Untagged
@@ -340,7 +341,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26600dfb023734e40908c33bc6836d10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  LaunchDirection: {x: 0, y: 1, z: 1}
+  LaunchDirection: {x: 0, y: 1, z: 3}
   LocalSpace: 1
   LaunchForce: 3
   SpreadAngle: 15
@@ -405,3 +406,18 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
+--- !u!114 &5311926707892992668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4436469399948054782}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d00d537afc010cc46970e831ac03a634, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _intensityMultiplier: 1
+  _otherSurfaceVolume: 0.6
+  _cooldown: 0.1

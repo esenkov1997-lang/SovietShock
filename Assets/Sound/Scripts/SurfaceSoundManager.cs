@@ -32,6 +32,7 @@ namespace Sound
 		// по набору, а не по предмету: подряд идущие удары о дерево не повторяют клип, даже от разных предметов
 		private readonly Dictionary<SurfaceSoundSet, AudioClip> _lastImpactClip = new Dictionary<SurfaceSoundSet, AudioClip>();
 		private readonly Dictionary<SurfaceSoundSet, AudioClip> _lastHitClip = new Dictionary<SurfaceSoundSet, AudioClip>();
+		private readonly Dictionary<SurfaceSoundSet, AudioClip> _lastBreakClip = new Dictionary<SurfaceSoundSet, AudioClip>();
 
 		private void Awake()
 		{
@@ -88,6 +89,21 @@ namespace Sound
 			_lastHitClip[surface] = clip;
 
 			Play(clip, position, surface.HitVolume, surface.HitPitchRange);
+			return true;
+		}
+
+		// поломка предмета (см. SoundSurface.PlayBreak): играет здесь, а не на самом предмете — Health уничтожает
+		// его в том же кадре, и звук на нём оборвался бы сразу
+		public bool PlayBreak(SurfaceSoundSet surface, Vector3 position)
+		{
+			if (surface == null) return false;
+
+			_lastBreakClip.TryGetValue(surface, out AudioClip lastClip);
+			AudioClip clip = surface.GetBreakClip(lastClip);
+			if (clip == null) return false;
+			_lastBreakClip[surface] = clip;
+
+			Play(clip, position, surface.BreakVolume, surface.BreakPitchRange);
 			return true;
 		}
 
