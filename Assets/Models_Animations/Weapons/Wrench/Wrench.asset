@@ -41,3 +41,4 @@ MonoBehaviour:
     DamagePerSecond: 5
     HealBoolParam: Healing
     SparksPrefab: {fileID: 7874249726457335832, guid: 1555e40cd7848344b931e3036ad99fbf, type: 3}
+    SmokePrefab: {fileID: 7874249726457335832, guid: 1e44b2803e474ac4a98153911fb6c84e, type: 3}
