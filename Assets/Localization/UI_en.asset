@@ -44,6 +44,10 @@ MonoBehaviour:
     m_Localized: get a grip
     m_Metadata:
       m_Items: []
+  - m_Id: 3243147976318976
+    m_Localized: Climb
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

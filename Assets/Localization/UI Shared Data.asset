@@ -39,6 +39,10 @@ MonoBehaviour:
     m_Key: prompt.carry
     m_Metadata:
       m_Items: []
+  - m_Id: 3243147976318976
+    m_Key: prompt.mantle
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

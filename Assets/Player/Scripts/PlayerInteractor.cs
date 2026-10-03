@@ -28,11 +28,17 @@ namespace Player
 		private Outline _lookedAtOutline;
 		// какая подсказка сейчас на экране — чтобы перепривязать текст, если цель та же, а подсказка сменилась
 		private LocalizedString _shownPrompt;
+		private string _shownPrefix;
+
+		// необязателен — если есть, показываем подсказку залезть на уступ, когда использовать нечего
+		private LedgeMantle _ledgeMantle;
+		private const string JumpActionName = "Jump";
 
 		private void Awake()
 		{
 			if (rayOrigin == null && Camera.main != null) rayOrigin = Camera.main.transform;
 			if (input == null) input = GetComponentInParent<StarterAssetsInputs>();
+			_ledgeMantle = GetComponentInParent<LedgeMantle>();
 			if (holdController == null) holdController = GetComponentInParent<ItemHoldController>();
 			InteractKey.Register(GetComponentInParent<PlayerInput>());
 
@@ -86,9 +92,22 @@ namespace Player
 			}
 
 			// подсказка может смениться и у той же цели (DoorButton: "открыть" → "закрыть") — сравниваем
-			// и её, а не только сам объект. Сравнение по ссылке: у объекта одно поле на каждый вариант текста
+			// и её, а не только сам объект. Сравнение по ссылке: у объекта одно поле на каждый вариант текста.
+			// Префикс — подпись клавиши, берётся из реального биндинга (см. InteractKey)
 			LocalizedString prompt = found?.InteractionPrompt;
-			if (found == _lookedAt && prompt == _shownPrompt) return;
+			string prefix = found != null ? $"[{InteractKey.DisplayName}] " : null;
+			bool showPrompt = found != null;
+
+			// использовать нечего — подсказка залезть на уступ. У объектов приоритет: на них смотрят прицелом,
+			// а уступ просто оказался перед игроком
+			if (found == null && _ledgeMantle != null && _ledgeMantle.CanMantle)
+			{
+				prompt = _ledgeMantle.MantlePrompt;
+				prefix = $"[{InteractKey.GetDisplayName(JumpActionName, "Space")}] ";
+				showPrompt = true;
+			}
+
+			if (found == _lookedAt && prompt == _shownPrompt && prefix == _shownPrefix) return;
 
 			if (found != _lookedAt)
 			{
@@ -99,11 +118,11 @@ namespace Player
 				if (_lookedAtOutline != null) _lookedAtOutline.enabled = true;
 			}
 
-			// перевод подтянется сам и обновится при смене языка (см. PickupPromptUI.SetPrompt);
-			// "[F] " — подпись клавиши, а не текст: берётся из реального биндинга Interact (см. InteractKey)
+			// перевод подтянется сам и обновится при смене языка (см. PickupPromptUI.SetPrompt)
 			_shownPrompt = prompt;
-			if (found != null) PickupPromptUI.Instance?.SetPrompt(prompt, $"[{InteractKey.DisplayName}] ");
-			SetPromptVisible(found != null);
+			_shownPrefix = prefix;
+			if (showPrompt) PickupPromptUI.Instance?.SetPrompt(prompt, prefix);
+			SetPromptVisible(showPrompt);
 		}
 
 		// забыть текущую цель: погасить её контур и спрятать подсказку
@@ -113,6 +132,7 @@ namespace Player
 			_lookedAt = null;
 			_lookedAtOutline = null;
 			_shownPrompt = null;
+			_shownPrefix = null;
 			SetPromptVisible(false);
 		}
 

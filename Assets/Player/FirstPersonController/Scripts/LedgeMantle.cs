@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Localization;
 
 namespace StarterAssets
 {
@@ -28,6 +29,11 @@ namespace StarterAssets
 			new Keyframe(0f, 0f), new Keyframe(0.3f, 1f), new Keyframe(0.7f, 1f), new Keyframe(1f, 0f));
 		[Tooltip("Амплитуда наклона, градусы")]
 		public float CameraTiltAmount = 8f;
+
+		[Header("Prompt")]
+		[Tooltip("Подсказка, пока перед игроком есть уступ, на который можно залезть. Клавиша прыжка " +
+			"подставляется перед текстом сама — \"[Space] Взобраться\"")]
+		public LocalizedString MantlePrompt = new LocalizedString("UI", "prompt.mantle");
 
 		private CharacterController _controller;
 		private StarterAssetsInputs _input;
@@ -63,6 +69,21 @@ namespace StarterAssets
 		// so the caller can fall through to a normal jump.
 		public bool TryMantle()
 		{
+			if (!FindLedge(true, out Vector3 targetPosition)) return false;
+
+			StartCoroutine(ClimbLedge(targetPosition));
+			return true;
+		}
+
+		// Есть ли сейчас уступ, на который прыжок залезет — те же проверки, что в TryMantle, но без подъёма
+		// и без логов (вызывается каждый кадр). Для подсказки "[Space] Взобраться" (см. Player.PlayerInteractor)
+		public bool CanMantle => _controller != null && FindLedge(false, out _);
+
+		// Все проверки mantle. targetPosition — куда встанет transform после подъёма.
+		// log — писать в консоль, почему не получилось (только для настоящей попытки по прыжку)
+		private bool FindLedge(bool log, out Vector3 targetPosition)
+		{
+			targetPosition = default;
 			_debugClimbProbes.Clear();
 
 			if (_isClimbing || (_movement != null && _movement.IsCrouching)) return false;
@@ -78,7 +99,7 @@ namespace StarterAssets
 			wallProbeOrigin.y = feetY + lowProbeHeight;
 			if (!SphereCast(wallProbeOrigin, ClimbProbeRadius, moveDirection, ClimbCheckDistance, out RaycastHit wallHit))
 			{
-				Debug.Log("Mantle: нет стены впереди (шаг 1 — wall probe)");
+				if (log) Debug.Log("Mantle: нет стены впереди (шаг 1 — wall probe)");
 				return false;
 			}
 
@@ -87,7 +108,7 @@ namespace StarterAssets
 			topProbeOrigin.y = feetY + MaxClimbHeight;
 			if (SphereCast(topProbeOrigin, ClimbProbeRadius, moveDirection, ClimbCheckDistance, out _))
 			{
-				Debug.Log("Mantle: стена выше MaxClimbHeight (шаг 2 — top probe)");
+				if (log) Debug.Log("Mantle: стена выше MaxClimbHeight (шаг 2 — top probe)");
 				return false;
 			}
 
@@ -96,14 +117,14 @@ namespace StarterAssets
 			downProbeOrigin.y = feetY + MaxClimbHeight;
 			if (!SphereCast(downProbeOrigin, ClimbProbeRadius, Vector3.down, MaxClimbHeight - lowProbeHeight + 0.1f, out RaycastHit ledgeHit))
 			{
-				Debug.Log("Mantle: нет поверхности уступа сверху (шаг 3 — down probe)");
+				if (log) Debug.Log("Mantle: нет поверхности уступа сверху (шаг 3 — down probe)");
 				return false;
 			}
 
 			float ledgeHeight = ledgeHit.point.y - feetY;
 			if (ledgeHeight < _controller.stepOffset || ledgeHeight > MaxClimbHeight)
 			{
-				Debug.Log($"Mantle: высота уступа {ledgeHeight:F2}м вне диапазона [{_controller.stepOffset:F2}, {MaxClimbHeight:F2}]");
+				if (log) Debug.Log($"Mantle: высота уступа {ledgeHeight:F2}м вне диапазона [{_controller.stepOffset:F2}, {MaxClimbHeight:F2}]");
 				return false;
 			}
 
@@ -112,13 +133,13 @@ namespace StarterAssets
 			landingFeet.y = ledgeHit.point.y;
 			if (_movement == null || !_movement.HasHeadroomAt(landingFeet))
 			{
-				Debug.Log("Mantle: не хватает места стоять на уступе (шаг 4 — headroom)");
+				if (log) Debug.Log("Mantle: не хватает места стоять на уступе (шаг 4 — headroom)");
 				return false;
 			}
 
-			Debug.Log($"Mantle: залезть! высота уступа {ledgeHeight:F2}м, точка приземления {landingFeet}");
+			if (log) Debug.Log($"Mantle: залезть! высота уступа {ledgeHeight:F2}м, точка приземления {landingFeet}");
 
-			StartCoroutine(ClimbLedge(landingFeet - new Vector3(0f, _feetOffset, 0f)));
+			targetPosition = landingFeet - new Vector3(0f, _feetOffset, 0f);
 			return true;
 		}
 

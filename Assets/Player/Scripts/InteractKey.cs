@@ -27,19 +27,26 @@ namespace Player
 		public static bool WasPressedThisFrame => _action != null && _action.WasPressedThisFrame();
 
 		// Подпись клавиши для текущей схемы управления: "F" на клавиатуре, кнопка геймпада на геймпаде
-		public static string DisplayName
+		public static string DisplayName => GetDisplayName(_action, FallbackName);
+
+		// То же для любого другого действия игрока по имени из Input Actions ("Jump" → "Space") —
+		// для подсказок вроде "[Space] Взобраться". fallback — если действия нет или PlayerInput не зарегистрирован
+		public static string GetDisplayName(string actionName, string fallback)
 		{
-			get
-			{
-				if (_action == null) return FallbackName;
+			InputAction action = _playerInput != null ? _playerInput.actions.FindAction(actionName) : null;
+			return GetDisplayName(action, fallback);
+		}
 
-				string scheme = _playerInput != null ? _playerInput.currentControlScheme : null;
-				string name = string.IsNullOrEmpty(scheme)
-					? _action.GetBindingDisplayString()
-					: _action.GetBindingDisplayString(InputBinding.MaskByGroup(scheme));
+		private static string GetDisplayName(InputAction action, string fallback)
+		{
+			if (action == null) return fallback;
 
-				return string.IsNullOrEmpty(name) ? FallbackName : name;
-			}
+			string scheme = _playerInput != null ? _playerInput.currentControlScheme : null;
+			string name = string.IsNullOrEmpty(scheme)
+				? action.GetBindingDisplayString()
+				: action.GetBindingDisplayString(InputBinding.MaskByGroup(scheme));
+
+			return string.IsNullOrEmpty(name) ? fallback : name;
 		}
 	}
 }
