@@ -114,6 +114,14 @@ namespace StarterAssets
 		public float ExtraPitchOffset;
 		public Vector3 ExtraPositionOffset;
 		public Quaternion ExtraRotationOffset = Quaternion.identity;
+		// how far the camera is lowered on top of the normal crouch height, in metres (LedgeMantle drops it
+		// while vaulting through a window). Separate from ExtraPositionOffset because CameraHeadBob and
+		// WeaponCameraAnchor overwrite/accumulate that one every frame
+		public float ExtraCameraDrop;
+
+		// full standing capsule height (captured at Awake) — e.g. for LedgeMantle to know how much a
+		// crouch-height pass lowers the camera
+		public float StandingHeight => _standingHeight;
 
 		// recoil uses these instead of Extra*Offset: a kick/drift is a *permanent* change to where the
 		// player is aiming (same as normal mouse look), not a transient visual effect that resets itself —
@@ -273,7 +281,8 @@ namespace StarterAssets
 			// camera tilt or a hand-animated weapon camera bone still show up even if the player isn't
 			// currently moving the mouse. Position and rotation are each written exactly once, here,
 			// combining every contributor — nothing else should touch CinemachineCameraTarget's transform
-			CinemachineCameraTarget.transform.localPosition = _cameraBaseLocalPosition + ExtraPositionOffset;
+			CinemachineCameraTarget.transform.localPosition =
+				_cameraBaseLocalPosition + ExtraPositionOffset + Vector3.down * ExtraCameraDrop;
 			CinemachineCameraTarget.transform.localRotation =
 				Quaternion.Euler(_cinemachineTargetPitch + ExtraPitchOffset, 0.0f, 0.0f) * ExtraRotationOffset;
 		}

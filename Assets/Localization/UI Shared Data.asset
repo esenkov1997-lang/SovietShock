@@ -43,6 +43,10 @@ MonoBehaviour:
     m_Key: prompt.mantle
     m_Metadata:
       m_Items: []
+  - m_Id: 3245276614959104
+    m_Key: prompt.vault
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

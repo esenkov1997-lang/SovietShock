@@ -20,6 +20,9 @@ namespace StarterAssets
 	public class LedgeMantle : MonoBehaviour
 	{
 		[Header("Ledge Climb")]
+		[Tooltip("Минимальная высота уступа от ног игрока, на который залезаем. Ниже — обычный прыжок: " +
+			"на невысокий ящик можно просто запрыгнуть, mantle там выглядит излишне")]
+		public float MinClimbHeight = 0.9f;
 		[Tooltip("Maximum height, from the character's feet, of a ledge that can be climbed")]
 		public float MaxClimbHeight = 1.2f;
 		[Tooltip("How far in front of the character to look for a climbable ledge")]
@@ -32,6 +35,9 @@ namespace StarterAssets
 		[Header("Vault (перелезание)")]
 		[Tooltip("Перелезать через препятствия, а не только залезать на них")]
 		public bool EnableVault = true;
+		[Tooltip("Минимальная высота препятствия, через которое перелезаем, м. Ниже — обычный прыжок " +
+			"(через бордюр или низкую трубу проще перепрыгнуть)")]
+		public float VaultMinHeight = 0.5f;
 		[Tooltip("Максимальная высота препятствия от ног игрока, через которое можно перелезть, м. " +
 			"Сравнивается с точной измеренной высотой верха — выше этого значения будет обычный mantle")]
 		public float VaultMaxHeight = 1.0f;
@@ -45,6 +51,9 @@ namespace StarterAssets
 		public float VaultClearance = 0.15f;
 		[Tooltip("Скорость перелезания, м/с — обычно быстрее, чем залезание")]
 		public float VaultSpeed = 5.0f;
+		[Tooltip("Перелезать пригнувшись, высотой капсулы как в присяде (FirstPersonController.CrouchHeight) — " +
+			"так можно пролезть в окно. Проём должен быть не ниже CrouchHeight + Vault Clearance")]
+		public bool VaultCrouched = true;
 
 		[Header("Camera Tilt")]
 		[Tooltip("Наклон камеры (pitch) во время подъёма, по нормализованному времени climb'а 0..1")]
@@ -107,9 +116,18 @@ namespace StarterAssets
 		{
 			if (!FindLedge(true, out LedgeMove move)) return false;
 
-			StartCoroutine(move.IsVault
-				? ClimbLedge(move.Target, move.PassHeight, VaultSpeed, VaultTiltAmount)
-				: ClimbLedge(move.Target, move.PassHeight, ClimbSpeed, CameraTiltAmount));
+			if (move.IsVault)
+			{
+				// пригнуться — камера опускается на ту же величину, что и в присяде
+				float crouchDrop = VaultCrouched && _movement != null
+					? Mathf.Max(0f, _movement.StandingHeight - _movement.CrouchHeight)
+					: 0f;
+				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, VaultSpeed, VaultTiltAmount, crouchDrop));
+			}
+			else
+			{
+				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, ClimbSpeed, CameraTiltAmount, 0f));
+			}
 			return true;
 		}
 
@@ -148,19 +166,32 @@ namespace StarterAssets
 				return false;
 			}
 
-			// 2) is the wall short enough to climb (nothing blocking at max climb height)?
-			Vector3 topProbeOrigin = transform.position;
-			topProbeOrigin.y = feetY + MaxClimbHeight;
-			if (SphereCast(topProbeOrigin, ClimbProbeRadius, moveDirection, ClimbCheckDistance, out _))
+			// 2) ищем САМЫЙ НИЖНИЙ свободный просвет над стеной: пробы вперёд снизу вверх с шагом в радиус пробы.
+			// Не одной пробой на MaxClimbHeight — у окна над проёмом снова стена: проба на максимальной высоте
+			// прошла бы над ней, и вместо подоконника нашёлся бы верх стены
+			float gapHeight = -1f;
+			float probeStep = Mathf.Max(ClimbProbeRadius, 0.05f);
+			for (float h = lowProbeHeight + probeStep; h <= MaxClimbHeight + 0.001f; h += probeStep)
 			{
-				if (log) Debug.Log("Mantle: стена выше MaxClimbHeight (шаг 2 — top probe)");
+				Vector3 gapProbeOrigin = transform.position;
+				gapProbeOrigin.y = feetY + h;
+				if (!SphereCast(gapProbeOrigin, ClimbProbeRadius, moveDirection, ClimbCheckDistance, out _))
+				{
+					gapHeight = h;
+					break;
+				}
+			}
+			if (gapHeight < 0f)
+			{
+				if (log) Debug.Log("Mantle: стена выше MaxClimbHeight, просвета нет (шаг 2 — gap probe)");
 				return false;
 			}
 
-			// 3) find the actual surface height of the ledge just past the wall face
+			// 3) find the actual surface height of the ledge just past the wall face — от найденного просвета вниз.
+			// Сфера на этой высоте только что прошла вперёд без столкновений, поэтому старт пробы точно свободен
 			Vector3 downProbeOrigin = wallHit.point + moveDirection * (ClimbProbeRadius + _controller.skinWidth);
-			downProbeOrigin.y = feetY + MaxClimbHeight;
-			if (!SphereCast(downProbeOrigin, ClimbProbeRadius, Vector3.down, MaxClimbHeight - lowProbeHeight + 0.1f, out RaycastHit ledgeHit))
+			downProbeOrigin.y = feetY + gapHeight;
+			if (!SphereCast(downProbeOrigin, ClimbProbeRadius, Vector3.down, gapHeight - lowProbeHeight + 0.1f, out RaycastHit ledgeHit))
 			{
 				if (log) Debug.Log("Mantle: нет поверхности уступа сверху (шаг 3 — down probe)");
 				return false;
@@ -174,7 +205,7 @@ namespace StarterAssets
 			}
 
 			// 3b) низкое препятствие — пробуем перелезть через него. Не вышло — падаем в обычный mantle наверх
-			if (EnableVault && ledgeHeight <= VaultMaxHeight &&
+			if (EnableVault && ledgeHeight >= VaultMinHeight && ledgeHeight <= VaultMaxHeight &&
 				FindVaultLanding(wallHit.point, moveDirection, feetY, ledgeHit.point.y, radius, log, out Vector3 vaultFeet))
 			{
 				if (log) Debug.Log($"Vault: перелезть! высота {ledgeHeight:F2}м, приземление {vaultFeet}");
@@ -185,6 +216,13 @@ namespace StarterAssets
 					IsVault = true,
 				};
 				return true;
+			}
+
+			// 3c) mantle только на высокие уступы — на низкие игрок запрыгнет обычным прыжком
+			if (ledgeHeight < MinClimbHeight)
+			{
+				if (log) Debug.Log($"Mantle: уступ {ledgeHeight:F2}м ниже MinClimbHeight {MinClimbHeight:F2}м — обычный прыжок");
+				return false;
 			}
 
 			// 4) make sure the character actually fits standing on top of the ledge
@@ -259,13 +297,15 @@ namespace StarterAssets
 				return false;
 			}
 
-			// V5) путь над верхом свободен: капсула на высоте прохода от игрока до точки над приземлением
+			// V5) путь над верхом свободен: капсула на высоте прохода от игрока до точки над приземлением.
+			// Пригнувшись — высотой приседа, поэтому пролезаем в окно, куда стоя не пройти
 			float passFeetY = topY + VaultClearance;
+			float passHeight = VaultCrouched && _movement != null ? _movement.CrouchHeight : _controller.height;
 			Vector3 passStart = new Vector3(transform.position.x, passFeetY, transform.position.z);
 			Vector3 passEnd = new Vector3(landing.x, passFeetY, landing.z);
-			if (!IsCapsulePathClear(passStart, passEnd, radius, mask))
+			if (!IsCapsulePathClear(passStart, passEnd, radius, passHeight, mask))
 			{
-				if (log) Debug.Log("Vault: над препятствием не пролезть (низкий потолок / преграда) — mantle");
+				if (log) Debug.Log($"Vault: над препятствием не пролезть даже высотой {passHeight:F2}м (низкий проём / преграда) — mantle");
 				return false;
 			}
 
@@ -273,10 +313,10 @@ namespace StarterAssets
 			return true;
 		}
 
-		// свободен ли путь стоящей капсулы (по ногам) из from в to, не считая собственного коллайдера
-		private bool IsCapsulePathClear(Vector3 fromFeet, Vector3 toFeet, float radius, int mask)
+		// свободен ли путь капсулы высотой height (по ногам) из from в to, не считая собственного коллайдера
+		private bool IsCapsulePathClear(Vector3 fromFeet, Vector3 toFeet, float radius, float height, int mask)
 		{
-			float height = _controller.height;
+			height = Mathf.Max(height, radius * 2f);
 			Vector3 bottom = fromFeet + Vector3.up * radius;
 			Vector3 top = fromFeet + Vector3.up * (height - radius);
 			Vector3 delta = toFeet - fromFeet;
@@ -336,7 +376,11 @@ namespace StarterAssets
 
 		// passHeight — высота transform.y, на которой идёт горизонтальная часть пути: при mantle чуть выше
 		// уступа, при vault чуть выше верха препятствия (а цель — ниже, за ним)
-		private IEnumerator ClimbLedge(Vector3 targetPosition, float passHeight, float speed, float tiltAmount)
+		// crouchDrop — на сколько метров опустить камеру, пока игрок проходит над препятствием (0 — не пригибаться).
+		// Сам CharacterController на время подъёма выключен, поэтому физически капсулу уменьшать не нужно —
+		// "пролезает ли" уже проверено в FindVaultLanding, а здесь опускаем только камеру, чтобы она не прошла
+		// сквозь стену над окном
+		private IEnumerator ClimbLedge(Vector3 targetPosition, float passHeight, float speed, float tiltAmount, float crouchDrop)
 		{
 			_isClimbing = true;
 			_controller.enabled = false;
@@ -354,12 +398,22 @@ namespace StarterAssets
 			float totalDuration = Mathf.Max(totalDistance / speed, 0.01f);
 			Coroutine tiltRoutine = StartCoroutine(TrackCameraTilt(totalDuration, tiltAmount));
 
-			yield return MoveTo(startPosition, raisedAtStart, speed);   // straight up, clear of the wall
-			yield return MoveTo(raisedAtStart, raisedAtTarget, speed);  // straight over, above the ledge edge
-			yield return MoveTo(raisedAtTarget, targetPosition, speed); // settle down
+			// пригибание привязано к фазам, а не к общему времени: к началу прохода над препятствием камера
+			// гарантированно уже внизу, как бы ни соотносились длины подъёма и прохода
+			yield return MoveTo(startPosition, raisedAtStart, speed,    // straight up, clear of the wall — пригибаемся
+				p => SetCrouchDrop(crouchDrop * Mathf.SmoothStep(0f, 1f, p)));
+			yield return MoveTo(raisedAtStart, raisedAtTarget, speed,   // straight over, above the ledge edge — пригнувшись
+				_ => SetCrouchDrop(crouchDrop));
+			yield return MoveTo(raisedAtTarget, targetPosition, speed,  // settle down — выпрямляемся
+				p => SetCrouchDrop(crouchDrop * (1f - Mathf.SmoothStep(0f, 1f, p))));
 
 			StopCoroutine(tiltRoutine);
-			if (_movement != null) _movement.ExtraPitchOffset = 0f; // don't leave the tilt stuck on
+			if (_movement != null)
+			{
+				// don't leave the tilt / crouch drop stuck on
+				_movement.ExtraPitchOffset = 0f;
+				_movement.ExtraCameraDrop = 0f;
+			}
 
 			transform.position = targetPosition;
 			if (_movement != null) _movement.ClearVerticalVelocity();
@@ -383,7 +437,8 @@ namespace StarterAssets
 			}
 		}
 
-		private IEnumerator MoveTo(Vector3 from, Vector3 to, float speed)
+		// onProgress — вызывается каждый кадр с долей пройденного отрезка 0..1 (для пригибания камеры)
+		private IEnumerator MoveTo(Vector3 from, Vector3 to, float speed, System.Action<float> onProgress = null)
 		{
 			float duration = Mathf.Max(Vector3.Distance(from, to) / speed, 0.01f);
 			float elapsed = 0f;
@@ -391,11 +446,19 @@ namespace StarterAssets
 			while (elapsed < duration)
 			{
 				elapsed += Time.deltaTime;
-				transform.position = Vector3.Lerp(from, to, elapsed / duration);
+				float t = Mathf.Clamp01(elapsed / duration);
+				transform.position = Vector3.Lerp(from, to, t);
+				onProgress?.Invoke(t);
 				yield return null;
 			}
 
 			transform.position = to;
+			onProgress?.Invoke(1f);
+		}
+
+		private void SetCrouchDrop(float drop)
+		{
+			if (_movement != null) _movement.ExtraCameraDrop = drop;
 		}
 
 		private void OnDrawGizmosSelected()

@@ -231,7 +231,7 @@ MonoBehaviour:
   RotationSpeed: 1
   Acceleration: 15
   Deceleration: 30
-  AirControl: 0.1
+  AirControl: 0.2
   JumpHeight: 1.2
   Gravity: -30
   JumpTimeout: 0.1
@@ -252,6 +252,7 @@ MonoBehaviour:
   ExtraPitchOffset: 0
   ExtraPositionOffset: {x: 0, y: 0, z: 0}
   ExtraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
+  ExtraCameraDrop: 0
 --- !u!114 &1978471637655604388
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -405,17 +406,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f12292b459a8ff24ca0f66c118b185da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  MinClimbHeight: 1
   MaxClimbHeight: 3
   ClimbCheckDistance: 0.5
   ClimbSpeed: 6
   ClimbProbeRadius: 0.2
   EnableVault: 1
+  VaultMinHeight: 0.5
   VaultMaxHeight: 1.5
   VaultMaxDepth: 0.8
   VaultMaxDrop: 1.5
   VaultLandingOffset: 0.1
-  VaultClearance: 0.15
+  VaultClearance: 0.1
   VaultSpeed: 6
+  VaultCrouched: 1
   CameraTiltCurve:
     serializedVersion: 2
     m_Curve:
@@ -638,8 +642,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 0.7788573
+  MaxDistance: 4.994629
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -674,7 +678,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
