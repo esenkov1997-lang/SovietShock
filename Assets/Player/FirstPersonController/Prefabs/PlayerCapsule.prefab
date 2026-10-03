@@ -409,6 +409,13 @@ MonoBehaviour:
   ClimbCheckDistance: 0.5
   ClimbSpeed: 6
   ClimbProbeRadius: 0.2
+  EnableVault: 1
+  VaultMaxHeight: 1.5
+  VaultMaxDepth: 0.8
+  VaultMaxDrop: 1.5
+  VaultLandingOffset: 0.1
+  VaultClearance: 0.15
+  VaultSpeed: 6
   CameraTiltCurve:
     serializedVersion: 2
     m_Curve:
@@ -452,6 +459,28 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   CameraTiltAmount: 8
+  VaultTiltAmount: 5
+  MantlePrompt:
+    m_TableReference:
+      m_TableCollectionName: UI
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: prompt.mantle
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  VaultPrompt:
+    m_TableReference:
+      m_TableCollectionName: UI
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: prompt.vault
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  references:
+    version: 2
+    RefIds: []
 --- !u!114 &5487982537949972152
 MonoBehaviour:
   m_ObjectHideFlags: 0

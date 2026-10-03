@@ -98,11 +98,12 @@ namespace Player
 			string prefix = found != null ? $"[{InteractKey.DisplayName}] " : null;
 			bool showPrompt = found != null;
 
-			// использовать нечего — подсказка залезть на уступ. У объектов приоритет: на них смотрят прицелом,
-			// а уступ просто оказался перед игроком
-			if (found == null && _ledgeMantle != null && _ledgeMantle.CanMantle)
+			// использовать нечего — подсказка залезть на уступ / перелезть через препятствие (что именно сделает
+			// прыжок, решает LedgeMantle). У объектов приоритет: на них смотрят прицелом, а уступ просто оказался перед игроком
+			LocalizedString ledgePrompt = found == null && _ledgeMantle != null ? _ledgeMantle.AvailablePrompt : null;
+			if (ledgePrompt != null)
 			{
-				prompt = _ledgeMantle.MantlePrompt;
+				prompt = ledgePrompt;
 				prefix = $"[{InteractKey.GetDisplayName(JumpActionName, "Space")}] ";
 				showPrompt = true;
 			}
