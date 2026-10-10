@@ -322,10 +322,7 @@ namespace Weapons
 			ApplyAccumulated(ref _gasAccumulator, repair.AmmoPerSecond,
 				spend => slot.CurrentAmmo = Mathf.Max(0, slot.CurrentAmmo - spend));
 
-			if (_movement == null || _movement.CinemachineCameraTarget == null) return;
-
-			Transform origin = _movement.CinemachineCameraTarget.transform;
-			if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, tool.Range, ~0, QueryTriggerInteraction.Ignore))
+			if (!CastFromCamera(tool.Range, 0f, out RaycastHit hit))
 			{
 				// горелка светит "в воздух" — до поверхности не достаёт, ни искр, ни дыма
 				StopRepairEffects();
@@ -727,19 +724,42 @@ namespace Weapons
 		// Стрелковое оружие остаётся на тонком луче — сфера на 100 м работала бы как автоприцел
 		private bool TryRaycastFromCamera(WeaponData data, out RaycastHit hit)
 		{
+			float radius = data is MeleeWeaponData melee ? melee.HitRadius : 0f;
+			return CastFromCamera(data.Range, radius, out hit);
+		}
+
+		// буфер под все попадания одного луча — без аллокаций на каждый выстрел/кадр горелки
+		private readonly RaycastHit[] _castHits = new RaycastHit[16];
+
+		// луч (radius = 0) или сфера от камеры вперёд — ближайшее попадание, НЕ считая коллайдеры самого игрока.
+		// Камера стоит у края капсулы игрока: при движении назад капсула за кадр сдвигается так, что точка
+		// камеры оказывается снаружи перед ней, и обычный Raycast попадал в собственную капсулу — оружие
+		// наносило урон игроку. Поэтому берём все попадания по дистанции и пропускаем свои
+		private bool CastFromCamera(float range, float radius, out RaycastHit hit)
+		{
 			hit = default;
 			if (_movement == null || _movement.CinemachineCameraTarget == null) return false;
 
 			Transform origin = _movement.CinemachineCameraTarget.transform;
+			int count = radius > 0f
+				? Physics.SphereCastNonAlloc(origin.position, radius, origin.forward, _castHits, range, ~0, QueryTriggerInteraction.Ignore)
+				: Physics.RaycastNonAlloc(origin.position, origin.forward, _castHits, range, ~0, QueryTriggerInteraction.Ignore);
 
-			// SphereCast не замечает коллайдеры, которые сфера перекрывает уже в начальной точке — это как
-			// раз и отсекает собственную капсулу игрока (камера внутри неё), отдельного фильтра не нужно
-			if (data is MeleeWeaponData melee && melee.HitRadius > 0f)
+			float closest = float.PositiveInfinity;
+			Transform self = _movement.transform;
+			for (int i = 0; i < count; i++)
 			{
-				return Physics.SphereCast(origin.position, melee.HitRadius, origin.forward, out hit, data.Range, ~0, QueryTriggerInteraction.Ignore);
+				RaycastHit candidate = _castHits[i];
+				if (candidate.distance >= closest || candidate.collider.transform.IsChildOf(self)) continue;
+				// SphereCastNonAlloc, в отличие от SphereCast, отдаёт и коллайдеры, перекрытые сферой уже в стартовой
+				// точке — с distance 0 и без точки/нормали попадания. Как и раньше, такие не считаем попаданием
+				if (radius > 0f && candidate.distance <= 0f) continue;
+
+				closest = candidate.distance;
+				hit = candidate;
 			}
 
-			return Physics.Raycast(origin.position, origin.forward, out hit, data.Range, ~0, QueryTriggerInteraction.Ignore);
+			return closest < float.PositiveInfinity;
 		}
 
 		// звук попадания, как и декаль, зависит от того, во что попали, а не от оружия: одна и та же пуля по дереву

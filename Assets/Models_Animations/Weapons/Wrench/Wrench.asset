@@ -17,7 +17,7 @@ MonoBehaviour:
   Damage: 10
   Range: 1.4
   FireRate: 5
-  HitForce: 3
+  HitForce: 20
   AttackTrigger: Attack
   DrawTrigger: Draw
   VFX:
