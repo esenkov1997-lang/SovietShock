@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25479e7f4ea54b4d890aec33b2d751dc, type: 3}
+  m_Name: DogPaws
+  m_EditorClassIdentifier: 
+  DefaultClips:
+  - {fileID: 8300000, guid: 08236093603164aaf9c5fb7e382bb8df, type: 3}
+  - {fileID: 8300000, guid: 5d7d08468ed9c4be884563c9837f4ebb, type: 3}
+  - {fileID: 8300000, guid: edf1a47e76a4644fd8a7cf4ae74b9379, type: 3}
+  - {fileID: 8300000, guid: 8f2b00542715046389b546744cce3d53, type: 3}
+  - {fileID: 8300000, guid: cde5fdc89cab9497e907e25684a57db2, type: 3}
+  - {fileID: 8300000, guid: 8c64c477395b4433a94d8fbd4de950fd, type: 3}
+  - {fileID: 8300000, guid: 10a710e3ea7864a67a5afe9c01f3e9ac, type: 3}
+  - {fileID: 8300000, guid: a281139bf0e3649e6ae77d8b98989f2e, type: 3}
+  - {fileID: 8300000, guid: c3ba4c5e8e02946e39ff1114daf5511c, type: 3}
+  - {fileID: 8300000, guid: 1539c575a181e42edbf0766a46e0f116, type: 3}
+  Surfaces: []
+  PitchRange: {x: 0.9, y: 1.1}
+  Volume: 0.6

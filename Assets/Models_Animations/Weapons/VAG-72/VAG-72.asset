@@ -16,7 +16,8 @@ MonoBehaviour:
   WeaponName: VAG-72
   Damage: 10
   Range: 100
-  FireRate: 5
+  FireRate: 12
+  HitForce: 5
   AttackTrigger: Attack
   DrawTrigger: Draw
   VFX:
@@ -27,9 +28,9 @@ MonoBehaviour:
   HandPosition: {x: 0.13, y: -0.11, z: 0.33}
   HandRotation: {x: 0, y: 0, z: 0}
   AnimationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}
-  Mode: 0
+  Mode: 1
   Magazine:
-    MagazineSize: 10
+    MagazineSize: 32
     AmmoId: 
     ReloadTrigger: Reload
   Recoil:

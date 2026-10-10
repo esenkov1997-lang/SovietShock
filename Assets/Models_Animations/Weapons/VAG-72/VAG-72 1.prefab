@@ -1165,6 +1165,49 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c8f4429c7dfcf041a180d8e57378330, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &4417310296631522801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3597379192207977521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dc0527a0e6ec93195f8c81f4a8dbb17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  oneShotSource: {fileID: 0}
+  loopSource: {fileID: 0}
+  Attack:
+    Clips:
+    - {fileID: 8300000, guid: aad5f811e321baa40986438a2deed3fe, type: 3}
+    Volume: 0.575
+    PitchRange: {x: 1.2, y: 1.3}
+  DryFire:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  Draw:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  Reload:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  RepairStart:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  RepairLoop:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
+  RepairEnd:
+    Clips: []
+    Volume: 1
+    PitchRange: {x: 1, y: 1}
 --- !u!1 &3622042388686293968
 GameObject:
   m_ObjectHideFlags: 0
@@ -2514,6 +2557,9 @@ MonoBehaviour:
   particles: {fileID: 0}
   flameMesh: {fileID: 0}
   flashDuration: 0.05
+  flameFadeProperty: _Fade
+  flameFadeDuration: 0.1
+  flickerSource: {fileID: 0}
 --- !u!1 &7863454199219425967
 GameObject:
   m_ObjectHideFlags: 0
@@ -2857,8 +2903,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8622905859008211519}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0094000045, y: -0.038299974, z: 0.07999991}
+  m_LocalRotation: {x: 0.049785502, y: 0.90501857, z: -0.11050405, w: 0.40773985}
+  m_LocalPosition: {x: -0.39356786, y: 0.08884448, z: 0.4198091}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2871,12 +2917,12 @@ Light:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8622905859008211519}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 11
   m_Type: 2
   m_Color: {r: 1, g: 0.69743043, b: 0.2028302, a: 1}
-  m_Intensity: 8
-  m_Range: 10
+  m_Intensity: 1.71
+  m_Range: 0.83
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
@@ -3123,46 +3169,3 @@ Transform:
   - {fileID: 581453448709200384}
   m_Father: {fileID: 5955620309975343025}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4417310296631522801
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3597379192207977521}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7dc0527a0e6ec93195f8c81f4a8dbb17, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  oneShotSource: {fileID: 0}
-  loopSource: {fileID: 0}
-  Attack:
-    Clips:
-    - {fileID: 8300000, guid: aad5f811e321baa40986438a2deed3fe, type: 3}
-    Volume: 1
-    PitchRange: {x: 1.2, y: 1.3}
-  DryFire:
-    Clips: []
-    Volume: 1
-    PitchRange: {x: 1, y: 1}
-  Draw:
-    Clips: []
-    Volume: 1
-    PitchRange: {x: 1, y: 1}
-  Reload:
-    Clips: []
-    Volume: 1
-    PitchRange: {x: 1, y: 1}
-  RepairStart:
-    Clips: []
-    Volume: 1
-    PitchRange: {x: 1, y: 1}
-  RepairLoop:
-    Clips: []
-    Volume: 1
-    PitchRange: {x: 1, y: 1}
-  RepairEnd:
-    Clips: []
-    Volume: 1
-    PitchRange: {x: 1, y: 1}
