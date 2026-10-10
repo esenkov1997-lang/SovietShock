@@ -11,6 +11,7 @@ namespace Enemies
 	{
 		public event Action AttackHitReceived;
 		public event Action AttackEndReceived;
+		public event Action HitEndReceived;
 
 		// Animation Event "AttackHit" — на кадр клипа атаки, где зубы/лапа касаются цели. Тут наносится урон
 		public void AttackHit()
@@ -22,6 +23,12 @@ namespace Enemies
 		public void AttackEnd()
 		{
 			AttackEndReceived?.Invoke();
+		}
+
+		// Animation Event "HitEnd" — ближе к концу клипа вздрагивания, когда враг снова может двигаться и атаковать
+		public void HitEnd()
+		{
+			HitEndReceived?.Invoke();
 		}
 	}
 }

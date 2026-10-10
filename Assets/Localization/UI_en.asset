@@ -52,6 +52,10 @@ MonoBehaviour:
     m_Localized: Vault
     m_Metadata:
       m_Items: []
+  - m_Id: 5894966741377024
+    m_Localized: Spawn enemy
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

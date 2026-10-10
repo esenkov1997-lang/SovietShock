@@ -691,7 +691,6 @@ namespace Weapons
 
 			SpawnImpactDecal(data, hit);
 			PlayHitSound(data, hit);
-			ApplyHitForce(data, hit);
 
 			IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
 			if (damageable != null)
@@ -703,11 +702,15 @@ namespace Weapons
 			{
 				Debug.Log($"{data.WeaponName}: попадание в {hit.collider.name} (без IDamageable, урон не нанесён)");
 			}
+
+			ApplyHitForce(data, hit);
 		}
 
 		// толкает Rigidbody цели в точку попадания по направлению взгляда — ящики, обломки и т.п. отлетают от удара/пули.
-		// Вызывается до урона: если попадание добивает объект, толчок всё равно успевает примениться.
-		// Kinematic-тела (в т.ч. замороженные обломки BreakableDebris) AddForce просто игнорируют
+		// Вызывается ПОСЛЕ урона: если попадание убивает врага, его ragdoll включается прямо внутри TakeDamage
+		// (kinematic-кости становятся физическими) — и толчок добивающего выстрела отбрасывает тело.
+		// Destroy() срабатывает только в конце кадра, так что уничтожаемые объекты толчок тоже получают.
+		// Kinematic-тела (в т.ч. замороженные обломки BreakableDebris и кости живого врага) AddForce просто игнорируют
 		private void ApplyHitForce(WeaponData data, RaycastHit hit)
 		{
 			if (data.HitForce <= 0f || hit.rigidbody == null) return;

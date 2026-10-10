@@ -71,8 +71,17 @@ namespace Enemies
 			_hasDestination = true;
 		}
 
+		// насовсем (смерть): агент больше не держит объект на NavMesh и не мешает физике ragdoll
+		public void DisableAgent()
+		{
+			Stop();
+			_agent.enabled = false;
+			enabled = false;
+		}
+
 		public void Stop()
 		{
+			if (!_agent.enabled) return;
 			if (!_agent.isOnNavMesh) return;
 
 			_agent.isStopped = true;

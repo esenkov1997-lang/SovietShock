@@ -1,4 +1,5 @@
 using UnityEngine;
+using Weapons;
 
 namespace Enemies
 {
@@ -15,7 +16,11 @@ namespace Enemies
 	//   Search      — обыскивает местность вокруг места потери (первая точка — в сторону, куда бежал игрок),
 	//                 на каждой точке осматривается. Время вышло — возвращается к спокойному состоянию.
 	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
+	//   Dead        — Health дошло до нуля: всё выключается, тело становится ragdoll.
+	// Поверх любого состояния — оглушение от попадания (EnemyHitReaction): пока играет вздрагивание, собака стоит,
+	// атака прерывается. Любое попадание сразу поднимает тревогу — собака знает, где стрелок.
 	[RequireComponent(typeof(EnemyMovement), typeof(EnemyPerception), typeof(EnemyAttack))]
+	[RequireComponent(typeof(Health), typeof(EnemyRagdoll))]
 	public class DogAI : MonoBehaviour
 	{
 		public enum State
@@ -25,7 +30,8 @@ namespace Enemies
 			Investigate,
 			Search,
 			Chase,
-			Attack
+			Attack,
+			Dead
 		}
 
 		[Header("Спокойное поведение")]
@@ -80,6 +86,9 @@ namespace Enemies
 		private EnemyPerception _perception;
 		private EnemyAnimator _animator;
 		private EnemyAttack _attack;
+		private Health _health;
+		private EnemyHitReaction _hitReaction;
+		private EnemyRagdoll _ragdoll;
 
 		private Vector3 _postPosition;
 		private Vector3 _postForward;
@@ -120,16 +129,30 @@ namespace Enemies
 			_perception = GetComponent<EnemyPerception>();
 			_animator = GetComponent<EnemyAnimator>();
 			_attack = GetComponent<EnemyAttack>();
+			_health = GetComponent<Health>();
+			_hitReaction = GetComponent<EnemyHitReaction>(); // необязательный — без него собака не вздрагивает
+			_ragdoll = GetComponent<EnemyRagdoll>();
+
+			// тело остаётся лежать — уничтожение объекта сломало бы ragdoll
+			if (_health.DestroyOnDeath)
+			{
+				Debug.LogWarning($"{name}: у Health включён Destroy On Death — для ragdoll выключаю", this);
+				_health.DestroyOnDeath = false;
+			}
 		}
 
 		private void OnEnable()
 		{
 			_perception.NoiseHeard += HandleNoiseHeard;
+			_health.OnDamaged.AddListener(HandleDamaged);
+			_health.OnDeath.AddListener(Die);
 		}
 
 		private void OnDisable()
 		{
 			_perception.NoiseHeard -= HandleNoiseHeard;
+			_health.OnDamaged.RemoveListener(HandleDamaged);
+			_health.OnDeath.RemoveListener(Die);
 		}
 
 		private void Start()
@@ -143,6 +166,16 @@ namespace Enemies
 		private void Update()
 		{
 			_isLookingAround = false;
+
+			// оглушение перекрывает любое состояние: стоим, атаку прерываем. Состояние при этом не меняется —
+			// после вздрагивания собака продолжит то, что делала (обычно погоню: попадание поднимает тревогу)
+			if (_hitReaction != null && _hitReaction.IsStaggered)
+			{
+				_attack.Cancel();
+				_movement.Stop();
+				if (_animator != null) _animator.SetSearching(false);
+				return;
+			}
 
 			switch (currentState)
 			{
@@ -475,6 +508,34 @@ namespace Enemies
 
 			_lookHeading = Quaternion.Euler(0f, Random.Range(-lookAroundAngle, lookAroundAngle), 0f) * _lookBaseForward;
 			_lookPauseTimer = Random.Range(lookAroundPause.x, lookAroundPause.y);
+		}
+
+		// ---------- Урон и смерть ----------
+
+		private void HandleDamaged(int currentHealth, int maxHealth)
+		{
+			if (currentHealth <= 0) return; // смерть обработает Die
+
+			// попали — значит, игрок рядом и опасен: тревога сразу, даже если собака спала или смотрела в другую сторону
+			_perception.AlertToPlayer();
+		}
+
+		private void Die()
+		{
+			currentState = State.Dead;
+
+			// скорость берём до выключения агента — ragdoll продолжит движение по инерции
+			Vector3 velocity = _movement.Agent.velocity;
+
+			_attack.Cancel();
+			_attack.enabled = false;
+			_movement.DisableAgent();
+			_perception.enabled = false;
+			if (_hitReaction != null) _hitReaction.enabled = false;
+			if (_animator != null) _animator.enabled = false;
+
+			_ragdoll.Activate(velocity);
+			enabled = false;
 		}
 
 		// ---------- Слух ----------

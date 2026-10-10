@@ -47,6 +47,10 @@ MonoBehaviour:
     m_Key: prompt.vault
     m_Metadata:
       m_Items: []
+  - m_Id: 5894966741377024
+    m_Key: prompt.debug.spawnEnemy
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

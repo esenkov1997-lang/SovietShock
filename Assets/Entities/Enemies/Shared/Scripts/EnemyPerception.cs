@@ -120,8 +120,10 @@ namespace Enemies
 				_lastSeenTime = Time.time;
 				awareness = Mathf.Min(1f, awareness + GetAwarenessGain() * Time.deltaTime);
 			}
-			else
+			else if (Time.time - _lastSeenTime > trackAfterLostSight)
 			{
+				// спад начинается, только когда враг перестал "вести" игрока. Иначе тревога без зрения
+				// (AlertToPlayer — от урона, при спавне) могла бы упасть ниже 1 раньше, чем мозг её заметит
 				awareness = Mathf.Max(0f, awareness - awarenessDecay * Time.deltaTime);
 			}
 
@@ -132,6 +134,20 @@ namespace Enemies
 				LastKnownPlayerVelocity = _playerCapsule != null ? _playerCapsule.velocity : Vector3.zero;
 				HasLastKnownPosition = true;
 			}
+		}
+
+		// Мгновенная тревога без зрения — например, враг получил пулю. Считаем, что стрелял игрок:
+		// враг сразу "знает", где он (дальше это знание ведётся Track After Lost Sight секунд, как после потери из виду)
+		public void AlertToPlayer()
+		{
+			RefreshPlayer();
+			if (_player == null || IsPlayerDead) return;
+
+			awareness = 1f;
+			_lastSeenTime = Time.time;
+			LastKnownPlayerPosition = _player.position;
+			LastKnownPlayerVelocity = _playerCapsule != null ? _playerCapsule.velocity : Vector3.zero;
+			HasLastKnownPosition = true;
 		}
 
 		// мозг вызывает, когда сдался искать — следующая встреча начнётся "с нуля"
