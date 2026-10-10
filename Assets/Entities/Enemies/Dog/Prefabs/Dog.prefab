@@ -31,6 +31,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2572968326585172251}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &593803101654629533
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9051100973172889577}
+  m_Layer: 0
+  m_Name: BitePoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9051100973172889577
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 593803101654629533}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0, y: 0.152, z: 0.18}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2572968326585172251}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7599031302248995601
 GameObject:
   m_ObjectHideFlags: 0
@@ -45,6 +76,7 @@ GameObject:
   - component: {fileID: 6846791688175956359}
   - component: {fileID: 5242134790784159304}
   - component: {fileID: 7258601106080583369}
+  - component: {fileID: 4812718361959214233}
   m_Layer: 0
   m_Name: Dog
   m_TagString: Untagged
@@ -102,7 +134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96fcdda96bb8431b8d9a132b8d219e31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  walkSpeed: 1.5
+  walkSpeed: 1
   runSpeed: 6
   turnInPlaceSpeed: 360
   repathDistance: 0.3
@@ -121,6 +153,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   speedParameter: Speed
   speedDampTime: 0.1
+  searchingParameter: Searching
 --- !u!114 &5242134790784159304
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -133,11 +166,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 457ea53094954fc185eec3d8f6ca9892, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  stopDistance: 1.5
+  patrolRoute: {fileID: 0}
+  patrolGait: 0
+  postTolerance: 0.5
+  investigateGlimpseThreshold: 0.4
+  investigateGait: 0
+  investigateLookTime: 3
   resumeChaseBuffer: 0.5
   chaseGait: 1
-  investigateGait: 0
-  lookAroundTime: 3
+  searchDuration: 15
+  searchRadius: 8
+  searchGait: 0
+  searchPointLookTime: {x: 1.5, y: 3}
+  turnWhileLooking: 1
+  lookAroundAngle: 100
+  lookAroundPause: {x: 0.5, y: 1.2}
   currentState: 0
 --- !u!114 &7258601106080583369
 MonoBehaviour:
@@ -191,6 +234,30 @@ MonoBehaviour:
   wallOcclusion: 0.5
   canSeePlayer: 0
   awareness: 0
+--- !u!114 &4812718361959214233
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7599031302248995601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efcd43c2a6f74a2599a1d7b5058eb43e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  attackRange: 1.45
+  attackAngle: 40
+  cooldown: 0.8
+  damage: 15
+  hitPoint: {fileID: 9051100973172889577}
+  hitRadius: 0.2
+  hitLayers:
+    serializedVersion: 2
+    m_Bits: 4091
+  trackTargetUntilHit: 1
+  attackTrigger: Attack
+  maxAttackDuration: 3
 --- !u!1001 &8580498339610749095
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -253,10 +320,16 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -3125207007638640196, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7841067341802657012}
+    - targetCorrespondingSourceObject: {fileID: -3125207007638640196, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9051100973172889577}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8781034245518790405}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8631136905603207906}
   m_SourcePrefab: {fileID: 100100000, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
 --- !u!4 &2572968326585172251 stripped
 Transform:
@@ -295,3 +368,15 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &8631136905603207906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8923148285248460278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63169698d5d6405384b116e74319f8db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

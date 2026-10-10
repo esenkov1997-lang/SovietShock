@@ -1,6 +1,7 @@
 using System;
 using StarterAssets;
 using UnityEngine;
+using Weapons;
 
 namespace Enemies
 {
@@ -66,10 +67,13 @@ namespace Enemies
 		private Transform _player;
 		private CharacterController _playerCapsule;
 		private FirstPersonController _playerMovement;
+		private Health _playerHealth;
 		private float _nextSightCheckTime;
 		private float _lastSeenTime = float.NegativeInfinity;
 
 		public Transform Player => _player;
+		// мёртвого игрока враг не видит и не преследует
+		public bool IsPlayerDead => _playerHealth != null && _playerHealth.IsDead;
 		public bool CanSeePlayer => canSeePlayer;
 		public float Awareness => awareness;
 		public bool IsAlerted => awareness >= 1f;
@@ -96,6 +100,14 @@ namespace Enemies
 		private void Update()
 		{
 			RefreshPlayer();
+
+			// игрок погиб — забываем о нём, враг возвращается к спокойному поведению
+			if (IsPlayerDead)
+			{
+				canSeePlayer = false;
+				if (awareness > 0f || HasLastKnownPosition) ForgetPlayer();
+				return;
+			}
 
 			if (Time.time >= _nextSightCheckTime)
 			{
@@ -139,6 +151,7 @@ namespace Enemies
 			_player = player;
 			_playerCapsule = player != null ? player.GetComponent<CharacterController>() : null;
 			_playerMovement = player != null ? player.GetComponent<FirstPersonController>() : null;
+			_playerHealth = player != null ? player.GetComponent<Health>() : null;
 		}
 
 		private bool CheckSight()

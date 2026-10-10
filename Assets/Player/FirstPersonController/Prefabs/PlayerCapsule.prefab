@@ -166,6 +166,7 @@ GameObject:
   - component: {fileID: 8833699517623865729}
   - component: {fileID: 3633138235754001187}
   - component: {fileID: 3535324135311420366}
+  - component: {fileID: 4623253651683768466}
   m_Layer: 10
   m_Name: PlayerCapsule
   m_TagString: Player
@@ -802,6 +803,26 @@ MonoBehaviour:
   firearmRadius: 35
   meleeRadius: 3
   drawDebug: 1
+--- !u!114 &4623253651683768466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616685848737228372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f69cf04141cc254da9f0d3a3aedf330, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MaxHealth: 100
+  DestroyOnDeath: 0
+  OnDamaged:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDeath:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &9134040960211345392
 GameObject:
   m_ObjectHideFlags: 0

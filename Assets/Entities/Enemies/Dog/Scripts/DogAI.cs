@@ -14,7 +14,8 @@ namespace Enemies
 	//   Chase       — заметила игрока: бежит к нему. Потеряла из виду — бежит к последней известной позиции, оттуда Search.
 	//   Search      — обыскивает местность вокруг места потери (первая точка — в сторону, куда бежал игрок),
 	//                 на каждой точке осматривается. Время вышло — возвращается к спокойному состоянию.
-	[RequireComponent(typeof(EnemyMovement), typeof(EnemyPerception))]
+	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
+	[RequireComponent(typeof(EnemyMovement), typeof(EnemyPerception), typeof(EnemyAttack))]
 	public class DogAI : MonoBehaviour
 	{
 		public enum State
@@ -23,7 +24,8 @@ namespace Enemies
 			Patrol,
 			Investigate,
 			Search,
-			Chase
+			Chase,
+			Attack
 		}
 
 		[Header("Спокойное поведение")]
@@ -47,9 +49,7 @@ namespace Enemies
 		[SerializeField] private float investigateLookTime = 3f;
 
 		[Header("Погоня (Chase)")]
-		[Tooltip("На каком расстоянии (м) от игрока собака останавливается. На этапе атаки это станет дистанцией укуса")]
-		[SerializeField] private float stopDistance = 1.5f;
-		[Tooltip("Запас (м) к Stop Distance, после которого собака снова срывается с места — убирает дёрганье на границе")]
+		[Tooltip("Запас (м) к Attack Range (из EnemyAttack), после которого собака снова срывается с места — убирает дёрганье на границе")]
 		[SerializeField] private float resumeChaseBuffer = 0.5f;
 		[Tooltip("Походка в погоне")]
 		[SerializeField] private EnemyGait chaseGait = EnemyGait.Run;
@@ -79,6 +79,7 @@ namespace Enemies
 		private EnemyMovement _movement;
 		private EnemyPerception _perception;
 		private EnemyAnimator _animator;
+		private EnemyAttack _attack;
 
 		private Vector3 _postPosition;
 		private Vector3 _postForward;
@@ -118,6 +119,7 @@ namespace Enemies
 			_movement = GetComponent<EnemyMovement>();
 			_perception = GetComponent<EnemyPerception>();
 			_animator = GetComponent<EnemyAnimator>();
+			_attack = GetComponent<EnemyAttack>();
 		}
 
 		private void OnEnable()
@@ -149,6 +151,7 @@ namespace Enemies
 				case State.Investigate: UpdateInvestigate(); break;
 				case State.Search: UpdateSearch(); break;
 				case State.Chase: UpdateChase(); break;
+				case State.Attack: UpdateAttack(); break;
 			}
 
 			if (_animator != null) _animator.SetSearching(_isLookingAround);
@@ -408,19 +411,46 @@ namespace Enemies
 		private void ChaseVisiblePlayer(Vector3 playerPosition)
 		{
 			float distance = HorizontalDistanceTo(playerPosition);
+			float stopDistance = _attack.AttackRange;
 
-			// подбежали — стоим и смотрим на игрока; срываемся снова, только когда он отошёл с запасом
+			// подбежали — стоим, доворачиваемся и кусаем, как только атака готова (кулдаун прошёл, игрок перед мордой);
+			// срываемся снова, только когда игрок отошёл с запасом
 			if (_holdingPosition ? distance <= stopDistance + resumeChaseBuffer : distance <= stopDistance)
 			{
 				if (!_holdingPosition) _movement.Stop();
 				_holdingPosition = true;
 				_movement.FaceTowards(playerPosition);
+
+				if (_attack.CanAttack(playerPosition)) EnterAttack();
 			}
 			else
 			{
 				_holdingPosition = false;
 				_movement.MoveTo(playerPosition, chaseGait);
 			}
+		}
+
+		// ---------- Attack ----------
+
+		private void EnterAttack()
+		{
+			currentState = State.Attack;
+			_movement.Stop();
+			_attack.Begin();
+		}
+
+		private void UpdateAttack()
+		{
+			if (_attack.IsAttacking)
+			{
+				// до момента укуса доворачиваемся за игроком, после — нет: от укуса можно увернуться
+				if (_attack.ShouldTrackTarget && _perception.Player != null)
+					_movement.FaceTowards(_perception.Player.position);
+				return;
+			}
+
+			// атака закончилась (событие AttackEnd) — снова погоня; если игрок рядом, она же решит кусать ещё раз
+			EnterChase();
 		}
 
 		// ---------- Осмотр на месте ----------
@@ -486,13 +516,10 @@ namespace Enemies
 			lookAroundPause.y = Mathf.Max(lookAroundPause.x, lookAroundPause.y);
 		}
 
-		// При выделенной собаке: красный круг — дистанция остановки, зелёная стрелка — пост,
-		// жёлтая линия — куда идёт проверять, оранжевый круг — зона поиска.
+		// При выделенной собаке: зелёная стрелка — пост, жёлтая линия — куда идёт проверять,
+		// оранжевый круг — зона поиска. Зону атаки рисует EnemyAttack.
 		private void OnDrawGizmosSelected()
 		{
-			Gizmos.color = Color.red;
-			Gizmos.DrawWireSphere(transform.position, stopDistance);
-
 			if (!Application.isPlaying) return;
 
 			if (patrolRoute == null)
