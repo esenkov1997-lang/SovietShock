@@ -16,7 +16,9 @@ namespace Enemies
 	//   Search      — обыскивает местность вокруг места потери (первая точка — в сторону, куда бежал игрок),
 	//                 на каждой точке осматривается. Время вышло — возвращается к спокойному состоянию.
 	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
-	//   Dead        — Health дошло до нуля: всё выключается, тело становится ragdoll.
+	//   Retreat     — здоровье упало ниже порога: убегает от игрока, выжидает, следя за ним, и снова нападает.
+	//                 Загнали в угол (игрок подошёл вплотную) — огрызается и дерётся.
+	//   Dead       — Health дошло до нуля: всё выключается, тело становится ragdoll.
 	// Поверх любого состояния — оглушение от попадания (EnemyHitReaction): пока играет вздрагивание, собака стоит,
 	// атака прерывается. Любое попадание сразу поднимает тревогу — собака знает, где стрелок.
 	[RequireComponent(typeof(EnemyMovement), typeof(EnemyPerception), typeof(EnemyAttack))]
@@ -31,6 +33,7 @@ namespace Enemies
 			Search,
 			Chase,
 			Attack,
+			Retreat,
 			Dead
 		}
 
@@ -59,6 +62,21 @@ namespace Enemies
 		[SerializeField] private float resumeChaseBuffer = 0.5f;
 		[Tooltip("Походка в погоне")]
 		[SerializeField] private EnemyGait chaseGait = EnemyGait.Run;
+
+		[Header("Отступление (Retreat)")]
+		[Tooltip("Когда здоровье опускается до этой доли (0.3 = 30%), собака отбегает. 0 — никогда не отступает")]
+		[Range(0f, 1f)]
+		[SerializeField] private float retreatHealthFraction = 0.3f;
+		[Tooltip("Сколько раз за жизнь собака может отступить. После этого дерётся до конца")]
+		[SerializeField] private int maxRetreats = 1;
+		[Tooltip("На какое расстояние (м) от игрока собака старается убежать")]
+		[SerializeField] private float retreatDistance = 10f;
+		[Tooltip("Сколько секунд собака выжидает на месте отступления (следя за игроком), прежде чем снова напасть")]
+		[SerializeField] private float retreatRecoverTime = 4f;
+		[Tooltip("Если игрок подошёл к отступающей собаке ближе этого (м) — она загнана в угол и сразу нападает")]
+		[SerializeField] private float corneredDistance = 2.5f;
+		[Tooltip("Подстраховка: если за это время (сек) собака так и не добежала до точки (застряла) — считаем, что добежала")]
+		[SerializeField] private float maxRetreatRunTime = 6f;
 
 		[Header("Поиск (Search)")]
 		[Tooltip("Сколько секунд собака ищет игрока, прежде чем сдаться")]
@@ -119,6 +137,12 @@ namespace Enemies
 
 		// Chase
 		private bool _holdingPosition;
+
+		// Retreat
+		private Vector3 _retreatPoint;
+		private float _retreatStartTime;
+		private float _retreatRecoverTimer;   // < 0 — бежим к точке, >= 0 — выжидаем на месте
+		private int _retreatsUsed;
 
 		// Осмотр
 		private Vector3 _lookBaseForward;
@@ -189,6 +213,7 @@ namespace Enemies
 				case State.Search: UpdateSearch(); break;
 				case State.Chase: UpdateChase(); break;
 				case State.Attack: UpdateAttack(); break;
+				case State.Retreat: UpdateRetreat(); break;
 			}
 
 			if (_animator != null) _animator.SetSearching(_isLookingAround);
@@ -524,6 +549,71 @@ namespace Enemies
 
 			// попали — значит, игрок рядом и опасен: тревога сразу, даже если собака спала или смотрела в другую сторону
 			_perception.AlertToPlayer();
+
+			if (ShouldRetreat(currentHealth, maxHealth)) EnterRetreat();
+		}
+
+		// ---------- Retreat ----------
+
+		private bool ShouldRetreat(int currentHealth, int maxHealth)
+		{
+			if (currentState == State.Retreat || _retreatsUsed >= maxRetreats) return false;
+			if (retreatHealthFraction <= 0f || maxHealth <= 0) return false;
+			return (float)currentHealth / maxHealth <= retreatHealthFraction;
+		}
+
+		private void EnterRetreat()
+		{
+			Transform player = _perception.Player;
+			if (player == null) return;
+
+			// бежать некуда (тупик, узкий коридор) — остаёмся драться
+			if (!_movement.TryFindPointAwayFrom(player.position, retreatDistance, out _retreatPoint)) return;
+
+			_attack.Cancel();
+			_retreatsUsed++;
+			_retreatStartTime = Time.time;
+			_retreatRecoverTimer = -1f;
+			currentState = State.Retreat;
+		}
+
+		private void UpdateRetreat()
+		{
+			Transform player = _perception.Player;
+			if (player == null || _perception.IsPlayerDead)
+			{
+				EnterCalm();
+				return;
+			}
+
+			if (_retreatRecoverTimer < 0f)
+			{
+				_movement.MoveTo(_retreatPoint, EnemyGait.Run);
+				if (_movement.HasArrived || Time.time - _retreatStartTime > maxRetreatRunTime)
+				{
+					_movement.Stop();
+					_retreatRecoverTimer = 0f;
+				}
+				return;
+			}
+
+			// Загнали в угол — огрызаемся: погоня сама перейдёт в атаку, раз игрок вплотную.
+			// Проверяем только на месте отступления: в момент бегства игрок почти всегда рядом (собака только что кусала)
+			if (HorizontalDistanceTo(player.position) <= corneredDistance)
+			{
+				EnterChase();
+				return;
+			}
+
+			// выжидаем, не сводя глаз с игрока, если он виден
+			if (_perception.CanSeePlayer) _movement.FaceTowards(player.position);
+
+			_retreatRecoverTimer += Time.deltaTime;
+			if (_retreatRecoverTimer < retreatRecoverTime) return;
+
+			// снова в бой: собака "знает", где игрок, — даже если тот спрятался, пока она отдыхала
+			_perception.AlertToPlayer();
+			EnterChase();
 		}
 
 		private void Die()
@@ -608,6 +698,13 @@ namespace Enemies
 				Gizmos.DrawWireSphere(_searchCenter, searchRadius);
 				Gizmos.DrawLine(transform.position, _searchPoint);
 				Gizmos.DrawWireSphere(_searchPoint, 0.3f);
+			}
+			else if (currentState == State.Retreat)
+			{
+				Gizmos.color = Color.cyan;
+				Gizmos.DrawLine(transform.position, _retreatPoint);
+				Gizmos.DrawWireSphere(_retreatPoint, 0.4f);
+				Gizmos.DrawWireSphere(transform.position, corneredDistance);
 			}
 		}
 	}

@@ -193,6 +193,39 @@ namespace Enemies
 			return Quaternion.Angle(transform.rotation, targetRotation) <= toleranceAngle;
 		}
 
+		// Точка для бегства от угрозы: примерно в distance метров, в сторону от threat. Перебираются направления
+		// веером (прямо от угрозы, потом всё сильнее вбок) — из тупика враг убежит вдоль стены, а не в стену.
+		// Выбирается достижимая точка, которая дальше всего от угрозы. false — убегать некуда (все ближе, чем сейчас).
+		public bool TryFindPointAwayFrom(Vector3 threat, float distance, out Vector3 point)
+		{
+			Vector3 away = transform.position - threat;
+			away.y = 0f;
+			away = away.sqrMagnitude > 0.0001f ? away.normalized : -transform.forward;
+
+			float[] angles = { 0f, 30f, -30f, 60f, -60f, 90f, -90f, 120f, -120f };
+			float bestDistance = (transform.position - threat).sqrMagnitude;
+			bool found = false;
+			point = transform.position;
+
+			foreach (float angle in angles)
+			{
+				Vector3 candidate = transform.position + Quaternion.Euler(0f, angle, 0f) * away * distance;
+
+				if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, 2f, _agent.areaMask)) continue;
+				if (!NavMesh.CalculatePath(transform.position, hit.position, _agent.areaMask, _testPath)) continue;
+				if (_testPath.status != NavMeshPathStatus.PathComplete) continue;
+
+				float distanceFromThreat = (hit.position - threat).sqrMagnitude;
+				if (distanceFromThreat <= bestDistance) continue;
+
+				bestDistance = distanceFromThreat;
+				point = hit.position;
+				found = true;
+			}
+
+			return found;
+		}
+
 		// Случайная точка на NavMesh в радиусе от center, до которой реально можно дойти
 		// (не на другом этаже без лестницы, не в закрытой комнате). false — за несколько попыток не нашли.
 		public bool TryFindReachablePoint(Vector3 center, float radius, out Vector3 point)
