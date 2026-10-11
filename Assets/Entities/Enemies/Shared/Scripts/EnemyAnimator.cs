@@ -17,11 +17,20 @@ namespace Enemies
 		[SerializeField] private float speedDampTime = 0.1f;
 		[Tooltip("Имя bool-параметра \"осматривается/принюхивается\". Если такого параметра в контроллере нет — просто игнорируется")]
 		[SerializeField] private string searchingParameter = "Searching";
+		[Tooltip("Имя float-параметра поворота на ходу (-1 влево .. 1 вправо) — для наклона корпуса или клипов поворота в 2D Blend Tree. " +
+			"Если такого параметра в контроллере нет — просто игнорируется")]
+		[SerializeField] private string turnParameter = "Turn";
+		[Tooltip("Скорость поворота (град/с), которая соответствует Turn = 1")]
+		[SerializeField] private float turnRateForFullTurn = 150f;
+		[Tooltip("Сглаживание параметра поворота (сек)")]
+		[SerializeField] private float turnDampTime = 0.15f;
 
 		private EnemyMovement _movement;
 		private int _speedHash;
 		private int _searchingHash;
 		private bool _hasSearchingParameter;
+		private int _turnHash;
+		private bool _hasTurnParameter;
 
 		private void Awake()
 		{
@@ -40,11 +49,18 @@ namespace Enemies
 			_speedHash = Animator.StringToHash(speedParameter);
 			_searchingHash = Animator.StringToHash(searchingParameter);
 			_hasSearchingParameter = HasParameter(_searchingHash, AnimatorControllerParameterType.Bool);
+			_turnHash = Animator.StringToHash(turnParameter);
+			_hasTurnParameter = HasParameter(_turnHash, AnimatorControllerParameterType.Float);
 		}
 
 		private void Update()
 		{
 			animator.SetFloat(_speedHash, _movement.AnimatorSpeed, speedDampTime, Time.deltaTime);
+			if (_hasTurnParameter)
+			{
+				float turn = turnRateForFullTurn > 0f ? Mathf.Clamp(_movement.TurnRate / turnRateForFullTurn, -1f, 1f) : 0f;
+				animator.SetFloat(_turnHash, turn, turnDampTime, Time.deltaTime);
+			}
 		}
 
 		public void SetSearching(bool searching)

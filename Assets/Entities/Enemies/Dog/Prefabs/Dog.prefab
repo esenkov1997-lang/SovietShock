@@ -73,6 +73,7 @@ GameObject:
   - component: {fileID: 4569854951308958990}
   - component: {fileID: 550538540280385986}
   - component: {fileID: 1997010271566107689}
+  - component: {fileID: 4520113902226963904}
   - component: {fileID: 6846791688175956359}
   - component: {fileID: 5242134790784159304}
   - component: {fileID: 7258601106080583369}
@@ -142,9 +143,30 @@ MonoBehaviour:
   runSpeed: 6
   turnInPlaceSpeed: 360
   useRootMotion: 1
-  rootMotionTurnSpeed: 300
+  walkTurnSpeed: 150
+  runTurnSpeed: 100
+  minTurnSpeedFactor: 0.4
+  pathLookAhead: 1.5
   brakingDistance: 1
   repathDistance: 0.3
+--- !u!114 &4520113902226963904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7599031302248995601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b14c2004b55f48c9a73e41a75fb40dfd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  animator: {fileID: 0}
+  minAngle: 10
+  turnTrigger: Turn
+  angleParameter: TurnAngle
+  turnStateTag: Turn
+  maxTurnDuration: 2
 --- !u!114 &6846791688175956359
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -161,6 +183,9 @@ MonoBehaviour:
   speedParameter: Speed
   speedDampTime: 0.1
   searchingParameter: Searching
+  turnParameter: Turn
+  turnRateForFullTurn: 150
+  turnDampTime: 0.15
 --- !u!114 &5242134790784159304
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -205,8 +230,9 @@ MonoBehaviour:
   searchGait: 0
   searchPointLookTime: {x: 1.5, y: 3}
   turnWhileLooking: 1
-  lookAroundAngle: 100
-  lookAroundPause: {x: 0.5, y: 1.2}
+  lookAroundAngle: 90
+  lookAroundPause: {x: 1, y: 2}
+  lookAroundTurnSpeed: 90
   currentState: 0
 --- !u!114 &7258601106080583369
 MonoBehaviour:
@@ -1963,12 +1989,12 @@ MonoBehaviour:
   PosSmoother: 0
   RotSmoother: 0
   MaxStretching: 1
-  Slithery: 0.3
-  AngleLimit: 25
+  Slithery: 0.2
+  AngleLimit: 15
   LimitSmoother: 0.35
   StraightenSpeed: 10
   TurboStraighten: 0
-  GoBackSpeed: 0
+  GoBackSpeed: 0.5
   Springiness: 0
   MotionInfluence: 1
   MotionSpace: {fileID: 0}

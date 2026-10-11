@@ -38,8 +38,18 @@ namespace Enemies
 		[Tooltip("Перемещение задаёт анимация (root-кость), а не NavMeshAgent. Нужен EnemyRootMotion на модели " +
 			"и Avatar с указанным Root Node — см. инструкцию")]
 		[SerializeField] private bool useRootMotion;
-		[Tooltip("Root motion: скорость поворота на ходу к следующему углу пути (град/с)")]
-		[SerializeField] private float rootMotionTurnSpeed = 300f;
+		[Tooltip("Root motion: скорость поворота на ходу шагом (град/с). Меньше — шире дуга. Радиус дуги ≈ скорость / поворот")]
+		[SerializeField] private float walkTurnSpeed = 150f;
+		[Tooltip("Root motion: скорость поворота на бегу (град/с). Обычно меньше, чем шагом: на бегу разворачиваются по широкой дуге")]
+		[SerializeField] private float runTurnSpeed = 100f;
+		[Tooltip("Root motion: какую долю скорости враг сохраняет, пока разворачивается к цели сбоку/сзади. " +
+			"0 — останавливается и крутится на месте (\"турель\"), 0.3–0.5 — уходит дугой. Возле самой цели доля " +
+			"автоматически уменьшается, чтобы враг не нарезал круги вокруг точки")]
+		[Range(0f, 1f)]
+		[SerializeField] private float minTurnSpeedFactor = 0.4f;
+		[Tooltip("Root motion: на сколько метров вперёд по пути враг \"смотрит\". Целится не в ближайший угол пути, а дальше — " +
+			"углы срезаются плавной кривой, а не проходятся изломом. 0 — строго по углам")]
+		[SerializeField] private float pathLookAhead = 1.5f;
 		[Tooltip("Root motion: за сколько метров до цели начинать сбрасывать скорость, чтобы остановиться в точке, а не проскочить её")]
 		[SerializeField] private float brakingDistance = 1f;
 
@@ -49,8 +59,15 @@ namespace Enemies
 		[SerializeField] private float repathDistance = 0.3f;
 
 		private const float ArrivalTolerance = 0.2f;
+		private const float CornersRefreshInterval = 0.2f;
+		private const int MaxPathCorners = 32;
+
+		private readonly Vector3[] _corners = new Vector3[MaxPathCorners];
+		private int _cornerCount;
+		private float _nextCornersRefreshTime;
 
 		private NavMeshAgent _agent;
+		private EnemyTurnInPlace _turnInPlace; // необязательный — повороты на месте анимацией
 		private NavMeshPath _testPath;
 		private Vector3 _lastDestination;
 		private bool _hasDestination;
@@ -70,6 +87,13 @@ namespace Enemies
 		// подстраивается под движение). С root motion — желаемая скорость (движение подстраивается под анимацию)
 		public float AnimatorSpeed => useRootMotion ? _desiredSpeed : _agent.velocity.magnitude;
 
+		// Root motion: с какой скоростью (град/с, + вправо, − влево) враг сейчас поворачивает на ходу —
+		// для аниматора (наклон корпуса, клипы поворота в 2D Blend Tree)
+		public float TurnRate { get; private set; }
+
+		// сейчас играет анимация поворота на месте (EnemyTurnInPlace)
+		public bool IsTurningInPlace => _turnInPlace != null && _turnInPlace.IsTurning;
+
 		// Дошли до точки: путь посчитан и осталось меньше stoppingDistance (+ небольшой допуск).
 		// Если точка недостижима (за стеной, в воздухе), агент строит путь до ближайшего достижимого места —
 		// тогда "дошли" означает "дошли до конца этого пути".
@@ -79,6 +103,7 @@ namespace Enemies
 		private void Awake()
 		{
 			_agent = GetComponent<NavMeshAgent>();
+			_turnInPlace = GetComponent<EnemyTurnInPlace>();
 			_testPath = new NavMeshPath();
 
 			if (useRootMotion)
@@ -98,31 +123,89 @@ namespace Enemies
 		// придёт из анимации, которая играет на этой скорости, в ApplyRootMotion.
 		private void UpdateRootMotionSteering()
 		{
+			// играет клип поворота на месте — он сам вращает врага (root motion), не мешаем ему и не идём
+			if (IsTurningInPlace)
+			{
+				_desiredSpeed = 0f;
+				TurnRate = 0f;
+				return;
+			}
+
 			if (!_hasDestination || _agent.isStopped || _agent.pathPending || HasArrived)
 			{
 				_desiredSpeed = 0f;
+				TurnRate = 0f;
 				return;
 			}
 
-			Vector3 toCorner = _agent.steeringTarget - transform.position;
-			toCorner.y = 0f;
-			if (toCorner.sqrMagnitude < 0.0001f)
+			Vector3 toTarget = GetLookAheadPoint() - transform.position;
+			toTarget.y = 0f;
+			if (toTarget.sqrMagnitude < 0.0001f)
 			{
 				_desiredSpeed = 0f;
+				TurnRate = 0f;
 				return;
 			}
 
-			Quaternion targetRotation = Quaternion.LookRotation(toCorner);
-			transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rootMotionTurnSpeed * Time.deltaTime);
+			// поворот на ходу: шагом резче, на бегу плавнее (скорость поворота — между Walk и Run Turn Speed)
+			float gait = Mathf.InverseLerp(walkSpeed, runSpeed, _agent.speed);
+			float turnSpeed = Mathf.Lerp(walkTurnSpeed, runTurnSpeed, gait);
+
+			Quaternion before = transform.rotation;
+			Quaternion targetRotation = Quaternion.LookRotation(toTarget);
+			transform.rotation = Quaternion.RotateTowards(before, targetRotation, turnSpeed * Time.deltaTime);
+			if (Time.deltaTime > 0f)
+				TurnRate = Mathf.DeltaAngle(before.eulerAngles.y, transform.eulerAngles.y) / Time.deltaTime;
 
 			// плавное торможение перед целью
 			float distanceLeft = _agent.remainingDistance - _agent.stoppingDistance;
 			float braking = brakingDistance > 0f ? Mathf.Clamp01(distanceLeft / brakingDistance) : 1f;
 
-			// цель сбоку или сзади — сначала разворачиваемся, сбавив ход, иначе враг описывает широкую дугу
-			float facing = Mathf.Clamp01(Vector3.Dot(transform.forward, toCorner.normalized));
+			// Цель сбоку или сзади — не стоим на месте, а уходим дугой, сохраняя часть скорости. Но если до цели
+			// меньше пары радиусов дуги, дугой в неё не попасть (враг кружил бы вокруг точки) — там доворачиваемся на месте
+			float turnRadius = _agent.speed / Mathf.Max(turnSpeed * Mathf.Deg2Rad, 0.01f);
+			float roomToArc = Mathf.Clamp01(distanceLeft / (2f * turnRadius));
+			float minFactor = minTurnSpeedFactor * roomToArc;
+			float facing = Mathf.Clamp01(Vector3.Dot(transform.forward, toTarget.normalized));
 
-			_desiredSpeed = _agent.speed * braking * facing;
+			_desiredSpeed = _agent.speed * braking * Mathf.Lerp(minFactor, 1f, facing);
+		}
+
+		// Точка "чуть впереди по пути" (pure pursuit): идём от врага к ближайшему углу пути и, если он ближе
+		// Path Look Ahead, продолжаем по следующему отрезку. Целясь в неё, враг заранее заворачивает и срезает угол.
+		private Vector3 GetLookAheadPoint()
+		{
+			Vector3 steeringTarget = _agent.steeringTarget;
+			if (pathLookAhead <= 0f) return steeringTarget;
+
+			// углы пути обновляем не каждый кадр: свойство path каждый раз создаёт копию пути
+			if (Time.time >= _nextCornersRefreshTime)
+			{
+				_nextCornersRefreshTime = Time.time + CornersRefreshInterval;
+				_cornerCount = _agent.path.GetCornersNonAlloc(_corners);
+			}
+
+			int index = -1;
+			for (int i = 0; i < _cornerCount; i++)
+			{
+				if ((_corners[i] - steeringTarget).sqrMagnitude < 0.01f)
+				{
+					index = i;
+					break;
+				}
+			}
+			if (index < 0) return steeringTarget;
+
+			Vector3 from = transform.position;
+			float remaining = pathLookAhead;
+			for (int i = index; i < _cornerCount; i++)
+			{
+				float segment = Vector3.Distance(from, _corners[i]);
+				if (segment >= remaining) return from + (_corners[i] - from) * (remaining / segment);
+				remaining -= segment;
+				from = _corners[i];
+			}
+			return _corners[_cornerCount - 1];
 		}
 
 		// Вызывается из EnemyRootMotion.OnAnimatorMove каждый кадр: перемещение и поворот root-кости из клипа.
@@ -154,6 +237,7 @@ namespace Enemies
 
 			_lastDestination = destination;
 			_hasDestination = true;
+			_nextCornersRefreshTime = 0f; // новый путь — углы перечитать сразу, как только он посчитается
 		}
 
 		// насовсем (смерть): агент больше не держит объект на NavMesh и не мешает физике ragdoll
@@ -183,13 +267,28 @@ namespace Enemies
 		}
 
 		// То же, но к направлению (например, "смотреть туда, куда смотрит точка патруля")
-		public bool FaceDirection(Vector3 direction, float toleranceAngle = 5f)
+		// turnSpeed — своя скорость поворота (град/с), например медленный осмотр; меньше 0 — Turn In Place Speed.
+		// animated — большие углы поворачивать клипом (EnemyTurnInPlace), если он есть; остаток довести программно
+		public bool FaceDirection(Vector3 direction, float toleranceAngle = 5f, float turnSpeed = -1f, bool animated = false)
 		{
 			direction.y = 0f;
 			if (direction.sqrMagnitude < 0.0001f) return true;
 
+			// клип поворота уже играет — вращает он, ждём
+			if (IsTurningInPlace) return false;
+
 			Quaternion targetRotation = Quaternion.LookRotation(direction);
-			transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, turnInPlaceSpeed * Time.deltaTime);
+
+			if (animated && _turnInPlace != null)
+			{
+				Vector3 forward = transform.forward;
+				forward.y = 0f;
+				float signedAngle = Vector3.SignedAngle(forward, direction, Vector3.up);
+				if (Mathf.Abs(signedAngle) >= _turnInPlace.MinAngle && _turnInPlace.TryStartTurn(signedAngle)) return false;
+			}
+
+			float speed = turnSpeed >= 0f ? turnSpeed : turnInPlaceSpeed;
+			transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, speed * Time.deltaTime);
 			return Quaternion.Angle(transform.rotation, targetRotation) <= toleranceAngle;
 		}
 

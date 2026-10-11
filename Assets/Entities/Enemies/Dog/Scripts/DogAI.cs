@@ -129,6 +129,10 @@ namespace Enemies
 		[SerializeField] private float lookAroundAngle = 100f;
 		[Tooltip("Пауза (сек) между поворотами при осмотре: случайно между X и Y")]
 		[SerializeField] private Vector2 lookAroundPause = new Vector2(0.5f, 1.2f);
+		[Tooltip("Скорость спокойных поворотов на месте (град/с): осмотр, разворот на посту, точки патруля. " +
+			"Большие углы при наличии EnemyTurnInPlace поворачиваются клипом, этой скоростью доводится остаток. " +
+			"Повороты в бою (к игроку, перед укусом) берут быструю Turn In Place Speed из EnemyMovement")]
+		[SerializeField] private float lookAroundTurnSpeed = 90f;
 
 		[Header("Отладка")]
 		[Tooltip("Текущее состояние — только для просмотра в Play Mode")]
@@ -334,7 +338,7 @@ namespace Enemies
 			}
 
 			_movement.Stop();
-			_movement.FaceDirection(_postForward);
+			_movement.FaceDirection(_postForward, 5f, lookAroundTurnSpeed, animated: true);
 		}
 
 		private void EnterPatrol()
@@ -365,7 +369,7 @@ namespace Enemies
 			PatrolPoint settings = patrolRoute.GetSettings(_patrolIndex);
 			if (settings != null)
 			{
-				if (settings.FaceDirection) _movement.FaceDirection(point.forward);
+				if (settings.FaceDirection) _movement.FaceDirection(point.forward, 5f, lookAroundTurnSpeed, animated: true);
 				if (settings.PlaySearchAnimation) _isLookingAround = true;
 			}
 
@@ -592,7 +596,7 @@ namespace Enemies
 			_isLookingAround = true;
 			if (!turnWhileLooking) return;
 
-			if (!_movement.FaceDirection(_lookHeading)) return;
+			if (!_movement.FaceDirection(_lookHeading, 5f, lookAroundTurnSpeed, animated: true)) return;
 
 			_lookPauseTimer -= Time.deltaTime;
 			if (_lookPauseTimer > 0f) return;
