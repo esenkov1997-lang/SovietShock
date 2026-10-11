@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -52,6 +53,13 @@ namespace Enemies
 		[SerializeField] private float pathLookAhead = 1.5f;
 		[Tooltip("Root motion: за сколько метров до цели начинать сбрасывать скорость, чтобы остановиться в точке, а не проскочить её")]
 		[SerializeField] private float brakingDistance = 1f;
+
+		[Header("Личное пространство")]
+		[Tooltip("Радиус (м) \"личного пространства\" врага. Два врага не подходят друг к другу ближе суммы своих радиусов — " +
+			"если оказались ближе, плавно расходятся. Для собаки ~половина длины корпуса. 0 — выключено")]
+		[SerializeField] private float separationRadius = 0.45f;
+		[Tooltip("Максимальная скорость (м/с), с которой враги расталкивают друг друга. Больше — жёстче, меньше — мягче, но дольше перекрываются")]
+		[SerializeField] private float separationSpeed = 2f;
 
 		[Header("Пересчёт пути")]
 		[Tooltip("Путь пересчитывается, только если точка назначения сдвинулась дальше этого расстояния (м). " +
@@ -111,6 +119,67 @@ namespace Enemies
 				// агент больше не двигает и не поворачивает объект сам — только считает путь
 				_agent.updatePosition = false;
 				_agent.updateRotation = false;
+			}
+		}
+
+		// все живые враги — для "личного пространства". Мёртвые выключают EnemyMovement (DisableAgent) и выпадают сами
+		private static readonly List<EnemyMovement> _active = new List<EnemyMovement>();
+
+		private void OnEnable()
+		{
+			_active.Add(this);
+		}
+
+		private void OnDisable()
+		{
+			_active.Remove(this);
+		}
+
+		// после перемещения этого кадра (root motion приходит в OnAnimatorMove, он раньше LateUpdate)
+		private void LateUpdate()
+		{
+			ApplySeparation();
+		}
+
+		// Личное пространство: если соседний враг ближе суммы радиусов — отходим на половину перекрытия
+		// (вторую половину отойдёт он сам), не быстрее Separation Speed. Сдвиг идёт через агента, поэтому
+		// ограничен NavMesh — в стену не вытолкнет. Перебор всех врагов: на десятки врагов это копейки.
+		private void ApplySeparation()
+		{
+			if (separationRadius <= 0f || !_agent.enabled || !_agent.isOnNavMesh) return;
+
+			Vector3 push = Vector3.zero;
+			Vector3 position = transform.position;
+			foreach (EnemyMovement other in _active)
+			{
+				if (other == this || other.separationRadius <= 0f) continue;
+
+				Vector3 offset = position - other.transform.position;
+				offset.y = 0f;
+				float minDistance = separationRadius + other.separationRadius;
+				float sqrDistance = offset.sqrMagnitude;
+				if (sqrDistance >= minDistance * minDistance) continue;
+
+				float distance = Mathf.Sqrt(sqrDistance);
+				// стоят точно в одной точке (заспавнили друг в друге) — расходимся в разные стороны, а не в никуда
+				Vector3 direction = distance > 0.001f
+					? offset / distance
+					: Quaternion.Euler(0f, GetInstanceID() % 360, 0f) * Vector3.forward;
+
+				push += direction * ((minDistance - distance) * 0.5f);
+			}
+
+			if (push.sqrMagnitude < 0.000001f) return;
+
+			Vector3 step = Vector3.ClampMagnitude(push, separationSpeed * Time.deltaTime);
+			if (useRootMotion)
+			{
+				_agent.nextPosition = position + step;
+				transform.position = _agent.nextPosition;
+			}
+			else
+			{
+				_agent.Move(step);
 			}
 		}
 

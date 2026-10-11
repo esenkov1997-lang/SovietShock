@@ -143,10 +143,10 @@ MonoBehaviour:
   runSpeed: 6
   turnInPlaceSpeed: 360
   useRootMotion: 1
-  walkTurnSpeed: 150
+  walkTurnSpeed: 60
   runTurnSpeed: 100
-  minTurnSpeedFactor: 0.4
-  pathLookAhead: 1.5
+  minTurnSpeedFactor: 0.6
+  pathLookAhead: 2
   brakingDistance: 1
   repathDistance: 0.3
 --- !u!114 &4520113902226963904
