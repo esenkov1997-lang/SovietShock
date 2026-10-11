@@ -80,6 +80,7 @@ GameObject:
   - component: {fileID: 2488569239952173217}
   - component: {fileID: 4464600586326970646}
   - component: {fileID: 5970496570883006764}
+  - component: {fileID: 1305533231048589939}
   m_Layer: 0
   m_Name: Dog
   m_TagString: Untagged
@@ -180,6 +181,14 @@ MonoBehaviour:
   investigateLookTime: 3
   resumeChaseBuffer: 0.5
   chaseGait: 1
+  retreatHealthFraction: 0.3
+  maxRetreats: 1
+  retreatDistance: 10
+  retreatRecoverTime: 4
+  corneredDistance: 2.5
+  maxRetreatRunTime: 6
+  coverCheckInterval: 0.3
+  maxCoverChanges: 2
   searchDuration: 15
   searchRadius: 8
   searchApproachGait: 1
@@ -316,6 +325,39 @@ MonoBehaviour:
   hitTrigger: Hit
   reactionCooldown: 1.5
   maxStaggerDuration: 2
+--- !u!114 &1305533231048589939
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7599031302248995601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5b983a2a738427a8782eb8c2e12991b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ringRadii:
+  - 4
+  - 7
+  - 10
+  pointsPerRing: 10
+  coverPointSearchRadius: 15
+  minDistanceFromThreat: 5
+  maxDistanceFromThreat: 20
+  maxPathLength: 18
+  pathSafetyRadius: 3
+  maxPathChecks: 6
+  bodyCheckHeights:
+  - 0.35
+  - 0.7
+  coverLayers:
+    serializedVersion: 2
+    m_Bits: 4091
+  pathLengthWeight: 1
+  threatDistanceWeight: 0.7
+  coverPointBonus: 0.5
+  drawDebug: 1
 --- !u!1001 &8580498339610749095
 PrefabInstance:
   m_ObjectHideFlags: 0

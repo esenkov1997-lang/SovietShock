@@ -15,7 +15,7 @@ MonoBehaviour:
   WeaponId: 1
   WeaponName: Wrench
   Damage: 10
-  Range: 1.4
+  Range: 1.8
   FireRate: 5
   HitForce: 20
   AttackTrigger: Attack

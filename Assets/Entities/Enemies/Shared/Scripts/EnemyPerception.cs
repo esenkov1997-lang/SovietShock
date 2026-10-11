@@ -85,6 +85,18 @@ namespace Enemies
 		// позиция услышанного шума — мозг решает, идти ли проверять
 		public event Action<Vector3> NoiseHeard;
 
+		// откуда смотрит игрок (его камера) — для проверки, видит ли он врага или его укрытие
+		public Vector3 PlayerEyePosition
+		{
+			get
+			{
+				if (_playerMovement != null && _playerMovement.CinemachineCameraTarget != null)
+					return _playerMovement.CinemachineCameraTarget.transform.position;
+				GetPlayerSightPoints(out _, out Vector3 head);
+				return head;
+			}
+		}
+
 		public Vector3 EyePosition => eyes != null ? eyes.position : transform.position + Vector3.up * defaultEyeHeight;
 
 		private void OnEnable()

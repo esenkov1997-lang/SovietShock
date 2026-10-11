@@ -16,7 +16,8 @@ namespace Enemies
 	//   Search      — обыскивает местность вокруг места потери (первая точка — в сторону, куда бежал игрок),
 	//                 на каждой точке осматривается. Время вышло — возвращается к спокойному состоянию.
 	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
-	//   Retreat     — здоровье упало ниже порога: убегает от игрока, выжидает, следя за ним, и снова нападает.
+	//   Retreat     — здоровье упало ниже порога: убегает в укрытие (CoverFinder) или просто подальше, выжидает и снова
+	//                 нападает. Укрытие раскрыто — меняет его или нападает.
 	//                 Загнали в угол (игрок подошёл вплотную) — огрызается и дерётся.
 	//   Dead       — Health дошло до нуля: всё выключается, тело становится ragdoll.
 	// Поверх любого состояния — оглушение от попадания (EnemyHitReaction): пока играет вздрагивание, собака стоит,
@@ -69,7 +70,7 @@ namespace Enemies
 		[SerializeField] private float retreatHealthFraction = 0.3f;
 		[Tooltip("Сколько раз за жизнь собака может отступить. После этого дерётся до конца")]
 		[SerializeField] private int maxRetreats = 1;
-		[Tooltip("На какое расстояние (м) от игрока собака старается убежать")]
+		[Tooltip("На какое расстояние (м) от игрока собака старается убежать, если укрытие не найдено (или нет CoverFinder)")]
 		[SerializeField] private float retreatDistance = 10f;
 		[Tooltip("Сколько секунд собака выжидает на месте отступления (следя за игроком), прежде чем снова напасть")]
 		[SerializeField] private float retreatRecoverTime = 4f;
@@ -77,6 +78,10 @@ namespace Enemies
 		[SerializeField] private float corneredDistance = 2.5f;
 		[Tooltip("Подстраховка: если за это время (сек) собака так и не добежала до точки (застряла) — считаем, что добежала")]
 		[SerializeField] private float maxRetreatRunTime = 6f;
+		[Tooltip("С CoverFinder: как часто (сек) проверять, не видит ли игрок собаку в укрытии")]
+		[SerializeField] private float coverCheckInterval = 0.3f;
+		[Tooltip("С CoverFinder: сколько раз собака может сменить раскрытое укрытие, прежде чем перестать прятаться и напасть")]
+		[SerializeField] private int maxCoverChanges = 2;
 
 		[Header("Поиск (Search)")]
 		[Tooltip("Сколько секунд собака ищет игрока, прежде чем сдаться")]
@@ -110,6 +115,7 @@ namespace Enemies
 		private Health _health;
 		private EnemyHitReaction _hitReaction;
 		private EnemyRagdoll _ragdoll;
+		private CoverFinder _coverFinder;
 
 		private Vector3 _postPosition;
 		private Vector3 _postForward;
@@ -143,6 +149,9 @@ namespace Enemies
 		private float _retreatStartTime;
 		private float _retreatRecoverTimer;   // < 0 — бежим к точке, >= 0 — выжидаем на месте
 		private int _retreatsUsed;
+		private bool _retreatInCover;         // бежим в укрытие (а не просто подальше) — тогда следим, не раскрыто ли оно
+		private int _coverChanges;
+		private float _nextCoverCheckTime;
 
 		// Осмотр
 		private Vector3 _lookBaseForward;
@@ -160,6 +169,7 @@ namespace Enemies
 			_health = GetComponent<Health>();
 			_hitReaction = GetComponent<EnemyHitReaction>(); // необязательный — без него собака не вздрагивает
 			_ragdoll = GetComponent<EnemyRagdoll>();
+			_coverFinder = GetComponent<CoverFinder>(); // необязательный — без него отступает просто подальше от игрока
 
 			// тело остаётся лежать — уничтожение объекта сломало бы ragdoll
 			if (_health.DestroyOnDeath)
@@ -568,13 +578,29 @@ namespace Enemies
 			if (player == null) return;
 
 			// бежать некуда (тупик, узкий коридор) — остаёмся драться
-			if (!_movement.TryFindPointAwayFrom(player.position, retreatDistance, out _retreatPoint)) return;
+			if (!TryPickRetreatPoint(player, out _retreatPoint, out _retreatInCover)) return;
 
 			_attack.Cancel();
 			_retreatsUsed++;
+			_coverChanges = 0;
+			StartRunningToRetreatPoint();
+			currentState = State.Retreat;
+		}
+
+		// Сначала ищем укрытие (точку, которую игрок не видит). Нет укрытия или нет CoverFinder —
+		// просто точка подальше от игрока, как раньше
+		private bool TryPickRetreatPoint(Transform player, out Vector3 point, out bool inCover)
+		{
+			point = transform.position;
+			inCover = _coverFinder != null && _coverFinder.TryFindCover(player, _perception.PlayerEyePosition, out point);
+			if (inCover) return true;
+			return _movement.TryFindPointAwayFrom(player.position, retreatDistance, out point);
+		}
+
+		private void StartRunningToRetreatPoint()
+		{
 			_retreatStartTime = Time.time;
 			_retreatRecoverTimer = -1f;
-			currentState = State.Retreat;
 		}
 
 		private void UpdateRetreat()
@@ -605,8 +631,30 @@ namespace Enemies
 				return;
 			}
 
-			// выжидаем, не сводя глаз с игрока, если он виден
+			// Укрытие раскрыто — игрок перешёл туда, откуда видит собаку. Ищем новое; сменили уже слишком
+			// много раз или прятаться больше негде — хватит бегать, нападаем
+			if (_retreatInCover && Time.time >= _nextCoverCheckTime)
+			{
+				_nextCoverCheckTime = Time.time + coverCheckInterval;
+				if (!_coverFinder.IsHiddenFrom(transform.position, player, _perception.PlayerEyePosition))
+				{
+					if (_coverChanges < maxCoverChanges && TryPickRetreatPoint(player, out _retreatPoint, out _retreatInCover))
+					{
+						_coverChanges++;
+						StartRunningToRetreatPoint();
+					}
+					else
+					{
+						_perception.AlertToPlayer();
+						EnterChase();
+					}
+					return;
+				}
+			}
+
+			// выжидаем, глядя туда, где игрок (видим его — на него, нет — на последнюю известную позицию)
 			if (_perception.CanSeePlayer) _movement.FaceTowards(player.position);
+			else if (_perception.HasLastKnownPosition) _movement.FaceTowards(_perception.LastKnownPlayerPosition);
 
 			_retreatRecoverTimer += Time.deltaTime;
 			if (_retreatRecoverTimer < retreatRecoverTime) return;
