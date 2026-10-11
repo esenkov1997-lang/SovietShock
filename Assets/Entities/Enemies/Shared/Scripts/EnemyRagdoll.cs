@@ -13,6 +13,9 @@ namespace Enemies
 		[SerializeField] private Animator animator;
 		[Tooltip("Передать телу скорость, с которой враг двигался в момент смерти — бегущая собака падает по инерции, а не замирает")]
 		[SerializeField] private bool inheritVelocity = true;
+		[Tooltip("Компоненты процедурной анимации (Spine Animator, IK ног и т.п.), которые выключаются при смерти. " +
+			"Они двигают кости каждый кадр и иначе боролись бы с физикой ragdoll — тело дёргалось бы и выкручивалось")]
+		[SerializeField] private Behaviour[] disableOnActivate;
 
 		private Rigidbody[] _bodies;
 
@@ -35,6 +38,9 @@ namespace Enemies
 			IsActive = true;
 
 			if (animator != null) animator.enabled = false;
+			if (disableOnActivate != null)
+				foreach (Behaviour behaviour in disableOnActivate)
+					if (behaviour != null) behaviour.enabled = false;
 			SetPhysical(true);
 
 			if (!inheritVelocity) return;

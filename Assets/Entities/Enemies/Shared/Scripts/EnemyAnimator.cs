@@ -2,9 +2,9 @@ using UnityEngine;
 
 namespace Enemies
 {
-	// Связывает движение и анимацию: каждый кадр отдаёт фактическую скорость агента (м/с) в параметр
-	// аниматора. Blend Tree по этому числу сам смешивает Idle → Walk → Run. Логики здесь нет —
-	// аниматор только отражает то, что реально происходит с телом. Мозг может дополнительно
+	// Связывает движение и анимацию: каждый кадр отдаёт скорость (м/с) в параметр аниматора — фактическую
+	// скорость агента, а в режиме root motion желаемую (см. EnemyMovement.AnimatorSpeed). Blend Tree по этому
+	// числу сам смешивает Idle → Walk → Run. Логики здесь нет — аниматор только отражает то, что реально происходит с телом. Мозг может дополнительно
 	// включать "осмотр" (SetSearching) — например, анимацию принюхивания.
 	[RequireComponent(typeof(EnemyMovement))]
 	public class EnemyAnimator : MonoBehaviour
@@ -34,8 +34,9 @@ namespace Enemies
 				return;
 			}
 
-			// двигает NavMeshAgent, а не анимация — root motion из клипов иначе будет спорить с агентом
-			animator.applyRootMotion = false;
+			// без root motion объект двигает NavMeshAgent — перемещение из клипов спорило бы с ним.
+			// С root motion перемещение забирает EnemyRootMotion (OnAnimatorMove) и применяет через EnemyMovement
+			animator.applyRootMotion = _movement.UseRootMotion;
 			_speedHash = Animator.StringToHash(speedParameter);
 			_searchingHash = Animator.StringToHash(searchingParameter);
 			_hasSearchingParameter = HasParameter(_searchingHash, AnimatorControllerParameterType.Bool);
@@ -43,7 +44,7 @@ namespace Enemies
 
 		private void Update()
 		{
-			animator.SetFloat(_speedHash, _movement.CurrentSpeed, speedDampTime, Time.deltaTime);
+			animator.SetFloat(_speedHash, _movement.AnimatorSpeed, speedDampTime, Time.deltaTime);
 		}
 
 		public void SetSearching(bool searching)

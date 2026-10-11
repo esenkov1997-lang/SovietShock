@@ -531,7 +531,7 @@ namespace Enemies
 			currentState = State.Dead;
 
 			// скорость берём до выключения агента — ragdoll продолжит движение по инерции
-			Vector3 velocity = _movement.Agent.velocity;
+			Vector3 velocity = _movement.Velocity;
 
 			_attack.Cancel();
 			_attack.enabled = false;
