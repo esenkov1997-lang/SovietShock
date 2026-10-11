@@ -189,6 +189,16 @@ MonoBehaviour:
   maxRetreatRunTime: 6
   coverCheckInterval: 0.3
   maxCoverChanges: 2
+  reachCheckInterval: 0.3
+  reachHorizontalTolerance: 1.5
+  reachVerticalTolerance: 1
+  unreachableConfirmTime: 1
+  reachableConfirmTime: 0.3
+  paceRadius: 3.5
+  paceArc: 70
+  paceWaitTime: {x: 1, y: 2.5}
+  hideTime: 5
+  loseInterestTime: 30
   searchDuration: 15
   searchRadius: 8
   searchApproachGait: 1
@@ -1751,7 +1761,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpineAnimatorAmount: 0.60402685
-  _Editor_Category: 0
+  _Editor_Category: 1
   _Editor_PivotoffsetXYZ: 0
   ModelForwardAxis: {x: 0, y: 0, z: 1}
   ModelForwardAxisScaled: {x: 0, y: 0, z: 1}

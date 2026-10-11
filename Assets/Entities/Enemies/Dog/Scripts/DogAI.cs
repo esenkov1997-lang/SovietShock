@@ -695,7 +695,7 @@ namespace Enemies
 		private void UpdateUnreachable()
 		{
 			Transform player = _perception.Player;
-			if (player == null || _perception.IsPlayerDead)
+			if (player == null || _perception.IgnoresPlayer)
 			{
 				EnterCalm();
 				return;
@@ -872,7 +872,7 @@ namespace Enemies
 		private void UpdateRetreat()
 		{
 			Transform player = _perception.Player;
-			if (player == null || _perception.IsPlayerDead)
+			if (player == null || _perception.IgnoresPlayer)
 			{
 				EnterCalm();
 				return;

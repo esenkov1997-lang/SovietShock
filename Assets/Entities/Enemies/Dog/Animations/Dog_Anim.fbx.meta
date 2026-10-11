@@ -113,7 +113,7 @@ ModelImporter:
       name: Dog_walk
       takeName: Dog_walk
       internalID: -4804107125001809777
-      firstFrame: 1
+      firstFrame: 0
       lastFrame: 29
       wrapMode: 0
       orientationOffsetY: 0
@@ -122,7 +122,7 @@ ModelImporter:
       loop: 0
       hasAdditiveReferencePose: 0
       loopTime: 1
-      loopBlend: 0
+      loopBlend: 1
       loopBlendOrientation: 1
       loopBlendPositionY: 1
       loopBlendPositionXZ: 0

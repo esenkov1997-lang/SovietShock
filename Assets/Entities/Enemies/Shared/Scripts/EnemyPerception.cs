@@ -74,6 +74,8 @@ namespace Enemies
 		public Transform Player => _player;
 		// мёртвого игрока враг не видит и не преследует
 		public bool IsPlayerDead => _playerHealth != null && _playerHealth.IsDead;
+		// игрок для врага не существует: мёртв или включён отладочный режим "враги не замечают игрока"
+		public bool IgnoresPlayer => IsPlayerDead || EnemyDebugSettings.PlayerIgnored;
 		public bool CanSeePlayer => canSeePlayer;
 		public float Awareness => awareness;
 		public bool IsAlerted => awareness >= 1f;
@@ -113,8 +115,8 @@ namespace Enemies
 		{
 			RefreshPlayer();
 
-			// игрок погиб — забываем о нём, враг возвращается к спокойному поведению
-			if (IsPlayerDead)
+			// игрок погиб (или отладочный notarget) — забываем о нём, враг возвращается к спокойному поведению
+			if (IgnoresPlayer)
 			{
 				canSeePlayer = false;
 				if (awareness > 0f || HasLastKnownPosition) ForgetPlayer();
@@ -153,7 +155,7 @@ namespace Enemies
 		public void AlertToPlayer()
 		{
 			RefreshPlayer();
-			if (_player == null || IsPlayerDead) return;
+			if (_player == null || IgnoresPlayer) return;
 
 			awareness = 1f;
 			_lastSeenTime = Time.time;
@@ -236,6 +238,7 @@ namespace Enemies
 
 			Transform source = noise.Source != null ? noise.Source.transform : null;
 			if (source != null && source.IsChildOf(transform)) return; // собственный шум не слышим
+			if (source != null && _player != null && source.IsChildOf(_player) && IgnoresPlayer) return; // notarget: шаги и выстрелы игрока не слышны
 
 			if (!IsPathClear(noise.Position, ears, source))
 			{

@@ -111,6 +111,7 @@ namespace Enemies
 		// цель в зоне, перед мордой и атака перезарядилась
 		public bool CanAttack(Vector3 targetPosition)
 		{
+			if (EnemyDebugSettings.AttacksDisabled) return false;
 			if (IsAttacking || Time.time < _nextAttackTime) return false;
 
 			Vector3 toTarget = targetPosition - transform.position;
