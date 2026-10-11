@@ -22,6 +22,10 @@ namespace Sound
 
 		private float _nextAllowedTime;
 
+		// удар прозвучал: (точка контакта, сила удара с учётом Intensity Multiplier). Для тех, кому важен сам факт
+		// удара, а не аудио — например, ImpactNoiseEmitter превращает его в шум, который слышат враги
+		public event System.Action<Vector3, float> Impacted;
+
 		private void OnCollisionEnter(Collision collision)
 		{
 			if (Time.time < _nextAllowedTime || collision.contactCount == 0) return;
@@ -43,7 +47,9 @@ namespace Sound
 				played |= manager.PlayImpact(SoundSurface.Find(contact.otherCollider), contact.point, speed, _otherSurfaceVolume);
 
 			// пауза включается только если что-то сыграло — слабое касание не должно "съедать" следующий сильный удар
-			if (played) _nextAllowedTime = Time.time + _cooldown;
+			if (!played) return;
+			_nextAllowedTime = Time.time + _cooldown;
+			Impacted?.Invoke(contact.point, speed);
 		}
 	}
 }

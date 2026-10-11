@@ -65,7 +65,10 @@ namespace Enemies
 		[SerializeField] private float searchDuration = 15f;
 		[Tooltip("Радиус (м) вокруг места потери, в котором выбираются точки поиска")]
 		[SerializeField] private float searchRadius = 8f;
-		[Tooltip("Походка между точками поиска")]
+		[Tooltip("Походка, когда собака спешит к месту, где потеряла игрока или услышала шум во время погони/поиска. " +
+			"Бег выглядит естественнее: она ещё \"горячая\" после погони")]
+		[SerializeField] private EnemyGait searchApproachGait = EnemyGait.Run;
+		[Tooltip("Походка между точками поиска — собака уже на месте и обнюхивает окрестности")]
 		[SerializeField] private EnemyGait searchGait = EnemyGait.Walk;
 		[Tooltip("Сколько секунд осматриваться на каждой точке поиска: случайно между X и Y")]
 		[SerializeField] private Vector2 searchPointLookTime = new Vector2(1.5f, 3f);
@@ -112,6 +115,7 @@ namespace Enemies
 		private float _searchEndTime;
 		private float _searchLookTimer;       // < 0 — идём к точке, >= 0 — осматриваемся
 		private float _searchLookDuration;
+		private EnemyGait _searchMoveGait;    // к месту потери/шума — бегом, между точками поиска — шагом
 
 		// Chase
 		private bool _holdingPosition;
@@ -342,6 +346,7 @@ namespace Enemies
 			if (goToCenterFirst)
 			{
 				_searchPoint = center;
+				_searchMoveGait = searchApproachGait;
 				_searchLookTimer = -1f;
 			}
 			else
@@ -364,7 +369,7 @@ namespace Enemies
 
 			if (_searchLookTimer < 0f)
 			{
-				_movement.MoveTo(_searchPoint, searchGait);
+				_movement.MoveTo(_searchPoint, _searchMoveGait);
 				if (_movement.HasArrived)
 				{
 					_movement.Stop();
@@ -380,6 +385,7 @@ namespace Enemies
 			if (TryPickNextSearchPoint(out Vector3 next))
 			{
 				_searchPoint = next;
+				_searchMoveGait = searchGait;
 				_searchLookTimer = -1f;
 			}
 			else

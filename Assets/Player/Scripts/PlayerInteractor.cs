@@ -32,6 +32,10 @@ namespace Player
 
 		// необязателен — если есть, показываем подсказку залезть на уступ, когда использовать нечего
 		private LedgeMantle _ledgeMantle;
+
+		// корень собственных коллайдеров игрока (капсула) — луч взаимодействия их пропускает, см. TryFindInteractable
+		private Transform _self;
+		private readonly RaycastHit[] _hits = new RaycastHit[16];
 		private const string JumpActionName = "Jump";
 
 		private void Awake()
@@ -39,6 +43,8 @@ namespace Player
 			if (rayOrigin == null && Camera.main != null) rayOrigin = Camera.main.transform;
 			if (input == null) input = GetComponentInParent<StarterAssetsInputs>();
 			_ledgeMantle = GetComponentInParent<LedgeMantle>();
+			FirstPersonController movement = GetComponentInParent<FirstPersonController>();
+			_self = movement != null ? movement.transform : transform.root;
 			if (holdController == null) holdController = GetComponentInParent<ItemHoldController>();
 			InteractKey.Register(GetComponentInParent<PlayerInput>());
 
@@ -83,7 +89,7 @@ namespace Player
 			IInteractable found = null;
 			Outline foundOutline = null;
 
-			if (rayOrigin != null && Physics.Raycast(rayOrigin.position, rayOrigin.forward, out RaycastHit hit, interactRange, ~0, QueryTriggerInteraction.Ignore))
+			if (TryRaycastIgnoringSelf(out RaycastHit hit))
 			{
 				found = hit.collider.GetComponentInParent<IInteractable>();
 				// объект может разрешать взаимодействие не с любой стороны (терминал — только спереди)
@@ -124,6 +130,30 @@ namespace Player
 			_shownPrefix = prefix;
 			if (showPrompt) PickupPromptUI.Instance?.SetPrompt(prompt, prefix);
 			SetPromptVisible(showPrompt);
+		}
+
+		// ближайшее попадание луча от камеры, НЕ считая коллайдеры самого игрока. Камера стоит у края капсулы:
+		// при движении назад капсула за кадр сдвигается так, что точка камеры оказывается перед ней, и обычный
+		// Raycast упирался в собственную капсулу — подсказка мигала, а E не срабатывал. Та же логика, что
+		// WeaponController.CastFromCamera
+		private bool TryRaycastIgnoringSelf(out RaycastHit hit)
+		{
+			hit = default;
+			if (rayOrigin == null) return false;
+
+			int count = Physics.RaycastNonAlloc(rayOrigin.position, rayOrigin.forward, _hits, interactRange, ~0, QueryTriggerInteraction.Ignore);
+
+			float closest = float.PositiveInfinity;
+			for (int i = 0; i < count; i++)
+			{
+				RaycastHit candidate = _hits[i];
+				if (candidate.distance >= closest || (_self != null && candidate.collider.transform.IsChildOf(_self))) continue;
+
+				closest = candidate.distance;
+				hit = candidate;
+			}
+
+			return closest < float.PositiveInfinity;
 		}
 
 		// забыть текущую цель: погасить её контур и спрятать подсказку
