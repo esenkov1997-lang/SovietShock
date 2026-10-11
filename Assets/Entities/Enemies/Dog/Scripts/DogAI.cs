@@ -18,6 +18,8 @@ namespace Enemies
 	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
 	//   Retreat     — здоровье упало ниже порога: убегает в укрытие (CoverFinder) или просто подальше, выжидает и снова
 	//                 нападает. Укрытие раскрыто — меняет его или нападает.
+	//   Unreachable — до игрока не дойти (забрался высоко): кружит под ним и смотрит вверх; попадание — прячется
+	//                 в укрытие и потом снова выходит; игрок спустился — в атаку; долго недосягаем — теряет интерес.
 	//                 Загнали в угол (игрок подошёл вплотную) — огрызается и дерётся.
 	//   Dead       — Health дошло до нуля: всё выключается, тело становится ragdoll.
 	// Поверх любого состояния — оглушение от попадания (EnemyHitReaction): пока играет вздрагивание, собака стоит,
@@ -35,6 +37,7 @@ namespace Enemies
 			Chase,
 			Attack,
 			Retreat,
+			Unreachable,
 			Dead
 		}
 
@@ -82,6 +85,29 @@ namespace Enemies
 		[SerializeField] private float coverCheckInterval = 0.3f;
 		[Tooltip("С CoverFinder: сколько раз собака может сменить раскрытое укрытие, прежде чем перестать прятаться и напасть")]
 		[SerializeField] private int maxCoverChanges = 2;
+
+		[Header("Недосягаемый игрок (Unreachable)")]
+		[Tooltip("Как часто (сек) проверять, можно ли дойти до игрока (один расчёт пути)")]
+		[SerializeField] private float reachCheckInterval = 0.3f;
+		[Tooltip("Игрок достижим, если NavMesh есть не дальше этого (м) от него по горизонтали...")]
+		[SerializeField] private float reachHorizontalTolerance = 1.5f;
+		[Tooltip("...и не дальше этого (м) по высоте. Игрок на ящике выше — недосягаем")]
+		[SerializeField] private float reachVerticalTolerance = 1f;
+		[Tooltip("Сколько секунд игрок должен оставаться недосягаемым, прежде чем собака это \"поймёт\" — прыжок на ящик и обратно не считается")]
+		[SerializeField] private float unreachableConfirmTime = 1f;
+		[Tooltip("Сколько секунд игрок должен быть снова достижим, чтобы собака бросилась в атаку")]
+		[SerializeField] private float reachableConfirmTime = 0.3f;
+		[Tooltip("Радиус (м), по которому собака кружит под недосягаемым игроком")]
+		[SerializeField] private float paceRadius = 3.5f;
+		[Tooltip("Насколько далеко (градусы) в сторону собака смещается по кругу за один переход")]
+		[SerializeField] private float paceArc = 70f;
+		[Tooltip("Сколько секунд стоять и смотреть на игрока между переходами: случайно между X и Y")]
+		[SerializeField] private Vector2 paceWaitTime = new Vector2(1f, 2.5f);
+		[Tooltip("Получив попадание от недосягаемого игрока, собака прячется (нужен CoverFinder) на столько секунд, потом снова выходит кружить")]
+		[SerializeField] private float hideTime = 5f;
+		[Tooltip("Через столько секунд недосягаемости собака теряет интерес и уходит на пост/патруль. Пока игрок недосягаем, " +
+			"она будет только смотреть на него. Попадание или спуск игрока — снова в бой. 0 — никогда не сдаётся")]
+		[SerializeField] private float loseInterestTime = 30f;
 
 		[Header("Поиск (Search)")]
 		[Tooltip("Сколько секунд собака ищет игрока, прежде чем сдаться")]
@@ -153,6 +179,21 @@ namespace Enemies
 		private int _coverChanges;
 		private float _nextCoverCheckTime;
 
+		// Unreachable
+		private bool _playerUnreachable;     // подтверждённо: дойти до игрока нельзя (с выдержкой Unreachable Confirm Time)
+		private bool _rawReachable = true;    // результат последней проверки, без выдержки
+		private float _rawReachableSince;
+		private float _nextReachCheckTime;
+		private bool _gaveUpOnUnreachable;    // потеряла интерес: пока игрок недосягаем, только смотрит на него, не гонится
+		private float _unreachableStartTime;
+		private bool _unreachableHiding;      // false — кружит под игроком, true — прячется в укрытии
+		private Vector3 _pacePoint;
+		private float _paceWaitTimer;         // < 0 — идём к точке, >= 0 — стоим и смотрим на игрока
+		private Vector3 _hidePoint;
+		private float _hideTimer;             // < 0 — бежим в укрытие, >= 0 — выжидаем в нём
+		private float _hideRunStartTime;
+		private bool _hideInCover;            // true — настоящее укрытие (следим, не раскрыто ли), false — просто подальше
+
 		// Осмотр
 		private Vector3 _lookBaseForward;
 		private Vector3 _lookHeading;
@@ -204,6 +245,7 @@ namespace Enemies
 		private void Update()
 		{
 			_isLookingAround = false;
+			UpdateReachability();
 
 			// оглушение перекрывает любое состояние: стоим, атаку прерываем. Состояние при этом не меняется —
 			// после вздрагивания собака продолжит то, что делала (обычно погоню: попадание поднимает тревогу)
@@ -224,6 +266,7 @@ namespace Enemies
 				case State.Chase: UpdateChase(); break;
 				case State.Attack: UpdateAttack(); break;
 				case State.Retreat: UpdateRetreat(); break;
+				case State.Unreachable: UpdateUnreachable(); break;
 			}
 
 			if (_animator != null) _animator.SetSearching(_isLookingAround);
@@ -232,7 +275,8 @@ namespace Enemies
 		// Общая реакция на зрение для всех не-боевых состояний. true — зрение "забрало управление" в этом кадре.
 		private bool HandleSight()
 		{
-			if (_perception.IsAlerted)
+			// сдалась на недосягаемом игроке — пока он там, не гонится, а только смотрит (ветка CanSeePlayer ниже)
+			if (_perception.IsAlerted && !(_gaveUpOnUnreachable && _playerUnreachable))
 			{
 				EnterChase();
 				return true;
@@ -463,6 +507,12 @@ namespace Enemies
 
 		private void UpdateChase()
 		{
+			if (_playerUnreachable)
+			{
+				EnterUnreachable(hide: false);
+				return;
+			}
+
 			if (_perception.CanSeePlayer)
 			{
 				ChaseVisiblePlayer(_perception.Player.position);
@@ -560,7 +610,223 @@ namespace Enemies
 			// попали — значит, игрок рядом и опасен: тревога сразу, даже если собака спала или смотрела в другую сторону
 			_perception.AlertToPlayer();
 
-			if (ShouldRetreat(currentHealth, maxHealth)) EnterRetreat();
+			_gaveUpOnUnreachable = false; // стреляют — значит, интерес вернулся
+
+			if (ShouldRetreat(currentHealth, maxHealth))
+			{
+				EnterRetreat();
+				if (currentState == State.Retreat) return;
+			}
+
+			// по собаке стреляют сверху, а достать стрелка нельзя — не стоять под огнём, а прятаться
+			if (currentState != State.Retreat && IsPlayerUnreachableNow()) EnterUnreachable(hide: true);
+		}
+
+		// Попадание — сильный сигнал, ждать выдержку Unreachable Confirm Time тут незачем: если флаг ещё не
+		// подтверждён (собака искала игрока, стояла на посту или погоня только началась), проверяем сразу.
+		private bool IsPlayerUnreachableNow()
+		{
+			if (_playerUnreachable) return true;
+
+			Transform player = _perception.Player;
+			if (player == null) return false;
+			if (_movement.CanReach(player.position, reachHorizontalTolerance, reachVerticalTolerance)) return false;
+
+			// записываем как уже подтверждённое, чтобы UpdateReachability не начал выдержку заново
+			_playerUnreachable = true;
+			_rawReachable = false;
+			_rawReachableSince = Time.time - unreachableConfirmTime;
+			return true;
+		}
+
+		// ---------- Unreachable ----------
+
+		// Раз в Reach Check Interval проверяем, можно ли дойти до игрока, и подтверждаем результат выдержкой
+		// по времени. Проверка нужна только в бою (и пока собака "сдалась" — чтобы заметить, что игрок спустился).
+		private void UpdateReachability()
+		{
+			bool needed = currentState == State.Chase || currentState == State.Attack ||
+				currentState == State.Unreachable || _gaveUpOnUnreachable;
+			if (!needed)
+			{
+				_playerUnreachable = false;
+				_rawReachable = true;
+				_rawReachableSince = Time.time;
+				return;
+			}
+
+			if (Time.time < _nextReachCheckTime) return;
+			_nextReachCheckTime = Time.time + reachCheckInterval;
+
+			Transform player = _perception.Player;
+			if (player == null) return;
+
+			// видим — проверяем, где игрок сейчас; не видим — где видели последний раз
+			Vector3 target = !_perception.CanSeePlayer && _perception.HasLastKnownPosition
+				? _perception.LastKnownPlayerPosition
+				: player.position;
+
+			bool reachable = _movement.CanReach(target, reachHorizontalTolerance, reachVerticalTolerance);
+			if (reachable != _rawReachable)
+			{
+				_rawReachable = reachable;
+				_rawReachableSince = Time.time;
+			}
+
+			float heldFor = Time.time - _rawReachableSince;
+			if (!_rawReachable && heldFor >= unreachableConfirmTime) _playerUnreachable = true;
+			if (_rawReachable && heldFor >= reachableConfirmTime)
+			{
+				_playerUnreachable = false;
+				_gaveUpOnUnreachable = false;
+			}
+		}
+
+		private void EnterUnreachable(bool hide)
+		{
+			if (currentState != State.Unreachable) _unreachableStartTime = Time.time;
+			currentState = State.Unreachable;
+			_holdingPosition = false;
+
+			if (hide && TryStartHiding()) return;
+			StartPacing();
+		}
+
+		private void UpdateUnreachable()
+		{
+			Transform player = _perception.Player;
+			if (player == null || _perception.IsPlayerDead)
+			{
+				EnterCalm();
+				return;
+			}
+
+			// спустился — в атаку
+			if (!_playerUnreachable)
+			{
+				EnterChase();
+				return;
+			}
+
+			if (loseInterestTime > 0f && Time.time - _unreachableStartTime >= loseInterestTime)
+			{
+				_gaveUpOnUnreachable = true;
+				_perception.ForgetPlayer();
+				EnterCalm();
+				return;
+			}
+
+			if (_unreachableHiding) UpdateHiding(player);
+			else UpdatePacing(player);
+		}
+
+		// Кружит под игроком: переходит между точками на кольце вокруг него и на каждой стоит, глядя вверх на игрока
+		private void StartPacing()
+		{
+			_unreachableHiding = false;
+			PickPacePoint();
+			_paceWaitTimer = -1f;
+		}
+
+		private void UpdatePacing(Transform player)
+		{
+			if (_paceWaitTimer < 0f)
+			{
+				_movement.MoveTo(_pacePoint, EnemyGait.Run); // бой — всегда бегом, шаг только в спокойных состояниях
+				if (_movement.HasArrived)
+				{
+					_movement.Stop();
+					_paceWaitTimer = Random.Range(paceWaitTime.x, paceWaitTime.y);
+				}
+				return;
+			}
+
+			_movement.FaceTowards(GetKnownPlayerPosition(player));
+			_paceWaitTimer -= Time.deltaTime;
+			if (_paceWaitTimer > 0f) return;
+
+			PickPacePoint();
+			_paceWaitTimer = -1f;
+		}
+
+		private void PickPacePoint()
+		{
+			Transform player = _perception.Player;
+			if (player == null)
+			{
+				_pacePoint = transform.position;
+				return;
+			}
+			Vector3 playerPosition = GetKnownPlayerPosition(player);
+
+			// центр кружения — ближайший к игроку достижимый пол (под ящиком, у подножия лестницы без пути наверх)
+			if (!_movement.TryGetReachablePointNear(playerPosition, paceRadius + 2f, out Vector3 center))
+				center = transform.position;
+
+			// смещаемся по кругу от своего текущего места — собака обходит игрока, а не прыгает через центр
+			Vector3 fromCenter = transform.position - center;
+			fromCenter.y = 0f;
+			fromCenter = fromCenter.sqrMagnitude > 0.01f ? fromCenter.normalized : -transform.forward;
+
+			const int attempts = 6;
+			for (int i = 0; i < attempts; i++)
+			{
+				Vector3 direction = Quaternion.Euler(0f, Random.Range(-paceArc, paceArc), 0f) * fromCenter;
+				if (_movement.TryGetReachablePointNear(center + direction * paceRadius, 1.5f, out _pacePoint)) return;
+			}
+			_pacePoint = center;
+		}
+
+		// Прячется от выстрелов сверху: в укрытие, а если его нет (с высоты игрок видит всю площадку) или нет
+		// CoverFinder — хотя бы подальше из-под огня. false — бежать вообще некуда
+		private bool TryStartHiding()
+		{
+			Transform player = _perception.Player;
+			if (player == null) return false;
+
+			_hideInCover = _coverFinder != null && _coverFinder.TryFindCover(player, _perception.PlayerEyePosition, out _hidePoint);
+			if (!_hideInCover && !_movement.TryFindPointAwayFrom(player.position, retreatDistance, out _hidePoint)) return false;
+
+			_unreachableHiding = true;
+			_hideTimer = -1f;
+			_hideRunStartTime = Time.time;
+			return true;
+		}
+
+		private void UpdateHiding(Transform player)
+		{
+			if (_hideTimer < 0f)
+			{
+				_movement.MoveTo(_hidePoint, EnemyGait.Run);
+				if (_movement.HasArrived || Time.time - _hideRunStartTime > maxRetreatRunTime)
+				{
+					_movement.Stop();
+					_hideTimer = 0f;
+				}
+				return;
+			}
+
+			// игрок наверху сменил позицию и видит собаку — новое укрытие (или хотя бы подальше), а если некуда — снова кружить.
+			// Если укрытия не было с самого начала (просто убежали подальше), проверять нечего
+			if (_hideInCover && Time.time >= _nextCoverCheckTime)
+			{
+				_nextCoverCheckTime = Time.time + coverCheckInterval;
+				if (!_coverFinder.IsHiddenFrom(transform.position, player, _perception.PlayerEyePosition))
+				{
+					if (!TryStartHiding()) StartPacing();
+					return;
+				}
+			}
+
+			_movement.FaceTowards(GetKnownPlayerPosition(player));
+			_hideTimer += Time.deltaTime;
+			if (_hideTimer >= hideTime) StartPacing();
+		}
+
+		private Vector3 GetKnownPlayerPosition(Transform player)
+		{
+			if (_perception.CanSeePlayer || !_perception.HasLastKnownPosition) return player.position;
+			return _perception.LastKnownPlayerPosition;
 		}
 
 		// ---------- Retreat ----------
@@ -753,6 +1019,14 @@ namespace Enemies
 				Gizmos.DrawLine(transform.position, _retreatPoint);
 				Gizmos.DrawWireSphere(_retreatPoint, 0.4f);
 				Gizmos.DrawWireSphere(transform.position, corneredDistance);
+			}
+			else if (currentState == State.Unreachable)
+			{
+				// фиолетовый — точка кружения под игроком, голубой — укрытие от выстрелов сверху
+				Gizmos.color = _unreachableHiding ? Color.cyan : new Color(0.7f, 0.3f, 1f);
+				Vector3 target = _unreachableHiding ? _hidePoint : _pacePoint;
+				Gizmos.DrawLine(transform.position, target);
+				Gizmos.DrawWireSphere(target, 0.4f);
 			}
 		}
 	}

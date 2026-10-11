@@ -51,6 +51,30 @@ MonoBehaviour:
     m_Key: prompt.debug.spawnEnemy
     m_Metadata:
       m_Items: []
+  - m_Id: 7012345678901001
+    m_Key: menu.pause.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901002
+    m_Key: menu.pause.resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901003
+    m_Key: menu.pause.debug
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901004
+    m_Key: menu.pause.quit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901005
+    m_Key: menu.debug.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901006
+    m_Key: menu.back
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

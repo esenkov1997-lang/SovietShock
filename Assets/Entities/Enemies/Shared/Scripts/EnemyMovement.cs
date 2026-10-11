@@ -193,6 +193,35 @@ namespace Enemies
 			return Quaternion.Angle(transform.rotation, targetRotation) <= toleranceAngle;
 		}
 
+		// Можно ли дойти вплотную к target. Цель "достижима", если рядом с ней (в пределах допусков по горизонтали
+		// и высоте) есть точка NavMesh, до которой ведёт полный путь. Игрок на высоком ящике — ближайший NavMesh
+		// внизу, разница высот больше допуска → недостижим. Игрок на "острове" NavMesh без лестницы — путь неполный.
+		public bool CanReach(Vector3 target, float horizontalTolerance, float verticalTolerance)
+		{
+			float sampleRadius = Mathf.Max(horizontalTolerance, verticalTolerance);
+			if (!NavMesh.SamplePosition(target, out NavMeshHit hit, sampleRadius, _agent.areaMask)) return false;
+
+			Vector3 offset = hit.position - target;
+			if (Mathf.Abs(offset.y) > verticalTolerance) return false;
+			offset.y = 0f;
+			if (offset.magnitude > horizontalTolerance) return false;
+
+			if (!NavMesh.CalculatePath(transform.position, hit.position, _agent.areaMask, _testPath)) return false;
+			return _testPath.status == NavMeshPathStatus.PathComplete;
+		}
+
+		// Достижимая точка NavMesh рядом с desired (в пределах sampleRadius) — например, на кольце вокруг игрока
+		public bool TryGetReachablePointNear(Vector3 desired, float sampleRadius, out Vector3 point)
+		{
+			point = desired;
+			if (!NavMesh.SamplePosition(desired, out NavMeshHit hit, sampleRadius, _agent.areaMask)) return false;
+			if (!NavMesh.CalculatePath(transform.position, hit.position, _agent.areaMask, _testPath)) return false;
+			if (_testPath.status != NavMeshPathStatus.PathComplete) return false;
+
+			point = hit.position;
+			return true;
+		}
+
 		// Точка для бегства от угрозы: примерно в distance метров, в сторону от threat. Перебираются направления
 		// веером (прямо от угрозы, потом всё сильнее вбок) — из тупика враг убежит вдоль стены, а не в стену.
 		// Выбирается достижимая точка, которая дальше всего от угрозы. false — убегать некуда (все ближе, чем сейчас).

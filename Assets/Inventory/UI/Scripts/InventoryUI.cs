@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Interactables;
+using Menus;
 using Player;
 using StarterAssets;
 using UnityEngine;
@@ -44,6 +45,8 @@ namespace Inventory
 		// и не открывается. Необязателен — у игрока без этого компонента инвентарь работает как раньше
 		private PlayerCameraFocus _focus;
 		private readonly List<GameObject> _itemViews = new List<GameObject>();
+
+		public bool IsOpen => _isOpen;
 
 		private void Awake()
 		{
@@ -141,7 +144,14 @@ namespace Inventory
 		private void Update()
 		{
 			if (_focus != null && _focus.IsBusy) return;
+			if (PauseMenu.IsPaused) return;
 			if (Input.GetKeyDown(toggleKey)) SetOpen(!_isOpen);
+		}
+
+		// Menus.PauseMenu закрывает инвентарь по Escape вместо открытия паузы
+		public void Close()
+		{
+			if (_isOpen) SetOpen(false);
 		}
 
 		private void SetFocus(PlayerCameraFocus focus)

@@ -56,6 +56,30 @@ MonoBehaviour:
     m_Localized: Spawn enemy
     m_Metadata:
       m_Items: []
+  - m_Id: 7012345678901001
+    m_Localized: Paused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901002
+    m_Localized: Resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901003
+    m_Localized: Debug
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901004
+    m_Localized: Quit game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901005
+    m_Localized: Debug menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7012345678901006
+    m_Localized: Back
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
