@@ -134,7 +134,10 @@ namespace Player
 
 		// Начать: игрок за alignDuration разворачивается лицом к faceTarget, руки встают на первый кадр клипа,
 		// камера плавно переходит в него. Сам клип запустит StartClip — враг вызывает его в один кадр со своей анимацией.
-		public bool Begin(AnimationClip clip, Vector3 faceTarget, float alignDuration, float armsYawOffset,
+		// groundHeight — мировая высота пола, на котором стоит враг: от неё ставятся руки. В Blender оба персонажа стоят
+		// на одном полу (Z = 0), а точка отсчёта капсулы игрока в Unity — ~11 см над полом (низ капсулы ниже центра
+		// на 7 см + Skin Width). Без этого руки оказались бы выше, чем в сцене Blender, относительно врага.
+		public bool Begin(AnimationClip clip, Vector3 faceTarget, float groundHeight, float alignDuration, float armsYawOffset,
 			float cameraBlendIn, float cameraBlendOut)
 		{
 			if (!CanStart || clip == null || _cameraRoot == null) return false;
@@ -157,7 +160,7 @@ namespace Player
 			_releaseDuration = Mathf.Max(0f, cameraBlendOut);
 			_boneCorrectionCaptured = false;
 
-			_arms.transform.localPosition = Vector3.zero;
+			_arms.transform.localPosition = new Vector3(0f, groundHeight - transform.position.y, 0f);
 			_arms.transform.localRotation = Quaternion.Euler(0f, armsYawOffset, 0f);
 			_arms.SetActive(true);
 

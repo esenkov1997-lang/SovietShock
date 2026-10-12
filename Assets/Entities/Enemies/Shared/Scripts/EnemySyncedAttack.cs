@@ -106,7 +106,7 @@ namespace Enemies
 			Quaternion alignRotation = playerFacing * Quaternion.Euler(0f, data.YawOffset, 0f);
 			if (!HasSpaceBehind(alignPoint, alignRotation)) return false;
 
-			if (!playerAnimation.Begin(data.PlayerClip, transform.position, data.AlignDuration,
+			if (!playerAnimation.Begin(data.PlayerClip, transform.position, alignPoint.y + data.PlayerHeightOffset, data.AlignDuration,
 				data.PlayerArmsYawOffset, data.CameraBlendIn, data.CameraBlendOut))
 				return false;
 
