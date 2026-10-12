@@ -20,7 +20,7 @@ MonoBehaviour:
   ForwardOffset: 1.5
   SideOffset: 0
   YawOffset: 180
-  AlignDuration: 0.25
+  AlignDuration: 0.1
   CameraBlendIn: 0.3
   CameraBlendOut: 0.3
   DamagePerBite: 10
