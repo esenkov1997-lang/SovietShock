@@ -99,6 +99,9 @@ namespace Enemies
 		// для аниматора (наклон корпуса, клипы поворота в 2D Blend Tree)
 		public float TurnRate { get; private set; }
 
+		// закреплён на месте (синхронная атака) — личное пространство его не двигает, соседи обходят его целиком
+		public bool IsPinned { get; private set; }
+
 		// сейчас играет анимация поворота на месте (EnemyTurnInPlace)
 		public bool IsTurningInPlace => _turnInPlace != null && _turnInPlace.IsTurning;
 
@@ -146,13 +149,15 @@ namespace Enemies
 		// ограничен NavMesh — в стену не вытолкнет. Перебор всех врагов: на десятки врагов это копейки.
 		private void ApplySeparation()
 		{
-			if (separationRadius <= 0f || !_agent.enabled || !_agent.isOnNavMesh) return;
+			if (separationRadius <= 0f || !_agent.enabled || !_agent.isOnNavMesh || IsPinned) return;
 
 			Vector3 push = Vector3.zero;
 			Vector3 position = transform.position;
 			foreach (EnemyMovement other in _active)
 			{
 				if (other == this || other.separationRadius <= 0f) continue;
+				// закреплённого соседа не сдвинуть — отходим на всё перекрытие сами, а не на половину
+				float share = other.IsPinned ? 1f : 0.5f;
 
 				Vector3 offset = position - other.transform.position;
 				offset.y = 0f;
@@ -166,7 +171,7 @@ namespace Enemies
 					? offset / distance
 					: Quaternion.Euler(0f, GetInstanceID() % 360, 0f) * Vector3.forward;
 
-				push += direction * ((minDistance - distance) * 0.5f);
+				push += direction * ((minDistance - distance) * share);
 			}
 
 			if (push.sqrMagnitude < 0.000001f) return;
@@ -307,6 +312,33 @@ namespace Enemies
 			_lastDestination = destination;
 			_hasDestination = true;
 			_nextCornersRefreshTime = 0f; // новый путь — углы перечитать сразу, как только он посчитается
+		}
+
+		public void SetPinned(bool pinned)
+		{
+			IsPinned = pinned;
+		}
+
+		// Поставить врага в точку с поворотом напрямую (подтягивание в точку стыковки синхронной атаки).
+		// Через агента — точка остаётся на NavMesh, агент не "теряет" врага
+		public void SetPose(Vector3 position, Quaternion rotation)
+		{
+			transform.rotation = rotation;
+			if (!_agent.enabled)
+			{
+				transform.position = position;
+				return;
+			}
+
+			if (useRootMotion)
+			{
+				_agent.nextPosition = position;
+				transform.position = _agent.nextPosition;
+			}
+			else
+			{
+				_agent.Warp(position);
+			}
 		}
 
 		// насовсем (смерть): агент больше не держит объект на NavMesh и не мешает физике ragdoll

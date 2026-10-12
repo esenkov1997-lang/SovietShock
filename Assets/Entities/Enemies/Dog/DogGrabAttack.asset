@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 593bf8f988d2461d90ff8f9c1125fb0f, type: 3}
+  m_Name: DogGrabAttack
+  m_EditorClassIdentifier: 
+  EnemyStateName: DogGrab
+  EnemyStateTag: Grab
+  EnemyCrossFade: 0.1
+  PlayerClip: {fileID: 7887897844359418680, guid: 2ba0be790ae2bff439704cf6eff3bab9, type: 3}
+  PlayerArmsYawOffset: 0
+  ForwardOffset: 1.5
+  SideOffset: 0
+  YawOffset: 180
+  AlignDuration: 0.25
+  CameraBlendIn: 0.3
+  CameraBlendOut: 0.3
+  DamagePerBite: 10
+  Chance: 1
+  Cooldown: 10
+  MaxAngleFromPlayerView: 60
+  MaxHeightDifference: 0.3
+  RequiredSpaceBehind: 1.5
+  MaxDuration: 10

@@ -12,6 +12,7 @@ namespace Enemies
 		public event Action AttackHitReceived;
 		public event Action AttackEndReceived;
 		public event Action HitEndReceived;
+		public event Action GrabBiteReceived;
 
 		// Animation Event "AttackHit" — на кадр клипа атаки, где зубы/лапа касаются цели. Тут наносится урон
 		public void AttackHit()
@@ -29,6 +30,12 @@ namespace Enemies
 		public void HitEnd()
 		{
 			HitEndReceived?.Invoke();
+		}
+
+		// Animation Event "GrabBite" — в клипе захвата (EnemySyncedAttack), на кадры, где враг сжимает челюсти. Каждое — урон игроку
+		public void GrabBite()
+		{
+			GrabBiteReceived?.Invoke();
 		}
 	}
 }

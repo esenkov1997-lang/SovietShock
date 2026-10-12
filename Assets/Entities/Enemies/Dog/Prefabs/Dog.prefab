@@ -82,6 +82,7 @@ GameObject:
   - component: {fileID: 4464600586326970646}
   - component: {fileID: 5970496570883006764}
   - component: {fileID: 1305533231048589939}
+  - component: {fileID: 8890392017559017818}
   m_Layer: 0
   m_Name: Dog
   m_TagString: Untagged
@@ -148,6 +149,8 @@ MonoBehaviour:
   minTurnSpeedFactor: 0.6
   pathLookAhead: 2
   brakingDistance: 1
+  separationRadius: 0.45
+  separationSpeed: 2
   repathDistance: 0.3
 --- !u!114 &4520113902226963904
 MonoBehaviour:
@@ -300,10 +303,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   attackRange: 1.45
   attackAngle: 40
-  cooldown: 0.8
+  cooldown: 0.2
   damage: 15
   hitPoint: {fileID: 9051100973172889577}
-  hitRadius: 0.2
+  hitRadius: 0.35
   hitLayers:
     serializedVersion: 2
     m_Bits: 4091
@@ -394,6 +397,19 @@ MonoBehaviour:
   threatDistanceWeight: 0.7
   coverPointBonus: 0.5
   drawDebug: 1
+--- !u!114 &8890392017559017818
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7599031302248995601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d14fe53570e04bf5920749d1ee38375b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  data: {fileID: 11400000, guid: 4b853db49a3f6394e9f8775dda3e540c, type: 2}
 --- !u!1001 &8580498339610749095
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -18,6 +18,8 @@ namespace Enemies
 	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
 	//   Retreat     — здоровье упало ниже порога: убегает в укрытие (CoverFinder) или просто подальше, выжидает и снова
 	//                 нападает. Укрытие раскрыто — меняет его или нападает.
+	//   Grab        — синхронная атака (EnemySyncedAttack): вцепилась в руку игрока, обе анимации играют вместе.
+	//                 Начинается вместо обычного укуса с шансом из ассета; по окончании — снова Chase.
 	//   Unreachable — до игрока не дойти (забрался высоко): кружит под ним и смотрит вверх; попадание — прячется
 	//                 в укрытие и потом снова выходит; игрок спустился — в атаку; долго недосягаем — теряет интерес.
 	//                 Загнали в угол (игрок подошёл вплотную) — огрызается и дерётся.
@@ -38,6 +40,7 @@ namespace Enemies
 			Attack,
 			Retreat,
 			Unreachable,
+			Grab,
 			Dead
 		}
 
@@ -146,6 +149,7 @@ namespace Enemies
 		private EnemyHitReaction _hitReaction;
 		private EnemyRagdoll _ragdoll;
 		private CoverFinder _coverFinder;
+		private EnemySyncedAttack _syncedAttack;
 
 		private Vector3 _postPosition;
 		private Vector3 _postForward;
@@ -215,6 +219,7 @@ namespace Enemies
 			_hitReaction = GetComponent<EnemyHitReaction>(); // необязательный — без него собака не вздрагивает
 			_ragdoll = GetComponent<EnemyRagdoll>();
 			_coverFinder = GetComponent<CoverFinder>(); // необязательный — без него отступает просто подальше от игрока
+			_syncedAttack = GetComponent<EnemySyncedAttack>(); // необязательный — без него только обычные укусы
 
 			// тело остаётся лежать — уничтожение объекта сломало бы ragdoll
 			if (_health.DestroyOnDeath)
@@ -271,6 +276,7 @@ namespace Enemies
 				case State.Attack: UpdateAttack(); break;
 				case State.Retreat: UpdateRetreat(); break;
 				case State.Unreachable: UpdateUnreachable(); break;
+				case State.Grab: UpdateGrab(); break;
 			}
 
 			if (_animator != null) _animator.SetSearching(_isLookingAround);
@@ -549,7 +555,12 @@ namespace Enemies
 				_holdingPosition = true;
 				_movement.FaceTowards(playerPosition);
 
-				if (_attack.CanAttack(playerPosition)) EnterAttack();
+				// в момент укуса — с шансом из SyncedAttackData вместо него захват (вцепиться в руку)
+				if (_attack.CanAttack(playerPosition))
+				{
+					if (_syncedAttack != null && _syncedAttack.TryStart(_perception.Player)) EnterGrab();
+					else EnterAttack();
+				}
 			}
 			else
 			{
@@ -578,6 +589,24 @@ namespace Enemies
 			}
 
 			// атака закончилась (событие AttackEnd) — снова погоня; если игрок рядом, она же решит кусать ещё раз
+			EnterChase();
+		}
+
+		// ---------- Grab ----------
+
+		// всё — стыковку, синхронный старт, урон, конец — ведёт EnemySyncedAttack; мозг просто ждёт
+		private void EnterGrab()
+		{
+			currentState = State.Grab;
+			_holdingPosition = false;
+		}
+
+		private void UpdateGrab()
+		{
+			if (_syncedAttack.IsActive) return;
+
+			// клип доигран (отпустила, отскочила) — снова в бой: собака "знает", где игрок
+			_perception.AlertToPlayer();
 			EnterChase();
 		}
 
@@ -615,6 +644,9 @@ namespace Enemies
 			_perception.AlertToPlayer();
 
 			_gaveUpOnUnreachable = false; // стреляют — значит, интерес вернулся
+
+			// во время захвата урон не меняет поведение — синхронная анимация доигрывается
+			if (currentState == State.Grab) return;
 
 			if (ShouldRetreat(currentHealth, maxHealth))
 			{
@@ -936,6 +968,9 @@ namespace Enemies
 
 		private void Die()
 		{
+			// погибла посреди захвата — игрок сразу получает управление
+			if (_syncedAttack != null) _syncedAttack.Abort();
+
 			currentState = State.Dead;
 
 			// скорость берём до выключения агента — ragdoll продолжит движение по инерции
