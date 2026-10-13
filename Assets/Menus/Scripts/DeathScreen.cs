@@ -80,7 +80,7 @@ namespace Menus
 		protected override void OnDisable()
 		{
 			base.OnDisable();
-			SignalGlitch.SetIntensity(0f);
+			SignalGlitch.Clear(this);
 		}
 
 		protected override void OnBind(WeaponController weapons)
@@ -112,7 +112,7 @@ namespace Menus
 			// картинка ещё видна, но уже с помехами — по кривой Glitch Over Time
 			for (float elapsed = 0f; elapsed < showDelay; elapsed += Time.unscaledDeltaTime)
 			{
-				SignalGlitch.SetIntensity(glitchOverTime.Evaluate(elapsed));
+				SignalGlitch.SetIntensity(this, glitchOverTime.Evaluate(elapsed));
 				yield return null;
 			}
 
@@ -127,14 +127,14 @@ namespace Menus
 					panel.SetActive(true);
 					yield return new WaitForSecondsRealtime(step * Random.Range(0.5f, 1.5f));
 					panel.SetActive(false);
-					SignalGlitch.SetIntensity(flickerGlitchIntensity);
+					SignalGlitch.SetIntensity(this, flickerGlitchIntensity);
 					yield return new WaitForSecondsRealtime(step * Random.Range(0.5f, 1.5f));
 				}
 			}
 
 			// обрыв
 			panel.SetActive(true);
-			SignalGlitch.SetIntensity(0f); // дальше чёрный экран — эффект не нужен
+			SignalGlitch.Clear(this); // дальше чёрный экран — эффект не нужен
 			foreach (GameObject hidden in hideOnShow)
 				if (hidden != null) hidden.SetActive(false);
 			if (muteAudio)
@@ -156,7 +156,7 @@ namespace Menus
 		// "Переподключиться" — пока просто перезапуск сцены
 		public void Restart()
 		{
-			SignalGlitch.SetIntensity(0f);
+			SignalGlitch.Clear(this);
 			// громкость и время — глобальные, переживают загрузку сцены; возвращаем до неё
 			if (muteAudio) AudioListener.volume = _volumeBeforeMute;
 			Time.timeScale = 1f;
