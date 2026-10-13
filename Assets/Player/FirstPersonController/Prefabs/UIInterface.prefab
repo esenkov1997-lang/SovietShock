@@ -1185,7 +1185,7 @@ MonoBehaviour:
   - {fileID: 5320253539298137161}
   showDelay: 2.5
   glitchDuration: 0.3
-  glitchFlickers: 4
+  glitchFlickers: 2
   buttonsDelay: 1
   glitchOverTime:
     serializedVersion: 2

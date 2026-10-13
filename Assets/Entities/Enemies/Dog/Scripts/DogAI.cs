@@ -150,6 +150,7 @@ namespace Enemies
 		private EnemyRagdoll _ragdoll;
 		private CoverFinder _coverFinder;
 		private EnemySyncedAttack _syncedAttack;
+		private EnemyVoice _voice;
 
 		private Vector3 _postPosition;
 		private Vector3 _postForward;
@@ -220,6 +221,7 @@ namespace Enemies
 			_ragdoll = GetComponent<EnemyRagdoll>();
 			_coverFinder = GetComponent<CoverFinder>(); // необязательный — без него отступает просто подальше от игрока
 			_syncedAttack = GetComponent<EnemySyncedAttack>(); // необязательный — без него только обычные укусы
+			_voice = GetComponent<EnemyVoice>(); // необязательный — без него собака молчит
 
 			// тело остаётся лежать — уничтожение объекта сломало бы ragdoll
 			if (_health.DestroyOnDeath)
@@ -298,6 +300,7 @@ namespace Enemies
 				_wasSeeingPlayer = true;
 				_movement.Stop();
 				_movement.FaceTowards(_perception.Player.position);
+				if (_voice != null) _voice.Play(EnemyVoiceEvent.Suspicious); // тихо рычит, всматриваясь (пауза — в Min Interval)
 				return true;
 			}
 
@@ -510,6 +513,12 @@ namespace Enemies
 
 		private void EnterChase()
 		{
+			// лай — только когда собака именно ЗАМЕТИЛА игрока (из спокойствия, проверки или поиска), а не когда
+			// возвращается в погоню после укуса, захвата, отступления
+			bool spotted = currentState == State.Idle || currentState == State.Patrol ||
+				currentState == State.Investigate || currentState == State.Search;
+			if (spotted && _voice != null) _voice.Play(EnemyVoiceEvent.Alert);
+
 			currentState = State.Chase;
 			_holdingPosition = false;
 			_wasSeeingPlayer = false;
@@ -566,6 +575,7 @@ namespace Enemies
 			{
 				_holdingPosition = false;
 				_movement.MoveTo(playerPosition, chaseGait);
+				if (_voice != null) _voice.Play(EnemyVoiceEvent.ChaseBark); // лает на бегу время от времени (паузы — в EnemyVoice)
 			}
 		}
 
@@ -599,12 +609,14 @@ namespace Enemies
 		{
 			currentState = State.Grab;
 			_holdingPosition = false;
+			if (_voice != null) _voice.PlayLoop(EnemyVoiceEvent.Grab); // рычит, пока держит
 		}
 
 		private void UpdateGrab()
 		{
 			if (_syncedAttack.IsActive) return;
 
+			if (_voice != null) _voice.StopLoop();
 			// клип доигран (отпустила, отскочила) — снова в бой: собака "знает", где игрок
 			_perception.AlertToPlayer();
 			EnterChase();
@@ -647,6 +659,9 @@ namespace Enemies
 
 			// во время захвата урон не меняет поведение — синхронная анимация доигрывается
 			if (currentState == State.Grab) return;
+
+			// визг; если следом начнётся отступление, его скулёж перебьёт визг — так и задумано
+			if (_voice != null) _voice.Play(EnemyVoiceEvent.Hurt);
 
 			if (ShouldRetreat(currentHealth, maxHealth))
 			{
@@ -778,6 +793,8 @@ namespace Enemies
 			}
 
 			_movement.FaceTowards(GetKnownPlayerPosition(player));
+			// стоит под недосягаемым игроком и облаивает его — та же реплика, что в погоне
+			if (_voice != null && _perception.CanSeePlayer) _voice.Play(EnemyVoiceEvent.ChaseBark);
 			_paceWaitTimer -= Time.deltaTime;
 			if (_paceWaitTimer > 0f) return;
 
@@ -887,6 +904,7 @@ namespace Enemies
 			_coverChanges = 0;
 			StartRunningToRetreatPoint();
 			currentState = State.Retreat;
+			if (_voice != null) _voice.Play(EnemyVoiceEvent.Retreat);
 		}
 
 		// Сначала ищем укрытие (точку, которую игрок не видит). Нет укрытия или нет CoverFinder —
@@ -968,6 +986,8 @@ namespace Enemies
 
 		private void Die()
 		{
+			if (_voice != null) _voice.Play(EnemyVoiceEvent.Death); // обрывает и рычание захвата
+
 			// погибла посреди захвата — игрок сразу получает управление
 			if (_syncedAttack != null) _syncedAttack.Abort();
 
