@@ -28,7 +28,7 @@ namespace Enemies
 	// атака прерывается. Любое попадание сразу поднимает тревогу — собака знает, где стрелок.
 	[RequireComponent(typeof(EnemyMovement), typeof(EnemyPerception), typeof(EnemyAttack))]
 	[RequireComponent(typeof(Health), typeof(EnemyRagdoll))]
-	public class DogAI : MonoBehaviour
+	public class DogAI : MonoBehaviour, IPatrolAgent
 	{
 		public enum State
 		{
@@ -209,6 +209,13 @@ namespace Enemies
 		private float _lookPauseTimer;
 
 		public State CurrentState => currentState;
+
+		// маршрут от точки спавна (EnemySpawnPoint). Обычно приходит до Start; если позже — спокойная собака сразу пойдёт по нему
+		public void SetPatrolRoute(PatrolRoute route)
+		{
+			patrolRoute = route;
+			if (currentState == State.Idle || currentState == State.Patrol) EnterCalm();
+		}
 
 		private void Awake()
 		{
