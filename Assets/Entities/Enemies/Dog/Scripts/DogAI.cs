@@ -294,8 +294,9 @@ namespace Enemies
 				return true;
 			}
 
-			// видит игрока, но ещё не уверена — останавливается и всматривается, пока Awareness растёт
-			if (_perception.CanSeePlayer)
+			// видит игрока и осведомлённость дошла до порога подозрения — останавливается и всматривается, пока она растёт.
+			// До порога собака "не замечает" игрока и продолжает своё (осведомлённость при этом копится)
+			if (_perception.CanSeePlayer && _perception.IsSuspicious)
 			{
 				_wasSeeingPlayer = true;
 				_movement.Stop();

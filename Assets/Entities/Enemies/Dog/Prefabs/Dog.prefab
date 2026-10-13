@@ -253,7 +253,7 @@ MonoBehaviour:
   eyes: {fileID: 7841067341802657012}
   defaultEyeHeight: 0.6
   viewDistance: 20
-  viewAngle: 180
+  viewAngle: 175
   proximityRadius: 1.5
   sightBlockers:
     serializedVersion: 2
@@ -265,12 +265,12 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 0
       value: 4
-      inSlope: 0
-      outSlope: 0
+      inSlope: -4.282662
+      outSlope: -4.282662
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
-      outWeight: 0
+      outWeight: 0.078817286
     - serializedVersion: 3
       time: 1
       value: 0.5
@@ -285,8 +285,9 @@ MonoBehaviour:
     m_RotationOrder: 4
   crouchGainMultiplier: 0.5
   awarenessDecay: 0.2
-  trackAfterLostSight: 1
-  hearingMultiplier: 1.5
+  suspicionThreshold: 0.5
+  trackAfterLostSight: 3
+  hearingMultiplier: 2
   wallOcclusion: 0.5
   canSeePlayer: 0
   awareness: 0

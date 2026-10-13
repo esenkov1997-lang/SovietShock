@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using StarterAssets;
 using UnityEngine;
 using Weapons;
@@ -47,6 +48,11 @@ namespace Enemies
 		[SerializeField] private float crouchGainMultiplier = 0.5f;
 		[Tooltip("Скорость спада Awareness в секунду, пока игрок не виден")]
 		[SerializeField] private float awarenessDecay = 0.2f;
+		[Tooltip("Порог реакции (доля Awareness). Осведомлённость и метка над врагом растут с первого мгновения, " +
+			"но сам враг реагирует (разворачивается к игроку, всматривается, тихо рычит) только с этого порога. " +
+			"До него он продолжает своё — у игрока есть шанс проскочить незамеченным. 0 — реагирует сразу")]
+		[Range(0f, 0.95f)]
+		[SerializeField] private float suspicionThreshold = 0.25f;
 		[Tooltip("Сколько секунд после потери из виду враг \"знает\", куда побежал игрок. Без этого собака, " +
 			"потеряв игрока за углом, бежала бы к углу, а не за угол. Стандартный приём в играх")]
 		[SerializeField] private float trackAfterLostSight = 1f;
@@ -79,6 +85,8 @@ namespace Enemies
 		public bool CanSeePlayer => canSeePlayer;
 		public float Awareness => awareness;
 		public bool IsAlerted => awareness >= 1f;
+		// осведомлённость дошла до порога реакции — враг начинает реагировать (метка над ним видна и раньше)
+		public bool IsSuspicious => awareness >= suspicionThreshold && awareness > 0f;
 		public bool HasLastKnownPosition { get; private set; }
 		public Vector3 LastKnownPlayerPosition { get; private set; }
 		// куда и как быстро двигался игрок в последний известный момент — поиск начинается в эту сторону
@@ -101,14 +109,20 @@ namespace Enemies
 
 		public Vector3 EyePosition => eyes != null ? eyes.position : transform.position + Vector3.up * defaultEyeHeight;
 
+		// все активные враги — для индикаторов обнаружения в HUD и т.п. Мёртвый враг выключает perception и выпадает сам
+		private static readonly List<EnemyPerception> ActiveList = new List<EnemyPerception>();
+		public static IReadOnlyList<EnemyPerception> All => ActiveList;
+
 		private void OnEnable()
 		{
 			NoiseSystem.NoiseEmitted += HandleNoise;
+			ActiveList.Add(this);
 		}
 
 		private void OnDisable()
 		{
 			NoiseSystem.NoiseEmitted -= HandleNoise;
+			ActiveList.Remove(this);
 		}
 
 		private void Update()
