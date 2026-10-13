@@ -17,6 +17,7 @@ MonoBehaviour:
   EnemyCrossFade: 0.1
   PlayerClip: {fileID: 7887897844359418680, guid: 2ba0be790ae2bff439704cf6eff3bab9, type: 3}
   PlayerArmsYawOffset: 0
+  PlayerHeightOffset: 0
   ForwardOffset: 1.5
   SideOffset: 0
   YawOffset: 180
@@ -24,7 +25,7 @@ MonoBehaviour:
   CameraBlendIn: 0.3
   CameraBlendOut: 0.3
   DamagePerBite: 10
-  Chance: 1
+  Chance: 0.3
   Cooldown: 10
   MaxAngleFromPlayerView: 60
   MaxHeightDifference: 0.3

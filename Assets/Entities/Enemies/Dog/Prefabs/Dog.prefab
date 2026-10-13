@@ -304,7 +304,7 @@ MonoBehaviour:
   attackRange: 1.45
   attackAngle: 40
   cooldown: 0.2
-  damage: 15
+  damage: 10
   hitPoint: {fileID: 9051100973172889577}
   hitRadius: 0.35
   hitLayers:
@@ -327,6 +327,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaxHealth: 50
   DestroyOnDeath: 0
+  Invulnerable: 0
   OnDamaged:
     m_PersistentCalls:
       m_Calls: []
