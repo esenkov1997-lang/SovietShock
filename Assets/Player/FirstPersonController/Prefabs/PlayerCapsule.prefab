@@ -216,7 +216,7 @@ CharacterController:
   m_StepOffset: 0.5
   m_SkinWidth: 0.04
   m_MinMoveDistance: 0
-  m_Center: {x: 0, y: 0.93, z: 0}
+  m_Center: {x: 0, y: 1.04, z: 0}
 --- !u!114 &8616685848737228371
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -240,10 +240,10 @@ MonoBehaviour:
   JumpTimeout: 0.1
   FallTimeout: 0.15
   CrouchSpeed: 2
-  CrouchHeight: 1
+  CrouchHeight: 0.9
   CrouchTransitionSpeed: 8
   Grounded: 1
-  GroundedOffset: -0.14
+  GroundedOffset: -0.25
   GroundedRadius: 0.4
   GroundLayers:
     serializedVersion: 2
@@ -818,6 +818,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaxHealth: 100
   DestroyOnDeath: 0
+  Invulnerable: 0
   OnDamaged:
     m_PersistentCalls:
       m_Calls: []
