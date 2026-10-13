@@ -822,7 +822,7 @@ GameObject:
   - component: {fileID: 2888762118174723293}
   - component: {fileID: 3261378624077232627}
   - component: {fileID: 2390056428824236404}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: Reserve Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1429,7 +1429,7 @@ GameObject:
   m_Component:
   - component: {fileID: 991384519289036992}
   - component: {fileID: 2931383767363056154}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1585,7 +1585,7 @@ GameObject:
   - component: {fileID: 4621336439252851139}
   - component: {fileID: 6617261482117474158}
   - component: {fileID: 5279502172938532267}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: HealthBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2439,7 +2439,7 @@ GameObject:
   - component: {fileID: 8760626498709359294}
   - component: {fileID: 4578934433911596167}
   - component: {fileID: 3097297902627672114}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: Crosshair
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2799,7 +2799,8 @@ GameObject:
   - component: {fileID: 7280587758867472154}
   - component: {fileID: 3352215240151936274}
   - component: {fileID: 5895656228054349038}
-  m_Layer: 5
+  - component: {fileID: 2909166133562077606}
+  m_Layer: 12
   m_Name: HUD
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2982,6 +2983,20 @@ MonoBehaviour:
     m_RotationOrder: 4
   lowHealthIntensity: 0.08
   lowHealthFraction: 0.25
+--- !u!114 &2909166133562077606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5320253539298137161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6f597ea38d24ddfb235549a7f4086e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rendererIndex: 1
+  planeDistance: 1
 --- !u!1 &5345017990810152675
 GameObject:
   m_ObjectHideFlags: 0
@@ -3607,7 +3622,7 @@ GameObject:
   m_Component:
   - component: {fileID: 9175951644514189680}
   - component: {fileID: 7006291103125310407}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: AmmoCounter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3828,7 +3843,7 @@ GameObject:
   - component: {fileID: 347660548668566377}
   - component: {fileID: 7641569531427425219}
   - component: {fileID: 1944314793100508629}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: RepairProgress
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4973,7 +4988,7 @@ GameObject:
   - component: {fileID: 8690056077624347734}
   - component: {fileID: 3182758657866168964}
   - component: {fileID: 6160131967910735142}
-  m_Layer: 5
+  m_Layer: 12
   m_Name: Magazine Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}

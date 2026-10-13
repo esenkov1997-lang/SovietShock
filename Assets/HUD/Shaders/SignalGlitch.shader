@@ -1,14 +1,21 @@
-// Полноэкранные помехи "сбой сигнала" — для камеры шлема (смерть, позже — сильный урон). Родственник TerminalCRT:
+// Полноэкранные помехи "сбой сигнала" — для камеры шлема (смерть, урон). Родственник TerminalCRT:
 // те же скан-линии, шум, бегущая полоса и мерцание, плюс то, что делает сбой узнаваемым: разрывы строк
 // (полосы картинки сдвигаются вбок), прыжки кадра по вертикали, "битые" блоки и расхождение RGB-каналов.
 //
 // Подключается через URP Full Screen Pass Renderer Feature (материал с этим шейдером). Сила эффекта —
-// глобальный параметр _SignalGlitchIntensity (0..1), его задаёт код (HUD.SignalGlitch). При 0 картинка
-// проходит без изменений, поэтому эффект можно держать включённым в рендерере всегда.
+// глобальный параметр _SignalGlitchIntensity (0..1), его задаёт код (HUD.SignalGlitch).
+//
+// HUD: если на Canvas HUD висит HUDSignalRenderer, интерфейс рисуется в отдельную текстуру (_SignalHUDTexture),
+// и этот шейдер накладывает его на кадр — с теми же искажениями, что и картинка (сила — HUD Glitch Amount).
+// Поэтому эффект должен быть включён в рендерере ВСЕГДА: без него HUD не попадёт на экран.
 Shader "SovietShock/SignalGlitch"
 {
 	Properties
 	{
+		[Header(HUD)]
+		_HUDGlitchAmount ("HUD Glitch Amount (доля помех на HUD)", Range(0, 1)) = 1
+		[Toggle] _HUDFlipY ("HUD Flip Y (если HUD перевёрнут)", Float) = 0
+
 		[Header(Tearing)]
 		_TearBands ("Tear Bands (полос по высоте)", Float) = 48
 		_TearAmount ("Tear Amount (сдвиг полос)", Range(0, 0.2)) = 0.06
@@ -51,9 +58,13 @@ Shader "SovietShock/SignalGlitch"
 			// Vert, Varyings (texcoord) и _BlitTexture — картинка камеры, которую подаёт Full Screen Pass
 			#include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
-			// глобальная — задаёт HUD.SignalGlitch.SetIntensity, не хранится в материале
+			// глобальные — задаёт код (HUD.SignalGlitch, HUD.HUDSignalRenderer), в материале не хранятся
 			float _SignalGlitchIntensity;
+			float _SignalHUDEnabled;
+			TEXTURE2D(_SignalHUDTexture);
 
+			float _HUDGlitchAmount;
+			float _HUDFlipY;
 			float _TearBands;
 			float _TearAmount;
 			float _TearSpeed;
@@ -86,62 +97,107 @@ Shader "SovietShock/SignalGlitch"
 				return SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_glitch_linear_clamp, uv).rgb;
 			}
 
+			// HUD нарисован с премультиплицированной альфой (так рисует UI Unity): rgb уже умножен на прозрачность
+			half4 SampleHUD(float2 uv)
+			{
+				if (_HUDFlipY > 0.5) uv.y = 1.0 - uv.y;
+				return SAMPLE_TEXTURE2D(_SignalHUDTexture, sampler_glitch_linear_clamp, uv);
+			}
+
+			// RGB-расхождение: каналы читаются со сдвигом по горизонтали
+			half3 SampleScreenSplit(float2 uv, float ca)
+			{
+				return half3(SampleScreen(uv + float2(ca, 0.0)).r, SampleScreen(uv).g, SampleScreen(uv - float2(ca, 0.0)).b);
+			}
+
+			half4 SampleHUDSplit(float2 uv, float ca)
+			{
+				half4 center = SampleHUD(uv);
+				return half4(SampleHUD(uv + float2(ca, 0.0)).r, center.g, SampleHUD(uv - float2(ca, 0.0)).b, center.a);
+			}
+
+			// "Плёнка" сигнала поверх уже собранной картинки: обесцвечивание, скан-линии, полоса, статика, мерцание
+			half3 ApplySignal(half3 color, float2 screenUV, float intensity, float time, float tick)
+			{
+				half luminance = dot(color, half3(0.299, 0.587, 0.114));
+				color = lerp(color, luminance * _Tint.rgb, _Desaturate * intensity);
+
+				half scan = sin(screenUV.y * _ScanlineCount * PI) * 0.5 + 0.5;
+				color *= 1.0 - _ScanlineIntensity * intensity * (1.0 - scan);
+
+				float barPos = frac(screenUV.y + time * _RollBarSpeed);
+				half bar = smoothstep(_RollBarWidth, 0.0, abs(barPos - 0.5));
+				color += bar * _RollBarIntensity * intensity * 0.5;
+
+				// статика растёт быстрее остального (intensity²) — на максимуме почти "снег"
+				half noise = Hash(screenUV * _ScreenParams.xy + frac(time) * 100.0);
+				color = lerp(color, noise.xxx, _Noise * intensity * intensity);
+
+				color *= 1.0 - _Flicker * intensity * Hash(float2(tick, 1.3));
+				return color;
+			}
+
 			half4 Frag(Varyings input) : SV_Target
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
 				float2 screenUV = input.texcoord;
+				bool hasHUD = _SignalHUDEnabled > 0.5;
 				float intensity = saturate(_SignalGlitchIntensity);
-				if (intensity <= 0.001) return half4(SampleScreen(screenUV), 1.0);
+
+				// без помех — картинка как есть, HUD просто поверх
+				if (intensity <= 0.001)
+				{
+					half3 clean = SampleScreen(screenUV);
+					if (hasHUD)
+					{
+						half4 hud = SampleHUD(screenUV);
+						clean = clean * (1.0 - hud.a) + hud.rgb;
+					}
+					return half4(clean, 1.0);
+				}
 
 				float time = _Time.y;
 				// помехи меняются скачками, а не плавно — как у настоящего сбоя
 				float tick = floor(time * _TearSpeed);
-				float2 uv = screenUV;
 
-				// --- прыжок всего кадра по вертикали (иногда) ---
+				// --- общий сдвиг сигнала: прыжок кадра + разрыв полосы + битый блок ---
 				float jumpOn = step(0.7, Hash(float2(tick, 9.7)));
-				uv.y = frac(uv.y + (Hash(float2(tick, 3.1)) - 0.5) * _VerticalJump * intensity * jumpOn);
+				float jump = (Hash(float2(tick, 3.1)) - 0.5) * _VerticalJump * intensity * jumpOn;
 
-				// --- разрывы строк: часть полос сдвигается вбок; чем сильнее сбой, тем больше полос ---
-				float band = floor(uv.y * _TearBands);
+				float band = floor(frac(screenUV.y + jump) * _TearBands);
 				float bandOn = step(1.0 - intensity * 0.6, Hash(float2(band, tick)));
 				float tear = (Hash(float2(band, tick + 17.0)) - 0.5) * 2.0 * _TearAmount * intensity * bandOn;
-				uv.x += tear;
 
-				// --- "битые" блоки: прямоугольники картинки съезжают и меняют цвет ---
 				float aspect = _ScreenParams.x / _ScreenParams.y;
-				float2 block = floor(float2(uv.x * _BlockSize * aspect, uv.y * _BlockSize));
+				float2 jumped = float2(screenUV.x + tear, frac(screenUV.y + jump));
+				float2 block = floor(float2(jumped.x * _BlockSize * aspect, jumped.y * _BlockSize));
 				float blockOn = step(1.0 - _BlockAmount * intensity * 0.35, Hash(block + tick));
-				uv += blockOn * (float2(Hash(block + 5.0 + tick), Hash(block + 9.0 + tick)) - 0.5) * 0.08 * intensity;
+				float2 blockShift = blockOn * (float2(Hash(block + 5.0 + tick), Hash(block + 9.0 + tick)) - 0.5) * 0.08 * intensity;
 
-				// --- расхождение RGB: сильнее на сдвинутых полосах ---
+				float2 offset = float2(tear, jump) + blockShift;
 				float ca = _ChromaticAberration * intensity * (0.5 + 2.0 * abs(tear) / max(_TearAmount, 0.0001));
-				half3 color;
-				color.r = SampleScreen(uv + float2(ca, 0.0)).r;
-				color.g = SampleScreen(uv).g;
-				color.b = SampleScreen(uv - float2(ca, 0.0)).b;
-				color = lerp(color, color.brg, blockOn * 0.7);
 
-				// --- обесцвечивание в тон сигнала ---
-				half luminance = dot(color, half3(0.299, 0.587, 0.114));
-				color = lerp(color, luminance * _Tint.rgb, _Desaturate * intensity);
+				// --- картинка ---
+				float2 sceneUV = screenUV + offset;
+				sceneUV.y = frac(sceneUV.y);
+				half3 scene = SampleScreenSplit(sceneUV, ca);
+				scene = lerp(scene, scene.brg, blockOn * 0.7);
+				scene = ApplySignal(scene, screenUV, intensity, time, tick);
 
-				// --- скан-линии и бегущая полоса (по экрану, без сдвигов — "стекло" монитора не рвётся) ---
-				half scan = sin(screenUV.y * _ScanlineCount * PI) * 0.5 + 0.5;
-				color *= 1.0 - _ScanlineIntensity * intensity * (1.0 - scan);
-				float barPos = frac(screenUV.y + time * _RollBarSpeed);
-				half bar = smoothstep(_RollBarWidth, 0.0, abs(barPos - 0.5));
-				color += bar * _RollBarIntensity * intensity * 0.5;
+				if (!hasHUD) return half4(scene, 1.0);
 
-				// --- статика: растёт быстрее остального (intensity²), на максимуме почти "снег" ---
-				half noise = Hash(screenUV * _ScreenParams.xy + frac(time) * 100.0);
-				color = lerp(color, noise.xxx, _Noise * intensity * intensity);
+				// --- HUD: те же искажения, но слабее/сильнее по HUD Glitch Amount ---
+				float hudIntensity = intensity * _HUDGlitchAmount;
+				float2 hudUV = screenUV + offset * _HUDGlitchAmount;
+				hudUV.y = frac(hudUV.y);
+				half4 hud = SampleHUDSplit(hudUV, ca * _HUDGlitchAmount);
+				hud.rgb = lerp(hud.rgb, hud.brg, blockOn * 0.7 * _HUDGlitchAmount);
+				// "плёнка" сигнала на HUD своей силы; работаем с не-премультиплицированным цветом, потом обратно
+				half3 hudStraight = hud.a > 0.001 ? hud.rgb / hud.a : 0.0;
+				hudStraight = ApplySignal(hudStraight, screenUV, hudIntensity, time, tick);
 
-				// --- мерцание яркости скачками ---
-				color *= 1.0 - _Flicker * intensity * Hash(float2(tick, 1.3));
-
-				return half4(color, 1.0);
+				return half4(scene * (1.0 - hud.a) + hudStraight * hud.a, 1.0);
 			}
 			ENDHLSL
 		}
