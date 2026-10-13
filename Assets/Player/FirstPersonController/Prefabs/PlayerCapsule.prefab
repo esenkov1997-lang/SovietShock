@@ -168,6 +168,7 @@ GameObject:
   - component: {fileID: 3535324135311420366}
   - component: {fileID: 4623253651683768466}
   - component: {fileID: -7964905977533833052}
+  - component: {fileID: 2385303159842949128}
   m_Layer: 10
   m_Name: PlayerCapsule
   m_TagString: Player
@@ -863,6 +864,30 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &2385303159842949128
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616685848737228372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc8273826c354c8da3c04af416b7d5df, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  headRadius: 0.15
+  headMass: 5
+  angularDrag: 6
+  friction: 1
+  settleTime: 4
+  backwardImpulse: 0.5
+  sideImpulse: 0.8
+  upwardImpulse: 0.3
+  inheritVelocity: 0
+  joltPitch: 180
+  joltRoll: 100
+  joltYaw: 60
 --- !u!1 &9134040960211345392
 GameObject:
   m_ObjectHideFlags: 0
