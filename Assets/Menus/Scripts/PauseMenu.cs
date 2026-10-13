@@ -131,6 +131,8 @@ namespace Menus
 
 		private void Update()
 		{
+			// игрок погиб — пауза не открывается поверх экрана смерти (и во время падения перед ним)
+			if (DeathScreen.IsActive) return;
 			if (!pauseAction.action.WasPressedThisFrame()) return;
 
 			if (IsPaused)

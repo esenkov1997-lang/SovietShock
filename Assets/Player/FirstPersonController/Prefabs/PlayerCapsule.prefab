@@ -878,13 +878,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   headRadius: 0.15
   headMass: 5
-  angularDrag: 6
+  angularDrag: 15
   friction: 1
   settleTime: 4
   backwardImpulse: 0.5
   sideImpulse: 0.8
   upwardImpulse: 0.3
-  inheritVelocity: 0
+  inheritVelocity: 1
+  maxInheritedSpeed: 4
   joltPitch: 180
   joltRoll: 100
   joltYaw: 60

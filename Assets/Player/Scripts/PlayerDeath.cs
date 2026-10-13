@@ -39,6 +39,8 @@ namespace Player
 		[SerializeField] private float upwardImpulse = 0.3f;
 		[Tooltip("Передать голове скорость, с которой игрок двигался в момент смерти (бежал — упадёт по инерции вперёд)")]
 		[SerializeField] private bool inheritVelocity = true;
+		[Tooltip("Предел унаследованной скорости (м/с) — чтобы смерть на полном ходу (или при падении с высоты) не отбрасывала голову далеко")]
+		[SerializeField] private float maxInheritedSpeed = 4f;
 
 		[Header("Рывок от удара")]
 		[Tooltip("Скорость, с которой голову запрокидывает назад (град/с) в первый момент")]
@@ -109,7 +111,12 @@ namespace Player
 			// захват врагом прерываем ДО того, как заберём камеру — иначе он вернул бы её в голову капсулы
 			if (_syncedAnimation != null) _syncedAnimation.Abort();
 
-			Vector3 velocity = inheritVelocity && _controller != null ? _controller.velocity : Vector3.zero;
+			// CharacterController помнит скорость ПОСЛЕДНЕГО движения и не обнуляет её, пока его не двигают. Если игрок
+			// умер, когда управление уже было отобрано (захват врагом, терминал), там лежит старая скорость бега "до того" —
+			// поэтому берём её, только если игрок в этот момент двигался сам, и не больше Max Inherited Speed
+			Vector3 velocity = inheritVelocity && _controller != null && _movement.enabled
+				? Vector3.ClampMagnitude(_controller.velocity, maxInheritedSpeed)
+				: Vector3.zero;
 			LockPlayer();
 
 			if (_cameraRoot == null)
