@@ -8,6 +8,7 @@ namespace HUD
 	// (растянутый на весь экран), сам создаёт по квадрату на каждого врага и каждый кадр ставит его над головой
 	// врага в экранных координатах. Квадрат заполняется по осведомлённости врага (EnemyPerception.Awareness):
 	// жёлтый — что-то подозревает, полный красный — заметил. Спокойный враг метки не имеет.
+	// Заметивший враг показывает красную метку Hide After Alerted секунд и прячет её, пока видит игрока; потерял — метка снова видна.
 	//
 	// Метка рисуется в HUD, а не объектом в мире: всегда одного размера, не загораживается стенами, не зависит
 	// от освещения и эффектов камеры, а при помехах сбоит вместе с остальным интерфейсом шлема.
@@ -37,7 +38,15 @@ namespace HUD
 		[Range(0f, 0.2f)]
 		[SerializeField] private float showThreshold = 0.02f;
 
+		[Header("После обнаружения")]
+		[Tooltip("Сколько секунд полная красная метка видна после того, как враг заметил игрока, — потом прячется, " +
+			"пока враг его видит или \"ведёт\". Потерял — метка возвращается и показывает спадающую осведомлённость. " +
+			"0 — не прятать")]
+		[SerializeField] private float hideAfterAlerted = 1.5f;
+
 		private readonly Dictionary<EnemyPerception, DetectionMarkerGraphic> _markers = new Dictionary<EnemyPerception, DetectionMarkerGraphic>();
+		// с какого момента враг в полном обнаружении — для Hide After Alerted
+		private readonly Dictionary<EnemyPerception, float> _alertedSince = new Dictionary<EnemyPerception, float>();
 		private readonly List<EnemyPerception> _stale = new List<EnemyPerception>();
 		private RectTransform _rect;
 		private Canvas _canvas;
@@ -61,6 +70,7 @@ namespace HUD
 			{
 				if (_markers[perception] != null) Destroy(_markers[perception].gameObject);
 				_markers.Remove(perception);
+				_alertedSince.Remove(perception);
 			}
 
 			foreach (EnemyPerception perception in EnemyPerception.All)
@@ -74,8 +84,13 @@ namespace HUD
 			Vector3 worldPoint = perception.EyePosition + Vector3.up * heightAboveEyes;
 			Vector3 screenPoint = view.WorldToScreenPoint(worldPoint);
 
+			// считаем каждый кадр, а не только когда метка видна: иначе после мгновенного "забывания" (враг сдался)
+			// осталась бы старая отметка времени, и при следующем обнаружении метка спряталась бы сразу
+			bool hiddenAfterAlert = HiddenAfterAlert(perception);
+
 			bool visible = !perception.IgnoresPlayer &&
 				perception.Awareness >= showThreshold &&
+				!hiddenAfterAlert &&
 				screenPoint.z > 0f && // не за спиной
 				(maxDistance <= 0f || screenPoint.z <= maxDistance);
 
@@ -89,6 +104,23 @@ namespace HUD
 
 			marker.Fill = perception.Awareness;
 			marker.color = perception.IsAlerted ? alertedColor : suspiciousColor;
+		}
+
+		// враг давно в полном обнаружении — метка уже "отработала" и прячется, пока он не потеряет игрока
+		private bool HiddenAfterAlert(EnemyPerception perception)
+		{
+			if (!perception.IsAlerted)
+			{
+				_alertedSince.Remove(perception); // потерял игрока — в следующий раз отсчёт заново
+				return false;
+			}
+
+			if (!_alertedSince.TryGetValue(perception, out float since))
+			{
+				since = Time.time;
+				_alertedSince[perception] = since;
+			}
+			return hideAfterAlerted > 0f && Time.time - since >= hideAfterAlerted;
 		}
 
 		private DetectionMarkerGraphic GetMarker(EnemyPerception perception)
