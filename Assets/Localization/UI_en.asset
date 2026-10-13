@@ -69,7 +69,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 7012345678901004
-    m_Localized: Quit game
+    m_Localized: Quit
     m_Metadata:
       m_Items: []
   - m_Id: 7012345678901005

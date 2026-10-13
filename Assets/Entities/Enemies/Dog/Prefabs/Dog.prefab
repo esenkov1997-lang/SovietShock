@@ -228,7 +228,7 @@ MonoBehaviour:
   paceWaitTime: {x: 1, y: 2.5}
   hideTime: 5
   loseInterestTime: 30
-  searchDuration: 15
+  searchDuration: 30
   searchRadius: 8
   searchApproachGait: 1
   searchGait: 0
@@ -252,8 +252,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   eyes: {fileID: 7841067341802657012}
   defaultEyeHeight: 0.6
-  viewDistance: 15
-  viewAngle: 120
+  viewDistance: 20
+  viewAngle: 180
   proximityRadius: 1.5
   sightBlockers:
     serializedVersion: 2
