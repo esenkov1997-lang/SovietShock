@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Interactables
 {
@@ -39,6 +40,10 @@ namespace Interactables
 		[SerializeField] private float resolutionScale = 1f;
 		[Tooltip("Рисовать UI только пока экран виден какой-либо камере (экономия на терминалах вне поля зрения)")]
 		[SerializeField] private bool renderOnlyWhenVisible = true;
+		[Tooltip("Индекс рендерера для UICamera в Renderer List пайплайна (Ultra_PipelineAsset) — рендерер БЕЗ " +
+			"Full Screen Pass с помехами (HUD_Renderer, тот же, что у HUDSignalRenderer). На основном рендерере эффект " +
+			"помех наложил бы HUD игрока на экран терминала. -1 — не трогать (как в настройках камеры)")]
+		[SerializeField] private int screenRendererIndex = 1;
 
 		[Header("References (необязательно — ищутся среди дочерних объектов)")]
 		[SerializeField] private Canvas terminalCanvas;
@@ -122,6 +127,8 @@ namespace Interactables
 
 			// AudioListener на UICamera лишний: в сцене должен быть ровно один (у камеры игрока)
 			if (uiCamera.TryGetComponent(out AudioListener listener)) listener.enabled = false;
+			// задаём из кода, а не в префабе камеры — так настройка не потеряется при пересборке префабов
+			if (screenRendererIndex >= 0) uiCamera.GetUniversalAdditionalCameraData().SetRenderer(screenRendererIndex);
 
 			FitCameraToCanvas();
 			CreateRenderTexture();

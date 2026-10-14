@@ -22,10 +22,20 @@ namespace Interactables
 	public class SecurityCamera : MonoBehaviour
 	{
 		[Header("Info")]
-		[Tooltip("Название камеры в списке терминала и на экране просмотра. Пусто — имя объекта")]
-		[SerializeField] private LocalizedString displayName = new LocalizedString();
+		[Tooltip("Номер камеры — подставляется в название вместо {0} (\"Камера {0:00}\" → \"Камера 01\")")]
+		[Min(0)]
+		[SerializeField] private int number = 1;
+		[Tooltip("Название камеры в списке терминала и на экране просмотра (ключ локализации). По умолчанию " +
+			"Terminal/camera.default — \"Камера {0:00}\" с номером. Для особых камер выбери свой ключ " +
+			"(\"Камера Холл\"); {0} в тексте необязателен. Пусто — тоже camera.default")]
+		[SerializeField] private LocalizedString displayName = new LocalizedString(DefaultNameTable, DefaultNameKey);
 		[Tooltip("Необязательно: вторая строка в списке (место, сектор)")]
 		[SerializeField] private LocalizedString location = new LocalizedString();
+
+		[Tooltip("Постоянные помехи сигнала именно этой камеры (0 — чистый сигнал, 0.3 — заметно барахлит). " +
+			"Показывает SecurityCameraOverlay через эффект SignalGlitch")]
+		[Range(0f, 1f)]
+		[SerializeField] private float signalInterference;
 
 		[Header("View")]
 		[Tooltip("CinemachineCamera, через которую смотрит игрок. Если не задано — ищется среди дочерних объектов. " +
@@ -55,6 +65,22 @@ namespace Interactables
 			"куда её оставил игрок (и модель в мире тоже)")]
 		[SerializeField] private bool resetOnActivate;
 
+		[Header("Zoom")]
+		[Tooltip("Максимальное приближение: во сколько раз можно уменьшить угол обзора объектива (Lens → Field Of View). " +
+			"1 — зума нет")]
+		[Range(1f, 10f)]
+		[SerializeField] private float maxZoom = 3f;
+		[Tooltip("Во сколько раз меняется приближение за один щелчок колеса (1.25 — 8 щелчков от x1 до x6)")]
+		[Range(1.01f, 2f)]
+		[SerializeField] private float zoomStepFactor = 1.25f;
+		[Tooltip("Плавность зума в секундах. 0 — мгновенно")]
+		[Range(0f, 0.5f)]
+		[SerializeField] private float zoomSmoothTime = 0.12f;
+		[Tooltip("При приближении мышь поворачивает камеру медленнее — пропорционально углу обзора, как у оптического прицела")]
+		[SerializeField] private bool scaleSensitivityWithZoom = true;
+		[Tooltip("При каждом входе в камеру сбрасывать зум к x1")]
+		[SerializeField] private bool resetZoomOnActivate = true;
+
 		// Камера, через которую сейчас смотрит игрок (null — смотрит своими глазами). Для HUD, звука и т.п.
 		public static SecurityCamera Active { get; private set; }
 		public static event Action<SecurityCamera> ActiveChanged;
@@ -73,11 +99,44 @@ namespace Interactables
 		private Vector2 _current;
 		private Vector2 _velocity;
 
-		public LocalizedString DisplayName => displayName;
+		// зум: множитель приближения (1 — без зума); угол обзора без зума берётся из Lens в Awake
+		private float _baseFov;
+		private float _targetZoom = 1f;
+		private float _currentZoom = 1f;
+		private float _zoomVelocity;
+
+		// текущее приближение (x1, x2.5...) — например, для надписи на оверлее
+		public float CurrentZoom => _currentZoom;
+
+		private const string DefaultNameTable = "Terminal";
+		private const string DefaultNameKey = "camera.default";
+		private static LocalizedString _defaultName;
+
+		// Название для UI: выбранный ключ или camera.default. Показывать через FormatName — он подставляет номер
+		public LocalizedString DisplayName =>
+			displayName != null && !displayName.IsEmpty
+				? displayName
+				: _defaultName ??= new LocalizedString(DefaultNameTable, DefaultNameKey);
+		public int Number => number;
+		public float SignalInterference => signalInterference;
 		public LocalizedString Location => location;
-		public bool HasDisplayName => displayName != null && !displayName.IsEmpty;
 		public bool HasLocation => location != null && !location.IsEmpty;
 		public bool IsActive => Active == this;
+
+		// Подставляет номер в переведённое название: "Камера {0:00}" → "Камера 01". Текст без {0} не меняется,
+		// а опечатка в формате (лишняя скобка) не ломает UI — показывается как есть
+		public string FormatName(string translated)
+		{
+			if (string.IsNullOrEmpty(translated) || translated.IndexOf('{') < 0) return translated;
+			try
+			{
+				return string.Format(translated, number);
+			}
+			catch (FormatException)
+			{
+				return translated;
+			}
+		}
 
 		private void Reset()
 		{
@@ -111,6 +170,7 @@ namespace Interactables
 			InstallBlendOverride();
 
 			CaptureBase();
+			_baseFov = viewCamera.Lens.FieldOfView;
 		}
 
 		private void OnDestroy()
@@ -121,6 +181,7 @@ namespace Interactables
 
 		private void Update()
 		{
+			if (IsActive) UpdateZoom();
 			if (!IsActive && _current == _target) return;
 
 			_current = smoothTime > 0f
@@ -150,6 +211,12 @@ namespace Interactables
 				_target = _current = _velocity = Vector2.zero;
 				ApplyRotation();
 			}
+			if (resetZoomOnActivate)
+			{
+				_targetZoom = _currentZoom = 1f;
+				_zoomVelocity = 0f;
+				ApplyZoom();
+			}
 
 			viewCamera.Priority = activePriority;
 			viewCamera.enabled = true;
@@ -174,8 +241,18 @@ namespace Interactables
 		// виде, что у обзора игрока: x — вправо, y — вниз
 		public void Look(Vector2 degrees)
 		{
-			_target.x = Mathf.Clamp(_target.x + degrees.x * sensitivity, -yawLimit, yawLimit);
-			_target.y = Mathf.Clamp(_target.y + degrees.y * sensitivity, -pitchUpLimit, pitchDownLimit);
+			// x3 зума — в 3 раза меньше угол обзора, и мышь крутит в 3 раза медленнее: картинка "едет" под курсором
+			// с той же скоростью, что и без зума
+			float scale = sensitivity * (scaleSensitivityWithZoom ? 1f / _currentZoom : 1f);
+			_target.x = Mathf.Clamp(_target.x + degrees.x * scale, -yawLimit, yawLimit);
+			_target.y = Mathf.Clamp(_target.y + degrees.y * scale, -pitchUpLimit, pitchDownLimit);
+		}
+
+		// steps > 0 — приблизить, < 0 — отдалить; один щелчок колеса = 1 шаг (zoomStepFactor)
+		public void Zoom(float steps)
+		{
+			if (steps == 0f) return;
+			_targetZoom = Mathf.Clamp(_targetZoom * Mathf.Pow(zoomStepFactor, steps), 1f, Mathf.Max(1f, maxZoom));
 		}
 
 		// Отключить вид с камер наблюдения, кто бы его ни включил (например, при смерти игрока)
@@ -200,6 +277,28 @@ namespace Interactables
 			_baseYaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
 			_basePitch = -Mathf.Asin(Mathf.Clamp(forward.y, -1f, 1f)) * Mathf.Rad2Deg;
 			_baseCaptured = true;
+		}
+
+		private void UpdateZoom()
+		{
+			if (Mathf.Approximately(_currentZoom, _targetZoom)) return;
+
+			_currentZoom = zoomSmoothTime > 0f
+				? Mathf.SmoothDamp(_currentZoom, _targetZoom, ref _zoomVelocity, zoomSmoothTime)
+				: _targetZoom;
+			if (Mathf.Abs(_currentZoom - _targetZoom) < 0.001f)
+			{
+				_currentZoom = _targetZoom;
+				_zoomVelocity = 0f;
+			}
+			ApplyZoom();
+		}
+
+		// зум — через угол обзора объектива: FOV без зума / приближение
+		private void ApplyZoom()
+		{
+			if (viewCamera == null || _baseFov <= 0f) return;
+			viewCamera.Lens.FieldOfView = _baseFov / _currentZoom;
 		}
 
 		private void ApplyRotation()

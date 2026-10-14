@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Localization;
 using Player;
+using Weapons;
 
 namespace Interactables
 {
@@ -71,6 +72,8 @@ namespace Interactables
 		[Header("Interaction")]
 		[Tooltip("Если не задано — ищется на родителях (TerminalCanvas обычно лежит внутри объекта терминала)")]
 		[SerializeField] private InteractableFocusObject focusObject;
+		[Tooltip("Выходить из терминала (и из вида с камер наблюдения), когда игрок получает урон")]
+		[SerializeField] private bool exitOnDamage = true;
 
 		[Header("Password")]
 		[SerializeField] private bool requirePassword = true;
@@ -111,6 +114,7 @@ namespace Interactables
 		private Coroutine _focusRoutine;
 		private TerminalAudio _audio; // необязателен — без него терминал просто беззвучный
 		private int _openedFrame = -1;
+		private Health _playerHealth; // здоровье игрока, который сейчас работает с терминалом (для exitOnDamage)
 
 		private bool NeedsPassword => requirePassword && !(rememberUnlock && _unlocked);
 
@@ -188,6 +192,7 @@ namespace Interactables
 			IsOpen = true;
 			_openedFrame = Time.frameCount;
 			if (_audio != null) _audio.PlayEnter();
+			SubscribeToPlayerDamage();
 
 			if (NeedsPassword) EnterPassword();
 			else EnterCascade();
@@ -201,6 +206,7 @@ namespace Interactables
 			IsOpen = false;
 			// здесь, а не в ExitTerminal: сюда приходит любой выход, в том числе прерванный извне
 			if (_audio != null) _audio.PlayExit();
+			UnsubscribeFromPlayerDamage();
 
 			CloseActiveApp();
 			StopFocusRoutine();
@@ -215,6 +221,33 @@ namespace Interactables
 		{
 			CloseTerminal();
 			if (focusObject != null) focusObject.ExitInteraction();
+		}
+
+		// ---------- Урон ----------
+
+		// Health лежит на корне игрока (PlayerCapsule) — там же, где PlayerCameraFocus
+		private void SubscribeToPlayerDamage()
+		{
+			if (!exitOnDamage || focusObject == null || focusObject.ActiveFocus == null) return;
+
+			_playerHealth = focusObject.ActiveFocus.GetComponentInParent<Health>();
+			if (_playerHealth != null) _playerHealth.OnDamaged.AddListener(HandlePlayerDamaged);
+		}
+
+		private void UnsubscribeFromPlayerDamage()
+		{
+			if (_playerHealth != null) _playerHealth.OnDamaged.RemoveListener(HandlePlayerDamaged);
+			_playerHealth = null;
+		}
+
+		private void HandlePlayerDamaged(int current, int max)
+		{
+			if (!IsOpen) return;
+
+			// смертельный урон: только закрываем UI, камеру не возвращаем — её сразу забирает PlayerDeath
+			// (физическая "голова"), и перелёт обратно в голову капсулы с ней бы конфликтовал
+			if (current <= 0) CloseTerminal();
+			else ExitTerminal();
 		}
 
 		// Что видно на экране, пока с терминалом никто не работает

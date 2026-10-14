@@ -60,6 +60,8 @@ namespace Interactables
 		public Transform PlayerRepositionPoint => playerRepositionPoint;
 		public bool RepositionOnStaticLook => interactionType == InteractionType.StaticLook && repositionOnStaticLook;
 		public bool IsInUse => _activeFocus != null;
+		// игрок, который сейчас взаимодействует с объектом (null — никто)
+		public PlayerCameraFocus ActiveFocus => _activeFocus;
 
 		// true — выход по exitKey (Escape) в StaticLook обрабатывает сам объект, а не PlayerCameraFocus.
 		// Нужно, когда у объекта своя навигация по Escape (например, TerminalMainController: в полноэкранном
@@ -80,7 +82,10 @@ namespace Interactables
 				return;
 			}
 
-			if (focus.BeginInteraction(this)) _activeFocus = focus;
+			// запоминаем игрока ДО начала: BeginInteraction сразу вызывает OnInteractionStart, и подписчикам
+			// (терминалу) уже нужен ActiveFocus
+			_activeFocus = focus;
+			if (!focus.BeginInteraction(this)) _activeFocus = null;
 		}
 
 		// Игрок должен быть перед "лицом" объекта. Сравниваются только горизонтальные направления — рост игрока

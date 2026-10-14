@@ -174,6 +174,7 @@ MonoBehaviour:
   data: {fileID: 11400000, guid: aca004658db645d489652b53d9431b4d, type: 2}
   requirePassword: 1
   password: 1234
+  cameras: []
   screenRenderer: {fileID: 416999133287605052}
   screenMaterialIndex: 0
   textureProperties:
@@ -181,6 +182,7 @@ MonoBehaviour:
   - _MainTex
   resolutionScale: 1
   renderOnlyWhenVisible: 1
+  screenRendererIndex: 1
   terminalCanvas: {fileID: 3620377877786962411}
   uiCamera: {fileID: 883416926392257604}
 --- !u!82 &2851827455729302699

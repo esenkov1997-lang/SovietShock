@@ -15,7 +15,8 @@ namespace Interactables
 	//               Escape — выход в меню терминала
 	//   Просмотр  — основной вид переключён на камеру (см. SecurityCamera.Activate). Мышь (действие Look из
 	//               Input System, с той же чувствительностью, что у игрока) поворачивает камеру в её пределах,
-	//               ←/→ (A/D) — предыдущая/следующая камера, Escape — назад к списку
+	//               колесо мыши (действие CameraZoom) — зум, ←/→ (A/D) — предыдущая/следующая камера,
+	//               Escape — назад к списку
 	//
 	// Мир в это время продолжает жить: игрок стоит у терминала, и его могут атаковать.
 	public class CameraAppController : TerminalApp
@@ -41,11 +42,18 @@ namespace Interactables
 		[Tooltip("Действие обзора игрока (StarterAssets → Player/Look). Мышь и геймпад поворачивают камеру " +
 			"с теми же настройками, что и обычный обзор")]
 		[SerializeField] private InputActionReference lookAction;
+		[Tooltip("Действие зума (StarterAssets → Player/CameraZoom, колесо мыши). Значение > 0 — приблизить, " +
+			"один щелчок = 1 шаг зума камеры")]
+		[SerializeField] private InputActionReference zoomAction;
 		[Tooltip("Необязательно: оверлей поверх вида с камеры (Canvas в режиме Screen Space - Overlay) — " +
 			"включён, пока игрок смотрит через камеру")]
 		[SerializeField] private GameObject viewOverlay;
 		[Tooltip("Необязательно: текст на оверлее с названием текущей камеры")]
 		[SerializeField] private TMP_Text viewCameraName;
+		[Tooltip("Необязательно: текст на оверлее с текущим приближением")]
+		[SerializeField] private TMP_Text viewZoomText;
+		[Tooltip("Формат надписи зума, {0} — приближение (\"x{0:0.0}\" → \"x2.5\")")]
+		[SerializeField] private string zoomFormat = "x{0:0.0}";
 
 		[Header("Events")]
 		[Tooltip("Игрок начал смотреть через камеры (например, спрятать HUD)")]
@@ -57,6 +65,7 @@ namespace Interactables
 		private readonly List<ItemTabUI> _tabs = new List<ItemTabUI>();
 		private int _selected;
 		private bool _viewing;
+		private float _shownZoom = -1f; // что сейчас написано в viewZoomText (-1 — нужно обновить)
 
 		public override int ItemCount => CountCameras();
 
@@ -166,8 +175,7 @@ namespace Interactables
 			{
 				SecurityCamera camera = _available[i];
 				ItemTabUI tab = Instantiate(itemTabPrefab, listContainer);
-				if (camera.HasDisplayName) tab.Setup(i, camera.DisplayName, camera.HasLocation ? camera.Location : null);
-				else tab.Setup(i, camera.name);
+				tab.Setup(i, camera.DisplayName, camera.HasLocation ? camera.Location : null, camera.FormatName);
 				tab.Clicked += HandleTabClicked;
 				_tabs.Add(tab);
 			}
@@ -236,7 +244,20 @@ namespace Interactables
 			if (TerminalMainController.RightPressed()) { SwitchCamera(+1); return; }
 
 			SecurityCamera active = SecurityCamera.Active;
-			if (active != null) active.Look(ReadLook());
+			if (active == null) return;
+
+			active.Look(ReadLook());
+			if (zoomAction != null && zoomAction.action != null) active.Zoom(zoomAction.action.ReadValue<float>());
+			UpdateZoomText(active);
+		}
+
+		private void UpdateZoomText(SecurityCamera camera)
+		{
+			// текст пересобираем, только когда приближение заметно изменилось, а не каждый кадр
+			if (viewZoomText == null || Mathf.Abs(camera.CurrentZoom - _shownZoom) < 0.01f) return;
+
+			_shownZoom = camera.CurrentZoom;
+			LocalizedTextBinding.SetPlain(viewZoomText, string.Format(zoomFormat, _shownZoom));
 		}
 
 		private void SwitchCamera(int direction)
@@ -252,10 +273,10 @@ namespace Interactables
 		private void ShowCamera(SecurityCamera camera)
 		{
 			camera.Activate();
+			_shownZoom = -1f;
+			UpdateZoomText(camera);
 
-			if (viewCameraName == null) return;
-			if (camera.HasDisplayName) LocalizedTextBinding.Bind(viewCameraName, camera.DisplayName);
-			else LocalizedTextBinding.SetPlain(viewCameraName, camera.name);
+			LocalizedTextBinding.Bind(viewCameraName, camera.DisplayName, camera.FormatName);
 		}
 
 		// Вид с камеры выключили снаружи (например, игрок погиб) — возвращаемся к списку

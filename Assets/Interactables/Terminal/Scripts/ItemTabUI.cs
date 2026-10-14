@@ -53,10 +53,12 @@ namespace Interactables
 
 		// Локализованные тексты (см. LocalizedTextBinding) — обновляются сами при смене языка.
 		// Пустой subtitle (запись не выбрана) прячет строку подзаголовка
-		public void Setup(int index, LocalizedString title, LocalizedString subtitle = null)
+		// titleFormat — необязательно: как собрать заголовок из перевода (например, подставить номер камеры)
+		public void Setup(int index, LocalizedString title, LocalizedString subtitle = null,
+			Func<string, string> titleFormat = null)
 		{
 			Index = index;
-			LocalizedTextBinding.Bind(titleText, title);
+			LocalizedTextBinding.Bind(titleText, title, titleFormat);
 
 			if (subtitleText != null)
 			{

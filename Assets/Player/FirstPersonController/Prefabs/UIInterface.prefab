@@ -2904,6 +2904,7 @@ GameObject:
   - component: {fileID: 3352215240151936274}
   - component: {fileID: 5895656228054349038}
   - component: {fileID: 2909166133562077606}
+  - component: {fileID: 6663073621725392075}
   m_Layer: 12
   m_Name: HUD
   m_TagString: Untagged
@@ -3102,6 +3103,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rendererIndex: 1
   planeDistance: 1
+--- !u!114 &6663073621725392075
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5320253539298137161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29d22270bf49f4f4cb71b43505762e4b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hideDuringFocus: 0
 --- !u!1 &5345017990810152675
 GameObject:
   m_ObjectHideFlags: 0
@@ -5662,6 +5676,7 @@ MonoBehaviour:
   heightAboveEyes: 0.5
   maxDistance: 30
   showThreshold: 0.02
+  hideAfterAlerted: 1.5
 --- !u!1 &8406039456401393361
 GameObject:
   m_ObjectHideFlags: 0
