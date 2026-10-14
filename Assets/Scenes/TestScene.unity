@@ -2007,6 +2007,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8485916989719107483, guid: 35067a1b949c7b54da896b6ec1f6a687, type: 3}
+      propertyPath: 'navigate.clips.Array.data[0]'
+      value: 
+      objectReference: {fileID: 8300000, guid: b6c37a87a1e05c0418ce0605b46401d8, type: 3}
     - target: {fileID: 8580187214655041461, guid: 35067a1b949c7b54da896b6ec1f6a687, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0

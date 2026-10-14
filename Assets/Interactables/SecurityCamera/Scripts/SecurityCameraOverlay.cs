@@ -3,6 +3,7 @@ using System.Globalization;
 using HUD;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Interactables
 {
@@ -17,7 +18,11 @@ namespace Interactables
 	// на экран идёт самый сильный.
 	public class SecurityCameraOverlay : MonoBehaviour
 	{
-		[Header("Signal Glitch (вход и переключение камер)")]
+		[Header("Post Processing")]
+		[Tooltip("Слои Volume, которые видит основная камера, пока игрок смотрит через камеру наблюдения. Выбери " +
+			"только слой Volume камер (например, SecurityCameraVolume) — тогда Volume сцены (глобальные и локальные) " +
+			"не смешиваются с профилем камеры. При выходе возвращается прежняя маска. Nothing — маску не трогать")]
+		[SerializeField] private LayerMask volumeMask;
 		[Tooltip("Сила помех после входа в камеру или переключения: ось X — секунды, ось Y — сила 0..1. " +
 			"Длительность вспышки — время последнего ключа")]
 		[SerializeField] private AnimationCurve switchGlitch = new AnimationCurve(
@@ -58,6 +63,10 @@ namespace Interactables
 		[Range(0f, 1f)]
 		[SerializeField] private float switchVolume = 0.6f;
 
+		// камера, у которой подменили Volume Mask, и её прежняя маска
+		private UniversalAdditionalCameraData _maskedCamera;
+		private LayerMask _savedVolumeMask;
+
 		private DateTime _startDate;
 		private bool _hasStartDate;
 		private long _shownSecond = -1;
@@ -78,6 +87,7 @@ namespace Interactables
 		{
 			SecurityCamera.ActiveChanged += HandleCameraChanged;
 			_shownSecond = -1;
+			IsolateVolumes();
 			// оверлей включается уже после переключения вида на камеру — вспышку запускаем сами
 			PlaySwitchEffect();
 		}
@@ -86,6 +96,38 @@ namespace Interactables
 		{
 			SecurityCamera.ActiveChanged -= HandleCameraChanged;
 			SignalGlitch.Clear(this);
+			RestoreVolumes();
+		}
+
+		// Основная камера (с CinemachineBrain) одна и та же — Cinemachine только двигает её. Поэтому маску меняем
+		// ей на всё время просмотра, а не каждой камере наблюдения
+		private void IsolateVolumes()
+		{
+			if (volumeMask.value == 0 || _maskedCamera != null) return;
+
+			Camera main = Camera.main;
+			if (main == null) return;
+
+			_maskedCamera = main.GetUniversalAdditionalCameraData();
+			_savedVolumeMask = _maskedCamera.volumeLayerMask;
+			_maskedCamera.volumeLayerMask = volumeMask;
+			RefreshVolumeStack(main, _maskedCamera);
+		}
+
+		private void RestoreVolumes()
+		{
+			if (_maskedCamera == null) return;
+
+			_maskedCamera.volumeLayerMask = _savedVolumeMask;
+			RefreshVolumeStack(_maskedCamera.GetComponent<Camera>(), _maskedCamera);
+			_maskedCamera = null;
+		}
+
+		// если в пайплайне Volume обновляются только из скриптов (Volume Update Mode = Via Scripting),
+		// новая маска сама не применится — обновляем стек явно. В режиме Every Frame это не нужно
+		private static void RefreshVolumeStack(Camera camera, UniversalAdditionalCameraData data)
+		{
+			if (camera != null && !data.requiresVolumeFrameworkUpdate) camera.UpdateVolumeStack(data);
 		}
 
 		private void Update()

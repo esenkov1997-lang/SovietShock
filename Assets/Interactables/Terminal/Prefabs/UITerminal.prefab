@@ -829,7 +829,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1384521858234696962}
   - component: {fileID: 7663150958430687311}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: CameraVolume
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -973,6 +973,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 062b0253caab9b6469d93afe5f4c2ace, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  volumeMask:
+    serializedVersion: 2
+    m_Bits: 8192
   switchGlitch:
     serializedVersion: 2
     m_Curve:
@@ -1017,7 +1020,7 @@ MonoBehaviour:
   timestampFormat: dd.MM.yyyy  HH:mm:ss
   audioSource: {fileID: 0}
   switchClips:
-  - {fileID: 0}
+  - {fileID: 8300000, guid: e12d4a9d886c63b439737c61ec9cad12, type: 3}
   switchVolume: 0.6
 --- !u!1 &4159926438396747057
 GameObject:
