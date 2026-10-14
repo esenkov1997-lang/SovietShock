@@ -11,7 +11,7 @@ namespace Interactables
 	//     и на всех экранах была бы одна и та же картинка.
 	//  2. UICamera сама выравнивается по TerminalCanvas (позиция, размер, клиппинг) — руками настраивать
 	//     камеру под canvas не нужно, и она не "видит" canvas соседних терминалов.
-	//  3. Всё, что отличается между терминалами (письма, пароль), задаётся здесь, на корне, а не
+	//  3. Всё, что отличается между терминалами (письма, пароль, камеры), задаётся здесь, на корне, а не
 	//     во вложенных объектах. TerminalMainController сам забирает эти настройки в своём Awake.
 	//  4. Камера экрана рисует только пока экран кто-то видит — десяток терминалов в уровне не стоит
 	//     десяти лишних рендеров за кадр.
@@ -23,6 +23,9 @@ namespace Interactables
 		[SerializeField] private TerminalDataSO data;
 		[SerializeField] private bool requirePassword = true;
 		[SerializeField] private string password = "1234";
+		[Tooltip("Камеры наблюдения, доступные с этого терминала (объекты сцены с SecurityCamera), в порядке списка. " +
+			"Пусто — остаётся то, что назначено в CameraAppController внутри префаба")]
+		[SerializeField] private SecurityCamera[] cameras = new SecurityCamera[0];
 
 		[Header("Screen")]
 		[Tooltip("Renderer экрана на модели терминала — на нём показывается картинка UI")]
@@ -91,6 +94,14 @@ namespace Interactables
 				foreach (MailAppController mail in GetComponentsInChildren<MailAppController>(true))
 				{
 					mail.Data = data;
+				}
+			}
+
+			if (cameras != null && cameras.Length > 0)
+			{
+				foreach (CameraAppController cameraApp in GetComponentsInChildren<CameraAppController>(true))
+				{
+					cameraApp.Cameras = cameras;
 				}
 			}
 		}

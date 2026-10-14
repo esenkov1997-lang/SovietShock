@@ -134,7 +134,7 @@ GameObject:
   - component: {fileID: 2851827455729302699}
   - component: {fileID: 8485916989719107483}
   m_Layer: 0
-  m_Name: Terminal_prefab
+  m_Name: Terminal
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -974,6 +974,30 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3852193109891228019, guid: 35812ab74f053684c9957461fe390fab, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6143032436243215779, guid: 35812ab74f053684c9957461fe390fab, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6143032436243215779, guid: 35812ab74f053684c9957461fe390fab, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6143032436243215779, guid: 35812ab74f053684c9957461fe390fab, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6143032436243215779, guid: 35812ab74f053684c9957461fe390fab, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6143032436243215779, guid: 35812ab74f053684c9957461fe390fab, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6143032436243215779, guid: 35812ab74f053684c9957461fe390fab, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
