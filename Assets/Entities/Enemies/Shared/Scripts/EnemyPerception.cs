@@ -31,6 +31,13 @@ namespace Enemies
 		[Tooltip("Полный угол конуса обзора (градусы). 120 — видит перед собой и немного по бокам")]
 		[Range(0f, 360f)]
 		[SerializeField] private float viewAngle = 120f;
+		[Tooltip("Насколько высоко (градусы от горизонта) враг видит. Игрок выше этого угла — например, на уступе прямо " +
+			"над собакой — не виден. Собаке хватит 30–40")]
+		[Range(0f, 90f)]
+		[SerializeField] private float maxLookUpAngle = 35f;
+		[Tooltip("Насколько низко (градусы от горизонта) враг видит")]
+		[Range(0f, 90f)]
+		[SerializeField] private float maxLookDownAngle = 60f;
 		[Tooltip("В этом радиусе (м) враг замечает игрока под любым углом — \"чует\" того, кто подкрался вплотную. Стены всё равно мешают")]
 		[SerializeField] private float proximityRadius = 1.5f;
 		[Tooltip("Слои, которые загораживают обзор (стены, ящики, двери). Стекло и сетки лучше исключить")]
@@ -217,7 +224,19 @@ namespace Enemies
 			// две точки на игроке — грудь и голова: игрок, присевший за низким ящиком, не виден,
 			// а торчащая над укрытием голова — видна
 			GetPlayerSightPoints(out Vector3 chest, out Vector3 head);
-			return IsPathClear(eye, head, _player) || IsPathClear(eye, chest, _player);
+			return CanSeePoint(eye, head) || CanSeePoint(eye, chest);
+		}
+
+		// точка на игроке видна: в пределах вертикального угла обзора (действует всегда, даже вплотную — игрок на уступе
+		// прямо над собакой не виден) и луч до неё не упирается в препятствие
+		private bool CanSeePoint(Vector3 eye, Vector3 point)
+		{
+			Vector3 toPoint = point - eye;
+			float horizontal = new Vector2(toPoint.x, toPoint.z).magnitude;
+			float elevation = Mathf.Atan2(toPoint.y, horizontal) * Mathf.Rad2Deg;
+			if (elevation > maxLookUpAngle || elevation < -maxLookDownAngle) return false;
+
+			return IsPathClear(eye, point, _player);
 		}
 
 		private void GetPlayerSightPoints(out Vector3 chest, out Vector3 head)
@@ -310,6 +329,13 @@ namespace Enemies
 				UnityEditor.Handles.DrawLine(eye, eye + arcEnd * viewDistance);
 			}
 			UnityEditor.Handles.DrawWireDisc(transform.position, Vector3.up, proximityRadius);
+
+			// вертикальные границы обзора — два луча вперёд (вверх и вниз от горизонта)
+			Vector3 right = Vector3.Cross(Vector3.up, forward);
+			Vector3 upRay = Quaternion.AngleAxis(-maxLookUpAngle, right) * forward;
+			Vector3 downRay = Quaternion.AngleAxis(maxLookDownAngle, right) * forward;
+			UnityEditor.Handles.DrawLine(eye, eye + upRay * viewDistance);
+			UnityEditor.Handles.DrawLine(eye, eye + downRay * viewDistance * 0.5f);
 
 			if (Application.isPlaying && _player != null)
 			{

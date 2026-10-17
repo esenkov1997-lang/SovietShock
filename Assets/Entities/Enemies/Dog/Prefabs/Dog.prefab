@@ -254,6 +254,8 @@ MonoBehaviour:
   defaultEyeHeight: 0.6
   viewDistance: 20
   viewAngle: 175
+  maxLookUpAngle: 13
+  maxLookDownAngle: 13
   proximityRadius: 1.5
   sightBlockers:
     serializedVersion: 2
