@@ -180,21 +180,36 @@ namespace StarterAssets
 			float feetY = transform.position.y + _feetOffset;
 			float lowProbeHeight = Mathf.Max(_controller.stepOffset + 0.05f, 0.1f);
 
-			// 1) is there actually a wall blocking the way (above what Step Offset already climbs)?
-			Vector3 wallProbeOrigin = transform.position;
-			wallProbeOrigin.y = feetY + lowProbeHeight;
-			if (!SphereCast(wallProbeOrigin, ClimbProbeRadius, moveDirection, ClimbCheckDistance, out RaycastHit wallHit))
+			float probeStep = Mathf.Max(ClimbProbeRadius, 0.05f);
+
+			// 1) передняя грань препятствия (выше того, что и так перешагивает Step Offset): пробы вперёд снизу вверх
+			// до MaxClimbHeight. Не одной пробой у ног — у балкона, навеса, стола под краем пусто, стена есть только
+			// на высоте самой плиты: проба у ног прошла бы под ней, и залезть получалось бы только с прыжка
+			RaycastHit wallHit = default;
+			float wallHeight = -1f;
+			for (float h = lowProbeHeight; h <= MaxClimbHeight + 0.001f; h += probeStep)
 			{
-				if (log) Debug.Log("Mantle: нет стены впереди (шаг 1 — wall probe)");
+				Vector3 wallProbeOrigin = transform.position;
+				wallProbeOrigin.y = feetY + h;
+				if (SphereCast(wallProbeOrigin, ClimbProbeRadius, moveDirection, ClimbCheckDistance, out wallHit))
+				{
+					wallHeight = h;
+					break;
+				}
+			}
+			if (wallHeight < 0f)
+			{
+				if (log) Debug.Log("Mantle: нет стены или края уступа впереди (шаг 1 — wall probe)");
 				return false;
 			}
 
-			// 2) ищем САМЫЙ НИЖНИЙ свободный просвет над стеной: пробы вперёд снизу вверх с шагом в радиус пробы.
+			// 2) ищем САМЫЙ НИЖНИЙ свободный просвет над гранью: пробы вперёд снизу вверх с шагом в радиус пробы.
 			// Не одной пробой на MaxClimbHeight — у окна над проёмом снова стена: проба на максимальной высоте
 			// прошла бы над ней, и вместо подоконника нашёлся бы верх стены
+			// на одну пробу выше MaxClimbHeight: край у самого верха диапазона (тонкая плита балкона) иначе не получил
+			// бы ни одной пробы над собой. Высоту самого уступа это не расширяет — её ограничивает проверка в шаге 3
 			float gapHeight = -1f;
-			float probeStep = Mathf.Max(ClimbProbeRadius, 0.05f);
-			for (float h = lowProbeHeight + probeStep; h <= MaxClimbHeight + 0.001f; h += probeStep)
+			for (float h = wallHeight + probeStep; h <= MaxClimbHeight + probeStep + 0.001f; h += probeStep)
 			{
 				Vector3 gapProbeOrigin = transform.position;
 				gapProbeOrigin.y = feetY + h;
@@ -214,7 +229,7 @@ namespace StarterAssets
 			// Сфера на этой высоте только что прошла вперёд без столкновений, поэтому старт пробы точно свободен
 			Vector3 downProbeOrigin = wallHit.point + moveDirection * (ClimbProbeRadius + _controller.skinWidth);
 			downProbeOrigin.y = feetY + gapHeight;
-			if (!SphereCast(downProbeOrigin, ClimbProbeRadius, Vector3.down, gapHeight - lowProbeHeight + 0.1f, out RaycastHit ledgeHit))
+			if (!SphereCast(downProbeOrigin, ClimbProbeRadius, Vector3.down, gapHeight - wallHeight + 0.1f, out RaycastHit ledgeHit))
 			{
 				if (log) Debug.Log("Mantle: нет поверхности уступа сверху (шаг 3 — down probe)");
 				return false;
@@ -278,8 +293,9 @@ namespace StarterAssets
 			int mask = _movement != null ? _movement.CollisionMask : ~0;
 
 			// V1) толщина: за VaultMaxDepth от передней грани, ниже верха, должно быть пусто. Высота пробы —
-			// середина между ногами и верхом: там препятствие точно есть (его нашла wall probe)
-			float probeY = Mathf.Lerp(feetY + Mathf.Max(_controller.stepOffset + 0.05f, 0.1f), topY, 0.5f);
+			// середина между точкой, где wall probe нашла грань, и верхом: там препятствие точно есть (у навеса
+			// или балкона под гранью пусто, поэтому не от ног)
+			float probeY = Mathf.Lerp(wallPoint.y, topY, 0.5f);
 			Vector3 farOrigin = wallPoint + direction * (VaultMaxDepth + ClimbProbeRadius);
 			farOrigin.y = probeY;
 			if (Physics.CheckSphere(farOrigin, ClimbProbeRadius, mask, QueryTriggerInteraction.Ignore))
