@@ -44,6 +44,12 @@ namespace Weapons
 		public Vector3 HandPosition;
 		[Tooltip("Поворот по умолчанию, если на конкретном WeaponHolder (WeaponController.handPlacementOverrides) для этого оружия нет своего оверрайда (в градусах)")]
 		public Vector3 HandRotation;
+		[Tooltip("Риг рук \"в реальном положении\" (root у ступней, кость камеры на высоте глаз): руки ставятся так, чтобы " +
+			"кость камеры совпала с камерой игрока, — в игре видно ровно то, что через камеру Blender на этой кости. " +
+			"Оружие раскачивается (sway, bob, отдача) вокруг кости w_base в её текущем положении. Hand Position/Rotation тогда — " +
+			"смещение рук этого оружия относительно \"как в Blender\" (обычно ноль; складывается с общим смещением в WeaponController). " +
+			"Aim Position/Rotation — смещение в прицеле от точки раскачки. Выключено — старая схема: корень префаба в Hand Position")]
+		public bool AlignArmsToCameraBone;
 
 		[Header("Animation Profile")]
 		[Tooltip("Sway/Bobbing/Impact Spring для этого оружия — вынесены в отдельный переиспользуемый ассет (WeaponAnimationProfileSO), см. ProceduralWeaponAnimation. Один профиль можно назначить нескольким похожим по весу пушкам")]

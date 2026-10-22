@@ -45,7 +45,7 @@ namespace Weapons
 	[System.Serializable]
 	public class AimData
 	{
-		[Tooltip("Позиция VisualRoot в прицеле (от бедра — HandPosition)")]
+		[Tooltip("Позиция VisualRoot в прицеле (от бедра — HandPosition). Для оружия с Align Arms To Camera Bone — смещение от точки раскачки (кость w_base)")]
 		public Vector3 Position;
 		[Tooltip("Поворот VisualRoot в прицеле, градусы")]
 		public Vector3 Rotation;

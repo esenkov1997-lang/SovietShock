@@ -13,6 +13,10 @@ namespace Weapons
 	{
 		[Tooltip("Cinemachine-камера игрока. Если не задано — берётся первая найденная в сцене")]
 		[SerializeField] private CinemachineCamera virtualCamera;
+		[Tooltip("FOV рук и оружия (камеры оружия), независимый от FOV мира — ставь равным FOV камеры в Blender, " +
+			"тогда руки всегда выглядят как при анимации, а FOV мира можно менять (хоть в настройках игрока). " +
+			"В прицеле уменьшается в той же пропорции, что и FOV мира. 0 — как раньше: камера оружия повторяет FOV мира")]
+		[SerializeField] private float viewModelFOV;
 
 		private WeaponController _weaponController;
 		private float _baseFOV;
@@ -41,7 +45,11 @@ namespace Weapons
 			// WeaponHolder живёт внутри Player.prefab и не может хранить прямую ссылку на WeaponCamera —
 			// та живёт в сцене (ребёнок MainCamera). Находим через маркер-синглтон вместо инспектора,
 			// см. WeaponCameraMarker — тот же приём, что и у PickupPromptUI
-			if (WeaponCameraMarker.Instance != null) WeaponCameraMarker.Instance.fieldOfView = fov;
+			if (WeaponCameraMarker.Instance != null)
+			{
+				float zoom = _baseFOV > 0f ? fov / _baseFOV : 1f;
+				WeaponCameraMarker.Instance.fieldOfView = viewModelFOV > 0f ? viewModelFOV * zoom : fov;
+			}
 		}
 	}
 }

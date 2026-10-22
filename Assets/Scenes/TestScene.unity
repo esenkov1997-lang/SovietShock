@@ -25,8 +25,8 @@ RenderSettings:
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
   m_AmbientMode: 0
-  m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SubtractiveShadowColor: {r: 0.03529412, g: 0.03529412, b: 0.03529412, a: 1}
+  m_SkyboxMaterial: {fileID: 2100000, guid: c70603dcb6e4c78468034cb4295278be, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -34,7 +34,7 @@ RenderSettings:
   m_SpotCookie: {fileID: 10001, guid: 0000000000000000e000000000000000, type: 0}
   m_DefaultReflectionMode: 0
   m_DefaultReflectionResolution: 128
-  m_ReflectionBounces: 1
+  m_ReflectionBounces: 5
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
@@ -94,7 +94,7 @@ LightmapSettings:
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 20201, guid: 0000000000000000f000000000000000, type: 0}
-  m_LightingSettings: {fileID: 0}
+  m_LightingSettings: {fileID: 4890085278179872738, guid: d1f7b2a07f955c644a65874673d8d9bf, type: 2}
 --- !u!196 &4
 NavMeshSettings:
   serializedVersion: 2
@@ -2049,7 +2049,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!108 &318825547
 Light:
   m_ObjectHideFlags: 0
@@ -8365,7 +8365,7 @@ Transform:
   m_GameObject: {fileID: 1352745395}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2, y: 0, z: 14}
+  m_LocalPosition: {x: -2, y: 0, z: 16}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -10296,6 +10296,67 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6285993841946590867, guid: 7fdbf677e691516469d221930635295d, type: 3}
   m_PrefabInstance: {fileID: 1638562035}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1654370536
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -2041568220071592204, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: amount
+      value: 999
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 6.587555
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -10.881602
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3317434120330705510, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6122987716477634760, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
+      propertyPath: m_Name
+      value: Wrench_Mag_World
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ccd70f9617ebe314cb591087343560b5, type: 3}
 --- !u!1 &1662056365
 GameObject:
   m_ObjectHideFlags: 0
@@ -12581,7 +12642,7 @@ ReflectionProbe:
   m_FarClip: 1000
   m_ShadowDistance: 100
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_CullingMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -13220,3 +13281,4 @@ SceneRoots:
   - {fileID: 1183921041721702414}
   - {fileID: 1504193205}
   - {fileID: 241754427}
+  - {fileID: 1654370536}

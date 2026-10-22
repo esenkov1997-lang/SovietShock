@@ -13,10 +13,12 @@ namespace Weapons
 	[DefaultExecutionOrder(-100)]
 	public class WeaponCameraAnchor : MonoBehaviour
 	{
-		// Точка отсчёта — VisualRoot, а не сам WeaponHolder: именно VisualRoot несёт взгляд игрока,
-		// HandPosition/AimPosition, sway и bob (см. WeaponController/ProceduralWeaponAnimation).
-		// Считая позу кости относительно VisualRoot, мы вычитаем всё это разом, и в смещение попадает
-		// только то, что реально анимирует сама кость внутри клипа (например, отдача при выстреле)
+		// Точка отсчёта — корень префаба оружия в руках (прямой ребёнок VisualRoot), а не WeaponHolder: он несёт
+		// взгляд игрока, HandPosition/AimPosition, sway и bob (см. WeaponController/ProceduralWeaponAnimation), а для рига
+		// "в реальном положении" ещё и компенсацию, которая каждый кадр двигает VisualRoot за костью оружия.
+		// Считая позу кости относительно корня префаба, мы вычитаем всё это разом, и в смещение попадает только то,
+		// что реально анимирует сама кость внутри клипа (например, отдача при выстреле).
+		// У старых ригов корень префаба стоит в VisualRoot без смещения — для них ничего не изменилось
 		private Transform _visualRoot;
 		private FirstPersonController _movement;
 
@@ -28,6 +30,15 @@ namespace Weapons
 		{
 			WeaponController weaponController = GetComponentInParent<WeaponController>();
 			_visualRoot = weaponController != null ? weaponController.VisualRoot : transform.root;
+			// поднимаемся до корня префаба в руках — прямого ребёнка VisualRoot
+			for (Transform t = transform; t != null; t = t.parent)
+			{
+				if (t.parent == _visualRoot)
+				{
+					_visualRoot = t;
+					break;
+				}
+			}
 			_movement = GetComponentInParent<FirstPersonController>();
 
 			// "покой" НЕ снимаем здесь: Start() выполняется до того, как Animator вообще

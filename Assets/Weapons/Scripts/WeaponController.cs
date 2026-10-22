@@ -39,6 +39,20 @@ namespace Weapons
 		[SerializeField] private Transform dropPoint;
 		[SerializeField] private float dropForce = 4f;
 
+		[Header("Arms Rig")]
+		[Tooltip("Имя кости камеры в риге рук — для оружия с галкой Align Arms To Camera Bone в WeaponData: руки ставятся так, " +
+			"чтобы эта кость в позе покоя совпала с камерой игрока")]
+		[SerializeField] private string cameraBoneName = "CameraBone";
+		[Tooltip("Для того же режима: кость, вокруг которой раскачивается оружие (sway, bob, отдача) — корень оружия в риге рук. " +
+			"Берётся её текущее анимированное положение, вручную точку раскачки задавать не нужно")]
+		[SerializeField] private string swayPivotBoneName = "w_base";
+		[Tooltip("Для того же режима: смещение рук и оружия относительно камеры — общее для всего оружия (м, по осям камеры: " +
+			"X вправо, Y вверх, Z вперёд). Подстройка без переделки анимаций, например под другой FOV. " +
+			"Своё смещение у каждого оружия — Hand Position/Rotation в его WeaponData, складывается с этим")]
+		[SerializeField] private Vector3 viewModelOffset;
+		[Tooltip("Поворот рук и оружия относительно камеры, общий для всего оружия (градусы)")]
+		[SerializeField] private Vector3 viewModelOffsetRotation;
+
 		[Header("Rendering (Anti-Clip)")]
 		[Tooltip("Слой, на который переносится вся модель оружия в руках (сама пушка + руки) при экипировке. Нужен отдельной камере оружия (см. WeaponAimZoom), которая рендерит только этот слой с крошечным near clip — так модель не клипается в стены без уменьшения. Оставь пустым, чтобы не менять слой")]
 		[SerializeField] private string weaponLayerName = "FirstPersonWeapon";
@@ -165,6 +179,11 @@ namespace Weapons
 		// ProceduralWeaponAnimation, вращая/двигая именно VisualRoot, делает это вокруг точки, где
 		// оружие реально держится, а не вокруг pivot'а самого WeaponHolder — без рычага при повороте.
 		private Transform _visualRoot;
+		// риг "в реальном положении" (WeaponData.AlignArmsToCameraBone): обратная поза кости камеры относительно корня префаба
+		private bool _alignedToCameraBone;
+		private Vector3 _cameraBoneInversePosition;
+		private Quaternion _cameraBoneInverseRotation = Quaternion.identity;
+		private Transform _swayPivotBone;
 		public Transform VisualRoot => _visualRoot;
 
 		private int _weaponLayer = -1;
@@ -361,6 +380,93 @@ namespace Weapons
 		// переносит всю модель оружия (и вложенные меши/кости — руки, дуло и т.п.) на отдельный слой,
 		// который видит только WeaponCamera — так модель не клипается в стены без уменьшения: она
 		// рендерится отдельным проходом с крошечным near clip, а не вместе с общей мировой геометрией
+		// Для рига "в реальном положении": запоминает позу кости камеры в префабе и кость оружия (точку раскачки),
+		// дальше UpdateAlignedPose каждый кадр держит кость камеры в камере игрока (WeaponHolder).
+		// Вызывается сразу после Instantiate — Animator ещё не отработал, кости стоят в позе покоя из модели.
+		private void AlignToCameraBone(Transform visual, WeaponData data)
+		{
+			Transform cameraBone = FindDeep(visual, cameraBoneName);
+			if (cameraBone == null)
+			{
+				Debug.LogWarning($"{data.name}: включён Align Arms To Camera Bone, но в In Hand Prefab нет кости \"{cameraBoneName}\"", data);
+				return;
+			}
+
+			// поза кости камеры относительно корня префаба (в его единицах — с учётом масштаба корня); запоминаем
+			// обратную — она постоянна для этого префаба, а поза от бедра может меняться (подстройка в Play Mode)
+			Vector3 bonePosition = Vector3.Scale(visual.localScale, visual.InverseTransformPoint(cameraBone.position));
+			Quaternion boneRotation = Quaternion.Inverse(visual.rotation) * cameraBone.rotation;
+			_cameraBoneInverseRotation = Quaternion.Inverse(boneRotation);
+			_cameraBoneInversePosition = -(_cameraBoneInverseRotation * bonePosition);
+			_alignedToCameraBone = true;
+
+			_swayPivotBone = FindDeep(visual, swayPivotBoneName);
+			if (_swayPivotBone == null)
+				Debug.LogWarning($"{data.name}: в In Hand Prefab нет кости \"{swayPivotBoneName}\" — точка раскачки берётся из Hand Position", data);
+
+			UpdateAlignedPose(data);
+		}
+
+		// Риг "в реальном положении", каждый кадр (из UpdateAimPose):
+		//   VisualRoot (точка раскачки) ставится в текущее положение кости оружия (w_base) — sway, bob и отдача
+		//   ProceduralWeaponAnimation крутят оружие вокруг него, вручную точку задавать не нужно;
+		//   корень префаба сдвигается обратно на ту же величину — руки остаются ровно по кости камеры, как в Blender;
+		//   прицел — смещение VisualRoot от точки раскачки (Aim Position/Rotation), оно сдвигает руки.
+		// Положение кости берётся с прошлого кадра (Animator обновляет кости после Update) — запаздывание незаметно.
+		private void UpdateAlignedPose(WeaponData data)
+		{
+			Transform visual = _currentVisual.transform;
+
+			// смещение рук относительно "как в Blender": общее для всего оружия + своё у этого (Hand Position/Rotation)
+			Quaternion offsetRotation = Quaternion.Euler(viewModelOffsetRotation) * Quaternion.Euler(GetHandRotation(data));
+			Vector3 offsetPosition = viewModelOffset + Quaternion.Euler(viewModelOffsetRotation) * GetHandPosition(data);
+
+			// корень префаба в пространстве камеры: кость камеры в камере, затем смещение
+			Quaternion rootRotation = offsetRotation * _cameraBoneInverseRotation;
+			Vector3 rootPosition = offsetRotation * _cameraBoneInversePosition + offsetPosition;
+
+			// точка раскачки — кость оружия в пространстве камеры (с учётом смещения)
+			Vector3 pivot = offsetPosition;
+			if (_swayPivotBone != null)
+			{
+				Vector3 boneInPrefab = Vector3.Scale(visual.localScale, visual.InverseTransformPoint(_swayPivotBone.position));
+				pivot = rootRotation * boneInPrefab + rootPosition;
+			}
+
+			// прицел — смещение от точки раскачки
+			AimData aim = (data as FirearmData)?.Aim;
+			Vector3 aimOffset = Vector3.zero;
+			Quaternion aimRotation = Quaternion.identity;
+			if (aim != null)
+			{
+				_aimBlend = Mathf.MoveTowards(_aimBlend, _isAiming ? 1f : 0f, aim.TransitionSpeed * Time.deltaTime);
+				aimOffset = aim.Position * _aimBlend;
+				aimRotation = Quaternion.Slerp(Quaternion.identity, Quaternion.Euler(aim.Rotation), _aimBlend);
+			}
+			else
+			{
+				_aimBlend = 0f;
+			}
+
+			_visualRoot.localPosition = pivot + aimOffset;
+			_visualRoot.localRotation = aimRotation;
+
+			// корень префаба относительно VisualRoot (от бедра он стоит в pivot без поворота)
+			visual.localRotation = rootRotation;
+			visual.localPosition = rootPosition - pivot;
+		}
+
+		private static Transform FindDeep(Transform parent, string childName)
+		{
+			if (parent.name == childName) return parent;
+			foreach (Transform child in parent)
+			{
+				Transform found = FindDeep(child, childName);
+				if (found != null) return found;
+			}
+			return null;
+		}
+
 		private static void SetLayerRecursively(GameObject root, int layer)
 		{
 			root.layer = layer;
@@ -379,6 +485,12 @@ namespace Weapons
 
 			WeaponData data = CurrentWeaponData;
 			if (data == null) return;
+
+			if (_alignedToCameraBone)
+			{
+				UpdateAlignedPose(data);
+				return;
+			}
 
 			// без прицела (холодное оружие) — всегда поза от бедра
 			AimData aim = (data as FirearmData)?.Aim;
@@ -427,6 +539,7 @@ namespace Weapons
 			if (_currentVisual != null) Destroy(_currentVisual);
 
 			WeaponData data = _inventory[_currentIndex].Data;
+			_alignedToCameraBone = false;
 			_currentMuzzle = null;
 			_currentMuzzleFlash = null;
 			_currentAnimator = null;
@@ -439,6 +552,7 @@ namespace Weapons
 				_currentVisual = Instantiate(data.InHandPrefab, _visualRoot);
 				_currentVisual.transform.localPosition = Vector3.zero;
 				_currentVisual.transform.localRotation = Quaternion.identity;
+				if (data.AlignArmsToCameraBone) AlignToCameraBone(_currentVisual.transform, data);
 				if (_weaponLayer >= 0) SetLayerRecursively(_currentVisual, _weaponLayer);
 				_currentMuzzle = _currentVisual.GetComponentInChildren<WeaponMuzzle>();
 				_currentMuzzleFlash = _currentVisual.GetComponentInChildren<MuzzleFlash>();
