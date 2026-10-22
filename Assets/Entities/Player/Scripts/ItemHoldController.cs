@@ -69,8 +69,16 @@ namespace Player
 		[SerializeField] private float throwAimDistance = 15f;
 		[Tooltip("Отпущенный/брошенный предмет получает скорость игрока — на бегу он не падает \"назад\"")]
 		[SerializeField] private bool inheritPlayerVelocity = true;
-		[Tooltip("Сколько максимум секунд после отпускания предмет остаётся на слое удержания — пока не выйдет из капсулы игрока")]
-		[SerializeField] private float restoreLayerTimeout = 2f;
+		[Header("Anti-Tunneling")]
+		[Tooltip("Режим столкновений, пока отпущенный/брошенный предмет в полёте. Discrete (обычный) проверяет предмет только " +
+			"в точках каждого шага физики — на скорости он \"перепрыгивает\" тонкие стены. Continuous Dynamic — надёжнее всего против " +
+			"пролёта сквозь стены; Continuous Speculative — дешевле, но иногда даёт \"призрачные\" касания. " +
+			"Включается только на время полёта, потом возвращается исходный режим предмета — поэтому почти бесплатно")]
+		[SerializeField] private CollisionDetectionMode flightCollisionMode = CollisionDetectionMode.ContinuousDynamic;
+		[Tooltip("Скорость, м/с, ниже которой предмет считается успокоившимся — ему возвращается исходный режим столкновений")]
+		[SerializeField] private float settleSpeed = 0.5f;
+		[Tooltip("Через сколько секунд после отпускания исходный режим столкновений вернётся в любом случае (предмет катится бесконечно и т.п.)")]
+		[SerializeField] private float flightModeTimeout = 5f;
 
 		// сколько раз подряд выталкивать предмет из геометрии при отпускании (он может сидеть сразу в нескольких стенах)
 		private const int DepenetrationIterations = 4;
@@ -132,6 +140,8 @@ namespace Player
 
 			Rigidbody body = item.Body;
 			_originalInterpolation = body.interpolation;
+			// подобрали прямо в полёте — сначала возвращаем обычный режим: Continuous Dynamic у kinematic-тела не поддерживается
+			body.collisionDetectionMode = item.OriginalCollisionMode;
 			body.isKinematic = true;
 			// интерполяция kinematic-тела перетирала бы позицию, которую задаёт родитель, — предмет бы дрожал
 			body.interpolation = RigidbodyInterpolation.None;
@@ -220,6 +230,8 @@ namespace Player
 			Rigidbody body = item.Body;
 			body.isKinematic = false;
 			body.interpolation = _originalInterpolation;
+			// непрерывная проверка столкновений — только пока предмет летит, см. RestoreCollisionModeWhenSettled
+			body.collisionDetectionMode = flightCollisionMode;
 			body.linearVelocity = inheritPlayerVelocity && _playerController != null ? _playerController.velocity : Vector3.zero;
 			body.angularVelocity = Vector3.zero;
 
@@ -230,6 +242,7 @@ namespace Player
 
 			item.NotifyReleased();
 			StartCoroutine(RestoreLayerWhenClear(item));
+			StartCoroutine(RestoreCollisionModeWhenSettled(item));
 
 			// нажатие ЛКМ, которым бросили, "съедаем" — иначе только что вернувшееся оружие его подхватит
 			if (thrown && input != null) input.fire = false;
@@ -341,12 +354,12 @@ namespace Player
 			}
 		}
 
-		// предмет возвращается на свой слой не сразу, а когда выйдет из капсулы игрока — иначе физика
-		// выталкивала бы его рывком (или толкала игрока)
+		// предмет возвращается на свой слой не сразу, а когда выйдет из капсулы игрока — иначе физика выталкивала бы
+		// его рывком (капсула для неё бесконечно тяжёлая) и могла бы "выстрелить" предметом сквозь стену.
+		// Без таймаута: если игрок так и стоит в предмете, тот просто остаётся на слое удержания и не мешает ходьбе
 		private IEnumerator RestoreLayerWhenClear(PickableObject item)
 		{
-			float deadline = Time.time + restoreLayerTimeout;
-			while (Time.time < deadline && item != null && !item.IsHeld && OverlapsPlayer(item))
+			while (item != null && !item.IsHeld && OverlapsPlayer(item))
 			{
 				yield return new WaitForFixedUpdate();
 			}
@@ -354,6 +367,32 @@ namespace Player
 			// предмет уже снова в руках — слой вернёт следующий Release
 			if (item == null || item.IsHeld) yield break;
 			item.RestoreLayers();
+		}
+
+		// пока предмет летит — непрерывная проверка столкновений (flightCollisionMode); успокоился — исходный режим,
+		// чтобы лежащие предметы не стоили дороже обычного. Первые кадры пропускаем: сразу после отпускания скорость
+		// ещё может быть нулевой (просто уронили), а предмет вот-вот разгонится падением
+		private IEnumerator RestoreCollisionModeWhenSettled(PickableObject item)
+		{
+			const float minFlightTime = 0.2f;
+			float start = Time.time;
+			float settleSqr = settleSpeed * settleSpeed;
+
+			while (item != null && !item.IsHeld && Time.time - start < flightModeTimeout)
+			{
+				yield return new WaitForFixedUpdate();
+				if (item == null || item.IsHeld) yield break;
+
+				Rigidbody body = item.Body;
+				// стал kinematic (например, обломок BreakableDebris замёрз) — лететь больше нечему
+				if (body.isKinematic) break;
+				bool settled = body.IsSleeping() || body.linearVelocity.sqrMagnitude < settleSqr;
+				if (Time.time - start >= minFlightTime && settled) break;
+			}
+
+			// подобрали снова — режим уже вернул Pickup
+			if (item == null || item.IsHeld) yield break;
+			item.Body.collisionDetectionMode = item.OriginalCollisionMode;
 		}
 
 		private bool OverlapsPlayer(PickableObject item)

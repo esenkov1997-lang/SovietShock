@@ -21,6 +21,12 @@ namespace Interactables
 		[Tooltip("Поворот предмета относительно HoldPoint, пока он в руках, в градусах")]
 		[SerializeField] private Vector3 holdOffsetRotation;
 
+		[Header("Physics")]
+		[Tooltip("Максимальная скорость, с которой физика выталкивает предмет из пересечения с другим коллайдером, м/с. " +
+			"По умолчанию у Rigidbody она почти бесконечна: если предмет оказался внутри капсулы игрока или зажат у стены, " +
+			"его \"выстреливает\" — в том числе сквозь стену. 2–5 — предмет выдавливается плавно")]
+		[SerializeField] private float maxDepenetrationVelocity = 3f;
+
 		[Header("Transparency")]
 		[Tooltip("Полупрозрачный материал, который подставляется на все рендереры предмета, пока он в руках, — чтобы большой " +
 			"предмет не перекрывал обзор. Пусто — материалы не меняются")]
@@ -42,6 +48,8 @@ namespace Interactables
 		public Vector3 HoldOffsetPosition => holdOffsetPosition;
 		public Quaternion HoldOffsetRotation => Quaternion.Euler(holdOffsetRotation);
 		public Rigidbody Body { get; private set; }
+		// режим столкновений, заданный в Rigidbody префаба, — ItemHoldController временно меняет его на время полёта и возвращает
+		public CollisionDetectionMode OriginalCollisionMode { get; private set; }
 		public Collider[] Colliders { get; private set; }
 		public bool IsHeld { get; private set; }
 		// габариты всех (не триггерных) коллайдеров предмета в локальных осях его корня — по ним
@@ -51,6 +59,8 @@ namespace Interactables
 		private void Awake()
 		{
 			Body = GetComponent<Rigidbody>();
+			Body.maxDepenetrationVelocity = maxDepenetrationVelocity;
+			OriginalCollisionMode = Body.collisionDetectionMode;
 			Colliders = GetComponentsInChildren<Collider>(true);
 			_renderers = GetComponentsInChildren<Renderer>(true);
 			_hierarchy = GetComponentsInChildren<Transform>(true);
