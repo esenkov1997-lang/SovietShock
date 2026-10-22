@@ -104,6 +104,22 @@ namespace Weapons
 
 		// идёт смена: старое оружие убирается — стрелять, бить, перезаряжаться, чинить и выбрасывать нельзя
 		public bool IsSwitching => _pendingSlot != null;
+
+		// общая постановка рук — чтобы другие риги рук (например, пустые руки при подъёме, Player.MantleArmsAnimation)
+		// стояли относительно камеры ровно так же, как руки оружия
+		public string CameraBoneName => cameraBoneName;
+		public Vector3 ViewModelOffset => viewModelOffset;
+		public Quaternion ViewModelOffsetRotation => Quaternion.Euler(viewModelOffsetRotation);
+		// слой рендера моделей в руках (отдельная камера оружия, без клиппинга в стены); -1 — слой не меняется
+		public int WeaponLayer => _weaponLayer;
+		public bool HasWeaponInHands => _currentIndex >= 0 && _currentVisual != null;
+
+		// слой анимации подъёма на уступ в Animator текущего оружия (см. BeginMantleLayer) — вес слоя ведёт код:
+		// плавно поднимает в начале и опускает в конце, без снапа руки в позу покоя
+		private int _mantleLayer = -1;
+		private float _mantleWeight;
+		private float _mantleWeightTarget;
+		private float _mantleBlendSpeed;
 		private bool _isReloading;
 		private float _reloadFinishTime;
 
@@ -254,8 +270,46 @@ namespace Weapons
 				FinishSwitch();
 			}
 
+			UpdateMantleLayer();
 			RecoverDrift();
 			UpdateAimPose();
+		}
+
+		// Анимация подъёма на уступ на руках текущего оружия: в его Animator Controller должен быть слой layerName
+		// (Override, с маской свободной руки, вес по умолчанию 0) и Trigger trigger, запускающий в нём клип подъёма.
+		// false — у оружия такого слоя/триггера нет (или руки сейчас скрыты): анимировать нечем
+		public bool BeginMantleLayer(string layerName, string trigger, float blendIn)
+		{
+			if (IsHolstered || _currentAnimator == null || string.IsNullOrEmpty(layerName)) return false;
+
+			int layer = _currentAnimator.GetLayerIndex(layerName);
+			if (layer < 0 || !HasTrigger(_currentAnimator, trigger)) return false;
+
+			// прошлый подъём мог ещё доигрывать спуск веса на другом слое — обнуляем его
+			if (_mantleLayer >= 0 && _mantleLayer != layer) _currentAnimator.SetLayerWeight(_mantleLayer, 0f);
+
+			_mantleLayer = layer;
+			_mantleWeightTarget = 1f;
+			_mantleBlendSpeed = blendIn > 0f ? 1f / blendIn : float.PositiveInfinity;
+			_currentAnimator.SetTrigger(trigger);
+			return true;
+		}
+
+		public void EndMantleLayer(float blendOut)
+		{
+			if (_mantleLayer < 0) return;
+			_mantleWeightTarget = 0f;
+			_mantleBlendSpeed = blendOut > 0f ? 1f / blendOut : float.PositiveInfinity;
+		}
+
+		private void UpdateMantleLayer()
+		{
+			if (_mantleLayer < 0 || _currentAnimator == null) return;
+
+			_mantleWeight = Mathf.MoveTowards(_mantleWeight, _mantleWeightTarget, _mantleBlendSpeed * Time.deltaTime);
+			_currentAnimator.SetLayerWeight(_mantleLayer, _mantleWeight);
+
+			if (_mantleWeight <= 0f && _mantleWeightTarget <= 0f) _mantleLayer = -1;
 		}
 
 		// вызывать каждый кадр с текущим состоянием ПКМ. Прицел есть только у огнестрела
@@ -639,6 +693,8 @@ namespace Weapons
 			_currentMuzzleFlash = null;
 			_currentAnimator = null;
 			_currentAudio = null;
+			_mantleLayer = -1; // слой подъёма был у старого Animator — у нового вес по умолчанию из контроллера
+			_mantleWeight = 0f;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
 			ResetCombo(); // и недоигранное комбо — новое оружие начинает с первого удара
 			_attackBufferedUntil = float.NegativeInfinity;

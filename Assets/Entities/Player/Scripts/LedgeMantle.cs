@@ -5,6 +5,18 @@ using UnityEngine.Localization;
 
 namespace StarterAssets
 {
+	// Необязательная анимация рук при подъёме (см. Player.MantleArmsAnimation) — LedgeMantle не знает ни про оружие,
+	// ни про риг рук. На движение не влияет: подъём идёт по ClimbSpeed/VaultSpeed, клип играет на своей скорости
+	public interface IMantleAnimation
+	{
+		// начать анимацию; false — анимировать нечем
+		bool TryBegin(bool isVault);
+		// анимация сама ведёт камеру — тогда наклон по CameraTiltCurve не добавляется, чтобы наклоны не сложились
+		bool DrivesCamera { get; }
+		// подъём закончен или прерван — убрать анимацию
+		void End();
+	}
+
 	// Ledge climbing (mantle) as a standalone add-on to FirstPersonController.
 	// FirstPersonController stays the single authority on *when* to attempt a mantle — it already owns
 	// jump/crouch input arbitration, so it calls TryMantle() at the exact moment it decides "this was a
@@ -74,6 +86,16 @@ namespace StarterAssets
 		private CharacterController _controller;
 		private StarterAssetsInputs _input;
 		private FirstPersonController _movement;
+		private IMantleAnimation _animation;
+		// анимация рук идёт прямо сейчас — чтобы убрать её, если подъём прервётся (объект выключили посреди корутины)
+		private bool _animating;
+
+		private void OnDisable()
+		{
+			if (!_animating) return;
+			_animating = false;
+			_animation.End();
+		}
 
 		// captured at Start, before any crouch shrinking has happened, so this reflects the standing pose
 		private float _feetOffset;
@@ -105,6 +127,7 @@ namespace StarterAssets
 			_controller = GetComponent<CharacterController>();
 			_input = GetComponent<StarterAssetsInputs>();
 			_movement = GetComponent<FirstPersonController>();
+			_animation = GetComponent<IMantleAnimation>();
 
 			_feetOffset = _controller.center.y - _controller.height * 0.5f;
 		}
@@ -122,11 +145,11 @@ namespace StarterAssets
 				float crouchDrop = VaultCrouched && _movement != null
 					? Mathf.Max(0f, _movement.StandingHeight - _movement.CrouchHeight)
 					: 0f;
-				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, VaultSpeed, VaultTiltAmount, crouchDrop));
+				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, true, VaultSpeed, VaultTiltAmount, crouchDrop));
 			}
 			else
 			{
-				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, ClimbSpeed, CameraTiltAmount, 0f));
+				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, false, ClimbSpeed, CameraTiltAmount, 0f));
 			}
 			return true;
 		}
@@ -380,7 +403,7 @@ namespace StarterAssets
 		// Сам CharacterController на время подъёма выключен, поэтому физически капсулу уменьшать не нужно —
 		// "пролезает ли" уже проверено в FindVaultLanding, а здесь опускаем только камеру, чтобы она не прошла
 		// сквозь стену над окном
-		private IEnumerator ClimbLedge(Vector3 targetPosition, float passHeight, float speed, float tiltAmount, float crouchDrop)
+		private IEnumerator ClimbLedge(Vector3 targetPosition, float passHeight, bool isVault, float speed, float tiltAmount, float crouchDrop)
 		{
 			_isClimbing = true;
 			_controller.enabled = false;
@@ -392,21 +415,29 @@ namespace StarterAssets
 			Vector3 raisedAtStart = new Vector3(startPosition.x, raisedY, startPosition.z);
 			Vector3 raisedAtTarget = new Vector3(targetPosition.x, raisedY, targetPosition.z);
 
-			float totalDistance = Vector3.Distance(startPosition, raisedAtStart)
-				+ Vector3.Distance(raisedAtStart, raisedAtTarget)
-				+ Vector3.Distance(raisedAtTarget, targetPosition);
-			float totalDuration = Mathf.Max(totalDistance / speed, 0.01f);
+			float upDuration = Vector3.Distance(startPosition, raisedAtStart) / speed;
+			float overDuration = Vector3.Distance(raisedAtStart, raisedAtTarget) / speed;
+			float settleDuration = Vector3.Distance(raisedAtTarget, targetPosition) / speed;
+
+			// анимация рук (если есть) на движение не влияет — просто играет поверх
+			bool animated = _animation != null && _animation.TryBegin(isVault);
+			_animating = animated;
+			if (animated && _animation.DrivesCamera) tiltAmount = 0f;
+
+			float totalDuration = Mathf.Max(upDuration + overDuration + settleDuration, 0.01f);
 			Coroutine tiltRoutine = StartCoroutine(TrackCameraTilt(totalDuration, tiltAmount));
 
 			// пригибание привязано к фазам, а не к общему времени: к началу прохода над препятствием камера
 			// гарантированно уже внизу, как бы ни соотносились длины подъёма и прохода
-			yield return MoveTo(startPosition, raisedAtStart, speed,    // straight up, clear of the wall — пригибаемся
+			yield return MoveTo(startPosition, raisedAtStart, upDuration,      // straight up, clear of the wall — пригибаемся
 				p => SetCrouchDrop(crouchDrop * Mathf.SmoothStep(0f, 1f, p)));
-			yield return MoveTo(raisedAtStart, raisedAtTarget, speed,   // straight over, above the ledge edge — пригнувшись
+			yield return MoveTo(raisedAtStart, raisedAtTarget, overDuration,   // straight over, above the ledge edge — пригнувшись
 				_ => SetCrouchDrop(crouchDrop));
-			yield return MoveTo(raisedAtTarget, targetPosition, speed,  // settle down — выпрямляемся
+			yield return MoveTo(raisedAtTarget, targetPosition, settleDuration, // settle down — выпрямляемся
 				p => SetCrouchDrop(crouchDrop * (1f - Mathf.SmoothStep(0f, 1f, p))));
 
+			if (animated) _animation.End();
+			_animating = false;
 			StopCoroutine(tiltRoutine);
 			if (_movement != null)
 			{
@@ -438,9 +469,9 @@ namespace StarterAssets
 		}
 
 		// onProgress — вызывается каждый кадр с долей пройденного отрезка 0..1 (для пригибания камеры)
-		private IEnumerator MoveTo(Vector3 from, Vector3 to, float speed, System.Action<float> onProgress = null)
+		private IEnumerator MoveTo(Vector3 from, Vector3 to, float duration, System.Action<float> onProgress = null)
 		{
-			float duration = Mathf.Max(Vector3.Distance(from, to) / speed, 0.01f);
+			duration = Mathf.Max(duration, 0.01f);
 			float elapsed = 0f;
 
 			while (elapsed < duration)

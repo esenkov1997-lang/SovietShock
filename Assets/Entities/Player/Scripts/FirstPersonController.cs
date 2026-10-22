@@ -118,6 +118,10 @@ namespace StarterAssets
 		// while vaulting through a window). Separate from ExtraPositionOffset because CameraHeadBob and
 		// WeaponCameraAnchor overwrite/accumulate that one every frame
 		public float ExtraCameraDrop;
+		// camera motion taken from an animation clip (Player.MantleArmsAnimation — the camera bone of the mantle clip),
+		// in the camera's own axes. Separate fields because WeaponCameraAnchor overwrites ExtraRotationOffset every frame
+		public Vector3 AnimatedCameraPositionOffset;
+		public Quaternion AnimatedCameraRotationOffset = Quaternion.identity;
 
 		// full standing capsule height (captured at Awake) — e.g. for LedgeMantle to know how much a
 		// crouch-height pass lowers the camera
@@ -281,10 +285,11 @@ namespace StarterAssets
 			// camera tilt or a hand-animated weapon camera bone still show up even if the player isn't
 			// currently moving the mouse. Position and rotation are each written exactly once, here,
 			// combining every contributor — nothing else should touch CinemachineCameraTarget's transform
+			Quaternion lookRotation = Quaternion.Euler(_cinemachineTargetPitch + ExtraPitchOffset, 0.0f, 0.0f) * ExtraRotationOffset;
 			CinemachineCameraTarget.transform.localPosition =
-				_cameraBaseLocalPosition + ExtraPositionOffset + Vector3.down * ExtraCameraDrop;
-			CinemachineCameraTarget.transform.localRotation =
-				Quaternion.Euler(_cinemachineTargetPitch + ExtraPitchOffset, 0.0f, 0.0f) * ExtraRotationOffset;
+				_cameraBaseLocalPosition + ExtraPositionOffset + Vector3.down * ExtraCameraDrop
+				+ lookRotation * AnimatedCameraPositionOffset;
+			CinemachineCameraTarget.transform.localRotation = lookRotation * AnimatedCameraRotationOffset;
 		}
 
 		// returns true if jump was freshly pressed this frame and wasn't consumed to stand up from a crouch

@@ -33,6 +33,12 @@ namespace Weapons
 			if (_weaponController != null) _weaponController.NotifyWeaponHidden();
 		}
 
+		// Метки в клипе подъёма на уступ (MantleGrab / MantleRelease) больше не используются кодом. Пустые методы
+		// оставлены, чтобы Unity не ругался, если такие события остались в клипе — их можно удалить из клипа
+		// вместе с этими методами
+		public void MantleGrab() { }
+		public void MantleRelease() { }
+
 		// повесь Animation Event с этим методом на момент в клипе Reload, когда магазин уже вставлен
 		public void ReloadComplete()
 		{

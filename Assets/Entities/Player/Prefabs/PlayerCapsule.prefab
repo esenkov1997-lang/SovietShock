@@ -158,6 +158,7 @@ GameObject:
   - component: {fileID: 5420857361349278248}
   - component: {fileID: 8616685848737228376}
   - component: {fileID: 7895807861585675611}
+  - component: {fileID: -7104160960494513842}
   - component: {fileID: 5487982537949972152}
   - component: {fileID: 1055818204457968310}
   - component: {fileID: 8614122012661009152}
@@ -489,6 +490,28 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
+--- !u!114 &-7104160960494513842
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616685848737228372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ffd7318d6e7ff5946bf3a603cd7a5797, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  climbClip: {fileID: 8091285221300464070, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
+  vaultClip: {fileID: 0}
+  grabEvent: MantleGrab
+  releaseEvent: MantleRelease
+  mantleLayerName: Mantle
+  climbTrigger: Mantle
+  vaultTrigger: Vault
+  layerBlendIn: 0.08
+  layerBlendOut: 0.15
+  emptyHandsPrefab: {fileID: 2464030264905777258, guid: 3b790d18ff3ecf147b4009b9063509a9, type: 3}
 --- !u!114 &5487982537949972152
 MonoBehaviour:
   m_ObjectHideFlags: 0
