@@ -50,9 +50,23 @@ namespace Player
 			"он автоматически выпадает из рук. Должно быть меньше расстояния до Hold Point")]
 		[SerializeField] private float minHoldDistance = 0.5f;
 
+		public enum ThrowAim
+		{
+			CameraForward,    // параллельно взгляду из точки удержания — при смещённом Hold Offset летит мимо прицела
+			TowardCrosshair,  // из точки удержания в точку под перекрестием — траектория сходится с прицелом
+			FromScreenCenter  // предмет перед броском переносится на ось взгляда и летит строго по центру экрана
+		}
+
 		[Header("Release")]
 		[Tooltip("Импульс броска по ЛКМ. Учитывает массу предмета: тяжёлые летят ближе")]
 		[SerializeField] private float throwForce = 8f;
+		[Tooltip("Направление броска. Toward Crosshair — предмет летит из руки в точку под перекрестием (обычно лучший вариант). " +
+			"From Screen Center — предмет перед броском переносится на ось взгляда (заметен небольшой скачок у сильно смещённых предметов). " +
+			"Camera Forward — параллельно взгляду, со смещением Hold Offset")]
+		[SerializeField] private ThrowAim throwAim = ThrowAim.TowardCrosshair;
+		[Tooltip("Toward Crosshair: дальность, на которой ищется точка под перекрестием, м. Если там пусто — целимся в точку на этой дистанции. " +
+			"Ближе — предмет сильнее \"сводится\" к центру на коротком броске")]
+		[SerializeField] private float throwAimDistance = 15f;
 		[Tooltip("Отпущенный/брошенный предмет получает скорость игрока — на бегу он не падает \"назад\"")]
 		[SerializeField] private bool inheritPlayerVelocity = true;
 		[Tooltip("Сколько максимум секунд после отпускания предмет остаётся на слое удержания — пока не выйдет из капсулы игрока")]
@@ -188,6 +202,15 @@ namespace Player
 			// прежнего родителя могли уничтожить, пока предмет был в руках — тогда в корень сцены
 			item.transform.SetParent(_originalParent != null ? _originalParent : null, true);
 
+			// бросок строго по центру: переносим центр предмета на ось взгляда на той же дистанции от глаз.
+			// Стены и пересечения после переноса разбираются ниже — так же, как для обычного отпускания
+			if (thrown && throwAim == ThrowAim.FromScreenCenter && viewOrigin != null)
+			{
+				Vector3 center = ItemCenter(item);
+				float along = Mathf.Max(0f, Vector3.Dot(center - viewOrigin.position, viewOrigin.forward));
+				item.transform.position += viewOrigin.position + viewOrigin.forward * along - center;
+			}
+
 			// безопасная точка сброса: предмет не должен оказаться за стеной или внутри неё
 			Vector3 position = item.transform.position;
 			FitBetweenViewAndObstacle(item, ref position, item.transform.rotation, out _);
@@ -202,7 +225,7 @@ namespace Player
 
 			if (thrown && viewOrigin != null)
 			{
-				body.AddForce(viewOrigin.forward * throwForce, ForceMode.Impulse);
+				body.AddForce(ThrowDirection(item) * throwForce, ForceMode.Impulse);
 			}
 
 			item.NotifyReleased();
@@ -211,6 +234,32 @@ namespace Player
 			// нажатие ЛКМ, которым бросили, "съедаем" — иначе только что вернувшееся оружие его подхватит
 			if (thrown && input != null) input.fire = false;
 			SetWeaponsHolstered(false);
+		}
+
+		// направление броска по throwAim. Toward Crosshair: из центра предмета в точку под перекрестием — луч от глаз
+		// вперёд по препятствиям (без игрока и предметов в руках), а если пусто — точка на throwAimDistance
+		private Vector3 ThrowDirection(PickableObject item)
+		{
+			Vector3 forward = viewOrigin.forward;
+			if (throwAim != ThrowAim.TowardCrosshair) return forward;
+
+			Vector3 origin = viewOrigin.position;
+			Vector3 aimPoint = Physics.Raycast(origin, forward, out RaycastHit hit, throwAimDistance, ObstacleLayers, QueryTriggerInteraction.Ignore)
+				? hit.point
+				: origin + forward * throwAimDistance;
+
+			Vector3 toAim = aimPoint - ItemCenter(item);
+			// цель почти вплотную (стена прямо перед лицом): направление на неё уводило бы бросок вбок или назад —
+			// в таком случае просто бросаем вперёд по взгляду
+			if (toAim.sqrMagnitude < 0.0001f) return forward;
+			Vector3 direction = toAim.normalized;
+			return Vector3.Dot(direction, forward) < 0.5f ? forward : direction;
+		}
+
+		// центр габаритов предмета в мире (pivot модели может быть не в центре)
+		private static Vector3 ItemCenter(PickableObject item)
+		{
+			return item.transform.TransformPoint(item.LocalBounds.center);
 		}
 
 		// "Протягивает" габариты предмета item (с поворотом rotation) от глаз до его позиции position. Если по пути
