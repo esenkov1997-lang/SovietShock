@@ -94,6 +94,16 @@ namespace Weapons
 		private bool _comboWindowOpen;
 		private int _comboStep;
 		private float _attackBufferedUntil = float.NegativeInfinity;
+
+		// смена оружия с анимацией Hide (см. SwitchTo): старое оружие доигрывает Hide, новое появляется только
+		// после Animation Event WeaponHidden (или по таймеру-подстраховке). Храним сам слот, а не индекс —
+		// индексы съезжают, если инвентарь меняется во время смены
+		private WeaponSlot _pendingSlot;
+		private float _hideFinishTime;
+		private bool _currentHasHideTrigger;
+
+		// идёт смена: старое оружие убирается — стрелять, бить, перезаряжаться, чинить и выбрасывать нельзя
+		public bool IsSwitching => _pendingSlot != null;
 		private bool _isReloading;
 		private float _reloadFinishTime;
 
@@ -212,10 +222,12 @@ namespace Weapons
 				if (placement.Weapon != null) _handPlacementByWeapon[placement.Weapon] = placement;
 			}
 
+			// стартовый набор — сразу в инвентарь, в руки берём последнее без Hide/Draw-цепочки на каждом оружии
 			foreach (WeaponData data in startingWeapons)
 			{
-				PickupWeapon(data);
+				if (data != null) _inventory.Add(new WeaponSlot(data, -1));
 			}
+			if (_inventory.Count > 0) EquipByIndex(_inventory.Count - 1);
 		}
 
 		// позиция/поворот в руках для этого WeaponHolder: сначала смотрим оверрайд (handPlacementOverrides),
@@ -235,6 +247,13 @@ namespace Weapons
 				CompleteReload();
 			}
 
+			// подстраховка (см. NotifyWeaponHidden): событие в конце клипа Hide не пришло — меняем по таймеру
+			if (IsSwitching && Time.time >= _hideFinishTime)
+			{
+				Debug.LogWarning($"{CurrentWeaponData?.name}: смена оружия по таймеру — в клипе Hide нет Animation Event WeaponHidden", CurrentWeaponData);
+				FinishSwitch();
+			}
+
 			RecoverDrift();
 			UpdateAimPose();
 		}
@@ -242,7 +261,7 @@ namespace Weapons
 		// вызывать каждый кадр с текущим состоянием ПКМ. Прицел есть только у огнестрела
 		public void SetAiming(bool held)
 		{
-			if (IsHolstered) held = false;
+			if (IsHolstered || IsSwitching) held = false;
 			_isAiming = held && CurrentWeaponData is FirearmData;
 		}
 
@@ -259,7 +278,7 @@ namespace Weapons
 			bool canRepair = tool != null && tool.CanRepair;
 
 			// оружие ещё достаётся/перезаряжается — как и обычная стрельба, лечить в этот момент нельзя
-			bool wantsToHeal = held && canRepair && Time.time >= _readyToFireTime;
+			bool wantsToHeal = held && canRepair && !IsSwitching && Time.time >= _readyToFireTime;
 			bool healing = wantsToHeal && slot.CurrentAmmo > 0;
 
 			// параметр актуален только для ремонтного инструмента — у остальных Animator Controller
@@ -522,19 +541,88 @@ namespace Weapons
 			// при одном оружии в инвентаре (currentIndex + 1) % 1 всегда даёт 0 — переключение
 			// на самого себя без надобности переигрывало бы Draw-анимацию
 			if (IsHolstered || _inventory.Count <= 1) return;
-			EquipByIndex((_currentIndex + 1) % _inventory.Count);
+			SwitchTo((SelectedIndex + 1) % _inventory.Count);
 		}
 
 		public void Previous()
 		{
 			if (IsHolstered || _inventory.Count <= 1) return;
-			EquipByIndex((_currentIndex - 1 + _inventory.Count) % _inventory.Count);
+			SwitchTo((SelectedIndex - 1 + _inventory.Count) % _inventory.Count);
 		}
 
-		// спавнит InHandPrefab выбранного оружия внутри VisualRoot, убирая старый визуал
+		// оружие, на которое игрок "листает": во время Hide это уже цель смены, а не то, что ещё в руках —
+		// иначе два щелчка колесом подряд выбрали бы одно и то же оружие
+		private int SelectedIndex => IsSwitching ? _inventory.IndexOf(_pendingSlot) : _currentIndex;
+
+		// смена оружия с анимацией: текущее играет Hide, новое появится по событию WeaponHidden в конце клипа.
+		// Если у текущего оружия анимации Hide нет (нет модели/Animator/параметра) — меняем мгновенно
+		public void SwitchTo(int index)
+		{
+			if (index < 0 || index >= _inventory.Count) return;
+
+			WeaponSlot target = _inventory[index];
+
+			// листают дальше, пока старое ещё убирается — меняем только цель, Hide не перезапускаем
+			if (IsSwitching)
+			{
+				_pendingSlot = target;
+				return;
+			}
+
+			if (index == _currentIndex && _currentVisual != null) return;
+
+			// нечего убирать (руки пустые — например, выбросили последнее оружие) или у оружия нет анимации Hide
+			if (_currentIndex < 0 || _currentVisual == null || _currentAnimator == null || !_currentHasHideTrigger)
+			{
+				EquipByIndex(index);
+				return;
+			}
+
+			// всё, что делало старое оружие, прерываем: ремонт (вместе с пламенем и звуком), перезарядку, комбо, прицел.
+			// Горелку дополнительно гасит TickHeal — пока идёт смена, он считает, что ПКМ не зажата
+			SetRepairFlame(false);
+			_repairStartFallbackTime = float.PositiveInfinity;
+			_isReloading = false;
+			ResetCombo();
+			_attackBufferedUntil = float.NegativeInfinity;
+			_isAiming = false;
+
+			_pendingSlot = target;
+			_hideFinishTime = Time.time + FallbackAnimationDuration;
+			_currentAnimator.SetTrigger(CurrentWeaponData.HideTrigger);
+		}
+
+		// вызывается из WeaponAnimationEvents по Animation Event WeaponHidden в конце клипа Hide
+		public void NotifyWeaponHidden()
+		{
+			if (IsSwitching) FinishSwitch();
+		}
+
+		private void FinishSwitch()
+		{
+			int index = _inventory.IndexOf(_pendingSlot);
+			_pendingSlot = null;
+			if (index >= 0) EquipByIndex(index);
+		}
+
+		private static bool HasTrigger(Animator animator, string parameter)
+		{
+			if (animator == null || string.IsNullOrEmpty(parameter)) return false;
+
+			foreach (AnimatorControllerParameter p in animator.parameters)
+			{
+				if (p.type == AnimatorControllerParameterType.Trigger && p.name == parameter) return true;
+			}
+			return false;
+		}
+
+		// мгновенно спавнит InHandPrefab выбранного оружия внутри VisualRoot, убирая старый визуал — без анимации
+		// Hide (для обычной смены с анимацией — SwitchTo). Отменяет незаконченную смену, если она шла
 		public void EquipByIndex(int index)
 		{
 			if (index < 0 || index >= _inventory.Count) return;
+
+			_pendingSlot = null;
 
 			// гасим горелку ещё со старым оружием (_currentIndex не сменён) — выключится его пламя/свет,
 			// остановится луп и сыграет его звук затухания
@@ -573,6 +661,10 @@ namespace Weapons
 				Debug.LogWarning($"{data.name}: не задан In Hand Prefab — оружие экипировано, но в руках ничего не появится", data);
 			}
 
+			// проверяем один раз при экипировке: SetTrigger на несуществующий параметр сыпал бы предупреждение
+			// в консоль, а смена ждала бы таймер-подстраховку — у оружия без Hide она просто мгновенная
+			_currentHasHideTrigger = HasTrigger(_currentAnimator, data.HideTrigger);
+
 			if (_currentAudio != null) _currentAudio.PlayDraw();
 
 			// готовность обычно приходит раньше через Animation Event (см. NotifyWeaponReady/WeaponAnimationEvents) —
@@ -600,6 +692,15 @@ namespace Weapons
 				_isReloading = false; // незаконченная перезарядка отменяется — патроны из пула ещё не списаны
 				ResetCombo();
 				_attackBufferedUntil = float.NegativeInfinity;
+
+				// убрали посреди смены — смену завершаем без анимации: при возвращении в руки появится уже новое оружие
+				// (ветка else ниже делает EquipByIndex(_currentIndex) — с Draw)
+				if (IsSwitching)
+				{
+					int target = _inventory.IndexOf(_pendingSlot);
+					if (target >= 0) _currentIndex = target;
+					_pendingSlot = null;
+				}
 
 				// ремонтный луч мог гореть в момент блокировки — TickHeal больше не вызывается и сам его не погасит
 				SetRepairFlame(false);
@@ -640,7 +741,7 @@ namespace Weapons
 		// начинает перезарядку текущего оружия (кнопка R)
 		public void Reload()
 		{
-			if (IsHolstered || _currentIndex < 0 || _isReloading || Time.time < _readyToFireTime) return;
+			if (IsHolstered || IsSwitching || _currentIndex < 0 || _isReloading || Time.time < _readyToFireTime) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;
@@ -702,20 +803,20 @@ namespace Weapons
 			Debug.Log($"{data.WeaponName}: перезарядка завершена, патроны {slot.CurrentAmmo}/{ammo.MagazineSize}");
 		}
 
-		// добавляет оружие в инвентарь и сразу берёт его в руки. loadedAmmo — сколько патронов в магазине,
-		// < 0 — полный магазин (стартовое оружие, свежий предмет на уровне)
+		// добавляет оружие в инвентарь и берёт его в руки — текущее при этом убирается анимацией Hide (см. SwitchTo).
+		// loadedAmmo — сколько патронов в магазине, < 0 — полный магазин (свежий предмет на уровне)
 		public void PickupWeapon(WeaponData data, int loadedAmmo = -1)
 		{
 			if (data == null) return;
 
 			_inventory.Add(new WeaponSlot(data, loadedAmmo));
-			EquipByIndex(_inventory.Count - 1);
+			SwitchTo(_inventory.Count - 1);
 		}
 
 		// выбрасывает текущее оружие перед игроком с физическим импульсом
 		public void DropCurrentWeapon()
 		{
-			if (IsHolstered || _currentIndex < 0) return;
+			if (IsHolstered || IsSwitching || _currentIndex < 0) return;
 
 			// выбросили прямо во время ремонта — гасим горелку, пока оружие ещё текущее
 			SetRepairFlame(false);
@@ -757,7 +858,7 @@ namespace Weapons
 			bool triggerPressed = triggerHeld && !_firePreviouslyHeld;
 			_firePreviouslyHeld = triggerHeld;
 
-			if (IsHolstered || _currentIndex < 0) return;
+			if (IsHolstered || IsSwitching || _currentIndex < 0) return;
 
 			// у холодного своя логика — комбо с буфером нажатия, см. TickMelee
 			if (_inventory[_currentIndex].Data is MeleeWeaponData melee)
@@ -829,7 +930,7 @@ namespace Weapons
 		// тратит патрон текущего оружия, спавнит визуализацию пули и логирует результат. Холодное — удар комбо
 		public void Shoot()
 		{
-			if (IsHolstered || _currentIndex < 0) return;
+			if (IsHolstered || IsSwitching || _currentIndex < 0) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;

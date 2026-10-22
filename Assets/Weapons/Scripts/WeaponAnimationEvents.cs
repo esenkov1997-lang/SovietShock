@@ -26,6 +26,13 @@ namespace Weapons
 			if (_weaponController != null) _weaponController.NotifyWeaponReady();
 		}
 
+		// повесь Animation Event с этим методом на ПОСЛЕДНИЙ кадр клипа Hide (оружие убрано из кадра) — в этот
+		// момент старая модель удаляется и появляется новое оружие с Draw. Без события смена ждёт таймер-подстраховку
+		public void WeaponHidden()
+		{
+			if (_weaponController != null) _weaponController.NotifyWeaponHidden();
+		}
+
 		// повесь Animation Event с этим методом на момент в клипе Reload, когда магазин уже вставлен
 		public void ReloadComplete()
 		{

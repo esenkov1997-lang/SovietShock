@@ -29,6 +29,8 @@ namespace Weapons
 		public string AttackTrigger = "Attack";
 		[Tooltip("Имя Trigger-параметра, включаемого при доставании оружия. Пусто — без анимации")]
 		public string DrawTrigger = "Draw";
+		[Tooltip("Имя Trigger-параметра анимации убирания при смене оружия. Новое оружие появляется только после Animation Event WeaponHidden в конце клипа. Пусто или такого параметра нет в Animator — смена мгновенная")]
+		public string HideTrigger = "Hide";
 
 		[Header("VFX")]
 		public VFXData VFX = new VFXData();
