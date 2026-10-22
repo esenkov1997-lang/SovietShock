@@ -87,6 +87,13 @@ namespace Weapons
 		private WeaponAudio _currentAudio;
 		private bool _firePreviouslyHeld;
 		private float _readyToFireTime;
+
+		// комбо холодного оружия (см. TickMelee): удар идёт, пока не пришёл WeaponReady в конце клипа; в окне
+		// ComboWindow можно начать следующий. _comboStep — номер последнего начатого удара
+		private bool _swingActive;
+		private bool _comboWindowOpen;
+		private int _comboStep;
+		private float _attackBufferedUntil = float.NegativeInfinity;
 		private bool _isReloading;
 		private float _reloadFinishTime;
 
@@ -545,6 +552,8 @@ namespace Weapons
 			_currentAnimator = null;
 			_currentAudio = null;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
+			ResetCombo(); // и недоигранное комбо — новое оружие начинает с первого удара
+			_attackBufferedUntil = float.NegativeInfinity;
 			_aimBlend = 0f; // смена оружия сбрасывает прицел — новое оружие всегда начинается от бедра
 
 			if (data.InHandPrefab != null)
@@ -589,6 +598,8 @@ namespace Weapons
 				_isAiming = false;
 				_aimBlend = 0f; // FOV (WeaponAimZoom) сразу возвращается к базовому, а не "доезжает" из прицела
 				_isReloading = false; // незаконченная перезарядка отменяется — патроны из пула ещё не списаны
+				ResetCombo();
+				_attackBufferedUntil = float.NegativeInfinity;
 
 				// ремонтный луч мог гореть в момент блокировки — TickHeal больше не вызывается и сам его не погасит
 				SetRepairFlame(false);
@@ -609,6 +620,21 @@ namespace Weapons
 		public void NotifyWeaponReady()
 		{
 			_readyToFireTime = Time.time;
+			// у холодного это конец удара: комбо не продолжили — следующий удар снова первый
+			ResetCombo();
+		}
+
+		// вызывается из WeaponAnimationEvents по Animation Event ComboWindow — кадр в клипе удара, начиная с которого
+		// можно перейти в следующий удар комбо, не дожидаясь конца клипа
+		public void NotifyComboWindow()
+		{
+			if (_swingActive) _comboWindowOpen = true;
+		}
+
+		private void ResetCombo()
+		{
+			_swingActive = false;
+			_comboWindowOpen = false;
 		}
 
 		// начинает перезарядку текущего оружия (кнопка R)
@@ -731,8 +757,17 @@ namespace Weapons
 			bool triggerPressed = triggerHeld && !_firePreviouslyHeld;
 			_firePreviouslyHeld = triggerHeld;
 
+			if (IsHolstered || _currentIndex < 0) return;
+
+			// у холодного своя логика — комбо с буфером нажатия, см. TickMelee
+			if (_inventory[_currentIndex].Data is MeleeWeaponData melee)
+			{
+				TickMelee(melee, triggerPressed);
+				return;
+			}
+
 			// оружие ещё достаётся/перезаряжается (_readyToFireTime) — не тратим впустую кулдаун FireRate
-			if (IsHolstered || _currentIndex < 0 || Time.time < _readyToFireTime) return;
+			if (Time.time < _readyToFireTime) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			bool automatic = slot.Data is FirearmData firearm && firearm.Mode == FireMode.Auto;
@@ -743,35 +778,70 @@ namespace Weapons
 			Shoot();
 		}
 
-		// тратит патрон текущего оружия (кроме Melee), спавнит визуализацию пули и логирует результат
+		// Холодное: нажатие запоминается на InputBufferTime, а удар начинается, как только это разрешено — сразу,
+		// если оружие свободно, или в окне комбо (ComboWindow) текущего удара. Так спам ЛКМ даёт ровное 1-2-1-2,
+		// а нажатие чуть раньше окна не теряется
+		private void TickMelee(MeleeWeaponData melee, bool triggerPressed)
+		{
+			if (triggerPressed) _attackBufferedUntil = Time.time + melee.InputBufferTime;
+			if (Time.time > _attackBufferedUntil || !CanStartSwing()) return;
+
+			_attackBufferedUntil = float.NegativeInfinity;
+			StartSwing(melee);
+		}
+
+		private bool CanStartSwing()
+		{
+			if (_isReloading || Time.time < _inventory[_currentIndex].NextFireTime) return false;
+
+			// подстраховка: WeaponReady в конце клипа не пришёл — удар считается законченным по таймеру
+			if (_swingActive && Time.time >= _readyToFireTime) ResetCombo();
+
+			// идёт удар — следующий только в окне комбо; иначе — когда оружие готово (достали, перезарядили)
+			return _swingActive ? _comboWindowOpen : Time.time >= _readyToFireTime;
+		}
+
+		private void StartSwing(MeleeWeaponData data)
+		{
+			WeaponSlot slot = _inventory[_currentIndex];
+			slot.NextFireTime = Time.time + (data.FireRate > 0f ? 1f / data.FireRate : 0f);
+
+			// продолжаем комбо — следующий удар по кругу; начинаем заново — первый
+			_comboStep = _swingActive ? (_comboStep + 1) % Mathf.Max(1, data.ComboLength) : 0;
+			_swingActive = true;
+			_comboWindowOpen = false;
+
+			// взмах — "занятое" действие, как Draw и Reload: остальное (перезарядка, горелка) ждёт WeaponReady
+			// в конце клипа, таймер — подстраховка на случай, если событие не проставлено
+			_readyToFireTime = Time.time + FallbackAnimationDuration;
+
+			// попал/промах решается сейчас, в момент начала взмаха: анимацию нельзя выбрать задним числом,
+			// когда клип уже играет. Проверка — тот же луч, что и у реального урона (TryRaycastFromCamera).
+			// Сам урон — в NotifyMeleeHit, по Animation Event в кадре касания клипа попадания
+			bool willHit = TryRaycastFromCamera(data, out _);
+			Debug.Log($"{data.WeaponName}: удар {_comboStep + 1} ({(willHit ? "попадание" : "промах")})");
+
+			PlayMeleeAnimation(data, _comboStep, willHit);
+			if (_currentAudio != null) _currentAudio.PlayAttack();
+			Fired?.Invoke(data);
+		}
+
+		// тратит патрон текущего оружия, спавнит визуализацию пули и логирует результат. Холодное — удар комбо
 		public void Shoot()
 		{
-			// защита и для прямых вызовов Shoot() в обход TickFire — то же ограничение по доставанию
-			if (IsHolstered || _currentIndex < 0 || Time.time < _readyToFireTime) return;
+			if (IsHolstered || _currentIndex < 0) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;
 
 			if (data is MeleeWeaponData melee)
 			{
-				// взмах — такое же "занятое" действие, как Draw и Reload: следующий удар не начнётся, пока
-				// Animation Event WeaponReady в конце клипа удара не вернёт готовность (см. NotifyWeaponReady).
-				// Без этого единственным ограничителем был бы FireRate, который не связан с длиной клипа —
-				// и Attack-триггер перезапускал бы взмах с нуля каждые 1/FireRate секунд
-				_readyToFireTime = Time.time + FallbackAnimationDuration;
-
-				// попал/промах решается сейчас, в момент начала взмаха: анимацию нельзя выбрать задним числом,
-				// когда клип уже играет. Проверка — тот же луч, что и у реального урона (TryRaycastFromCamera)
-				bool willHit = TryRaycastFromCamera(data, out _);
-
-				// сам урон наносится не здесь, а в NotifyMeleeHit — по Animation Event в нужном кадре клипа
-				// попадания. На клипе промаха MeleeHit ставить не нужно
-				Debug.Log($"{data.WeaponName}: удар начат ({(willHit ? "попадание" : "промах")})");
-				PlayMeleeAnimation(melee, willHit);
-				if (_currentAudio != null) _currentAudio.PlayAttack();
-				Fired?.Invoke(data);
+				if (CanStartSwing()) StartSwing(melee);
 				return;
 			}
+
+			// защита и для прямых вызовов Shoot() в обход TickFire — то же ограничение по доставанию
+			if (Time.time < _readyToFireTime) return;
 
 			if (!(data is FirearmData firearm)) return;
 
@@ -962,16 +1032,21 @@ namespace Weapons
 			}
 		}
 
-		// холодное: анимация попадания (AttackTrigger) или промаха (AttackMissTrigger). Если отдельный
-		// триггер промаха не задан — играется обычная анимация удара
-		private void PlayMeleeAnimation(MeleeWeaponData data, bool hit)
+		// холодное: номер удара в комбо (ComboStepParam) + триггер попадания (AttackTrigger) или промаха
+		// (AttackMissTrigger). Если отдельный триггер промаха не задан — играется обычная анимация удара
+		private void PlayMeleeAnimation(MeleeWeaponData data, int comboStep, bool hit)
 		{
-			string trigger = !hit && !string.IsNullOrEmpty(data.AttackMissTrigger) ? data.AttackMissTrigger : data.AttackTrigger;
+			if (_currentAnimator == null) return;
 
-			if (_currentAnimator != null && !string.IsNullOrEmpty(trigger))
-			{
-				_currentAnimator.SetTrigger(trigger);
-			}
+			if (!string.IsNullOrEmpty(data.ComboStepParam)) _currentAnimator.SetInteger(data.ComboStepParam, comboStep);
+
+			// сбрасываем оба триггера: нажатие, не "съеденное" переходом (например, пришло во время Draw),
+			// иначе осталось бы висеть и запустило бы лишний удар позже
+			if (!string.IsNullOrEmpty(data.AttackTrigger)) _currentAnimator.ResetTrigger(data.AttackTrigger);
+			if (!string.IsNullOrEmpty(data.AttackMissTrigger)) _currentAnimator.ResetTrigger(data.AttackMissTrigger);
+
+			string trigger = !hit && !string.IsNullOrEmpty(data.AttackMissTrigger) ? data.AttackMissTrigger : data.AttackTrigger;
+			if (!string.IsNullOrEmpty(trigger)) _currentAnimator.SetTrigger(trigger);
 		}
 
 		private void SpawnBulletVisual(FirearmData data)

@@ -40,6 +40,15 @@ namespace Weapons
 			if (_weaponController != null) _weaponController.NotifyMeleeHit();
 		}
 
+		// повесь Animation Event с этим методом на кадр в КАЖДОМ клипе удара (и попадания, и промаха), начиная
+		// с которого можно перейти в следующий удар комбо — обычно сразу после касания. Если игрок жмёт атаку
+		// раньше, нажатие запоминается (MeleeWeaponData.InputBufferTime) и удар выйдет ровно в этом кадре.
+		// Без события комбо не работает: следующий удар ждёт WeaponReady в конце клипа
+		public void ComboWindow()
+		{
+			if (_weaponController != null) _weaponController.NotifyComboWindow();
+		}
+
 		// повесь Animation Event с этим методом на кадр в клипе Repair_Start, где горелка зажигается —
 		// с этого момента появляются пламя и свет, тратится газ и идёт ремонт/прожиг
 		public void RepairStart()
