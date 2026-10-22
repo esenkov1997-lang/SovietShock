@@ -21,7 +21,7 @@ MonoBehaviour:
   bobAmplitude: {x: 0.02, y: 0.005}
   bobRollAmount: 1.33
   bobPitchAmount: -1.78
-  bobBlendSpeed: 3.13
+  bobBlendSpeed: 6
   minMoveSpeedForBob: 1
   sprintMultiplier: 1.5
   crouchMultiplier: 0.6

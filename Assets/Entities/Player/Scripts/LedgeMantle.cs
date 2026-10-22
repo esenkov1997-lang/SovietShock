@@ -61,8 +61,14 @@ namespace StarterAssets
 		public float VaultLandingOffset = 0.1f;
 		[Tooltip("Насколько выше верха препятствия проходят ноги игрока при перелезании, м")]
 		public float VaultClearance = 0.15f;
-		[Tooltip("Скорость перелезания, м/с — обычно быстрее, чем залезание")]
+		[Tooltip("Скорость перелезания, м/с — обычно быстрее, чем залезание. С Vault Keep Momentum — минимальная: на бегу быстрее")]
 		public float VaultSpeed = 5.0f;
+		[Tooltip("Насколько дуга перелезания поднимается над минимально нужной высотой (верх препятствия + Vault Clearance), м. " +
+			"0 — впритирку, больше — заметнее \"прыжок\" через препятствие")]
+		public float VaultArcHeight = 0.1f;
+		[Tooltip("Сохранять разгон: перелезание идёт со скоростью бега, если она выше Vault Speed, а после приземления " +
+			"игрок продолжает движение с той же скоростью — бег не прерывается. Выключено — после приземления игрок стоит")]
+		public bool VaultKeepMomentum = true;
 		[Tooltip("Перелезать пригнувшись, высотой капсулы как в присяде (FirstPersonController.CrouchHeight) — " +
 			"так можно пролезть в окно. Проём должен быть не ниже CrouchHeight + Vault Clearance")]
 		public bool VaultCrouched = true;
@@ -110,6 +116,10 @@ namespace StarterAssets
 			public Vector3 Target;
 			public float PassHeight;
 			public bool IsVault;
+			// только для перелезания: точки на передней и задней грани препятствия и направление движения — по ним строится дуга
+			public Vector3 FrontEdge;
+			public Vector3 BackEdge;
+			public Vector3 Direction;
 		}
 
 		// last climb attempt — only for gizmo visualization in the editor
@@ -145,7 +155,7 @@ namespace StarterAssets
 				float crouchDrop = VaultCrouched && _movement != null
 					? Mathf.Max(0f, _movement.StandingHeight - _movement.CrouchHeight)
 					: 0f;
-				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, true, VaultSpeed, VaultTiltAmount, crouchDrop));
+				StartCoroutine(VaultOver(move, crouchDrop));
 			}
 			else
 			{
@@ -244,7 +254,7 @@ namespace StarterAssets
 
 			// 3b) низкое препятствие — пробуем перелезть через него. Не вышло — падаем в обычный mantle наверх
 			if (EnableVault && ledgeHeight >= VaultMinHeight && ledgeHeight <= VaultMaxHeight &&
-				FindVaultLanding(wallHit.point, moveDirection, feetY, ledgeHit.point.y, radius, log, out Vector3 vaultFeet))
+				FindVaultLanding(wallHit.point, moveDirection, feetY, ledgeHit.point.y, radius, log, out Vector3 vaultFeet, out Vector3 backEdge))
 			{
 				if (log) Debug.Log($"Vault: перелезть! высота {ledgeHeight:F2}м, приземление {vaultFeet}");
 				move = new LedgeMove
@@ -252,6 +262,9 @@ namespace StarterAssets
 					Target = vaultFeet - new Vector3(0f, _feetOffset, 0f),
 					PassHeight = ledgeHit.point.y + VaultClearance - _feetOffset,
 					IsVault = true,
+					FrontEdge = wallHit.point,
+					BackEdge = backEdge,
+					Direction = moveDirection,
 				};
 				return true;
 			}
@@ -287,9 +300,10 @@ namespace StarterAssets
 		// Перелезание: препятствие тонкое, за ним пол, игрок там помещается и над верхом есть где пролезть.
 		// wallPoint — точка передней грани, topY — мировая высота верха препятствия
 		private bool FindVaultLanding(Vector3 wallPoint, Vector3 direction, float feetY, float topY, float radius,
-			bool log, out Vector3 landingFeet)
+			bool log, out Vector3 landingFeet, out Vector3 backEdge)
 		{
 			landingFeet = default;
+			backEdge = default;
 			int mask = _movement != null ? _movement.CollisionMask : ~0;
 
 			// V1) толщина: за VaultMaxDepth от передней грани, ниже верха, должно быть пусто. Высота пробы —
@@ -338,7 +352,8 @@ namespace StarterAssets
 
 			// V5) путь над верхом свободен: капсула на высоте прохода от игрока до точки над приземлением.
 			// Пригнувшись — высотой приседа, поэтому пролезаем в окно, куда стоя не пройти
-			float passFeetY = topY + VaultClearance;
+			// с учётом подъёма дуги (VaultOver): над препятствием ноги идут на VaultArcHeight выше минимума
+			float passFeetY = topY + VaultClearance + Mathf.Max(0f, VaultArcHeight);
 			float passHeight = VaultCrouched && _movement != null ? _movement.CrouchHeight : _controller.height;
 			Vector3 passStart = new Vector3(transform.position.x, passFeetY, transform.position.z);
 			Vector3 passEnd = new Vector3(landing.x, passFeetY, landing.z);
@@ -349,6 +364,7 @@ namespace StarterAssets
 			}
 
 			landingFeet = landing;
+			backEdge = backHit.point;
 			return true;
 		}
 
@@ -466,6 +482,120 @@ namespace StarterAssets
 			if (_movement != null) _movement.ClearVerticalVelocity();
 			_controller.enabled = true;
 			_isClimbing = false;
+		}
+
+		// Перелезание — одна плавная дуга, а не "вверх → вперёд → вниз" как у подъёма на уступ:
+		//   A  — старт;
+		//   B  — над передней гранью (за радиус капсулы до неё, чтобы не задеть угол), на высоте прохода + VaultArcHeight;
+		//   B′ — над задней гранью (за радиус капсулы после неё), на той же высоте;
+		//   C  — приземление.
+		// Через точки идёт гладкая кривая (Эрмит) — направление движения меняется без изломов. В B и B′ касательная
+		// горизонтальная: подъём A→B плавно выходит в горизонталь, над препятствием игрок идёт РОВНО на высоте прохода
+		// (не выше — иначе при перелезании в окно голова задела бы верх проёма, который проверен на этой высоте
+		// в FindVaultLanding), спуск B′→C плавно уходит вниз. До B игрок дальше от грани, чем радиус капсулы, —
+		// угол не задевает. Скорость постоянная вдоль пути (время отрезков — пропорционально их длине)
+		private IEnumerator VaultOver(LedgeMove move, float crouchDrop)
+		{
+			_isClimbing = true;
+			_controller.enabled = false;
+
+			Vector3 direction = move.Direction;
+			float entrySpeed = _movement != null ? Mathf.Max(0f, Vector3.Dot(_movement.HorizontalVelocity, direction)) : 0f;
+			float speed = Mathf.Max(VaultKeepMomentum ? Mathf.Max(VaultSpeed, entrySpeed) : VaultSpeed, 0.01f);
+
+			float clearance = _controller.radius + _controller.skinWidth;
+			float arcY = move.PassHeight + VaultArcHeight;
+			Vector3 a = transform.position;
+			Vector3 b = new Vector3(move.FrontEdge.x, arcY, move.FrontEdge.z) - direction * clearance;
+			Vector3 b2 = new Vector3(move.BackEdge.x, arcY, move.BackEdge.z) + direction * clearance;
+			Vector3 c = move.Target;
+
+			// игрок уже вплотную к препятствию — B не должна оказаться позади него: тогда просто поднимаемся на месте
+			if (Vector3.Dot(b - a, direction) < 0f) b = new Vector3(a.x, arcY, a.z);
+			// препятствие тоньше, чем две "мёртвые зоны" капсулы, — B′ не должна быть перед B
+			if (Vector3.Dot(b2 - b, direction) < 0f) b2 = b;
+
+			// направления касательных: в крайних точках — вдоль первого/последнего отрезка, над препятствием — горизонтально
+			Vector3 tangentA = SafeDirection(b - a, Vector3.up);
+			Vector3 tangentB = direction;
+			Vector3 tangentB2 = direction;
+			Vector3 tangentC = SafeDirection(c - b2, Vector3.down);
+
+			float lengthAB = Vector3.Distance(a, b);
+			float lengthBB = Vector3.Distance(b, b2);
+			float lengthBC = Vector3.Distance(b2, c);
+			float totalLength = lengthAB + lengthBB + lengthBC;
+			float totalDuration = Mathf.Max(totalLength / speed, 0.01f);
+
+			bool animated = _animation != null && _animation.TryBegin(true);
+			_animating = animated;
+			float tiltAmount = animated && _animation.DrivesCamera ? 0f : VaultTiltAmount;
+			Coroutine tiltRoutine = StartCoroutine(TrackCameraTilt(totalDuration, tiltAmount));
+
+			// пригибание (окно): опускаемся на подъёме к B, держим над препятствием, выпрямляемся на спуске
+			yield return FollowSegment(a, b, tangentA, tangentB, lengthAB, speed,
+				p => SetCrouchDrop(crouchDrop * Mathf.SmoothStep(0f, 1f, p)));
+			yield return FollowSegment(b, b2, tangentB, tangentB2, lengthBB, speed,
+				_ => SetCrouchDrop(crouchDrop));
+			yield return FollowSegment(b2, c, tangentB2, tangentC, lengthBC, speed,
+				p => SetCrouchDrop(crouchDrop * (1f - Mathf.SmoothStep(0f, 1f, p))));
+
+			if (animated) _animation.End();
+			_animating = false;
+			StopCoroutine(tiltRoutine);
+			if (_movement != null)
+			{
+				_movement.ExtraPitchOffset = 0f;
+				_movement.ExtraCameraDrop = 0f;
+			}
+
+			transform.position = c;
+			if (_movement != null)
+			{
+				_movement.ClearVerticalVelocity();
+				// бег продолжается с той же скоростью, что была до перелезания; без сохранения — с места
+				_movement.SetHorizontalVelocity(VaultKeepMomentum ? direction * entrySpeed : Vector3.zero);
+			}
+			_controller.enabled = true;
+			_isClimbing = false;
+		}
+
+		// отрезок дуги p0→p1: кубический Эрмит с касательными по направлениям dir0/dir1, масштабированными на длину
+		// отрезка — без петель и выбросов при сильно разных длинах соседних отрезков
+		private IEnumerator FollowSegment(Vector3 p0, Vector3 p1, Vector3 dir0, Vector3 dir1, float length, float speed,
+			System.Action<float> onProgress)
+		{
+			float duration = length / speed;
+			Vector3 m0 = dir0 * length;
+			Vector3 m1 = dir1 * length;
+
+			float elapsed = 0f;
+			while (elapsed < duration)
+			{
+				elapsed += Time.deltaTime;
+				float t = Mathf.Clamp01(elapsed / duration);
+				transform.position = Hermite(p0, p1, m0, m1, t);
+				onProgress?.Invoke(t);
+				yield return null;
+			}
+
+			transform.position = p1;
+			onProgress?.Invoke(1f);
+		}
+
+		private static Vector3 Hermite(Vector3 p0, Vector3 p1, Vector3 m0, Vector3 m1, float t)
+		{
+			float t2 = t * t;
+			float t3 = t2 * t;
+			return (2f * t3 - 3f * t2 + 1f) * p0
+				+ (t3 - 2f * t2 + t) * m0
+				+ (-2f * t3 + 3f * t2) * p1
+				+ (t3 - t2) * m1;
+		}
+
+		private static Vector3 SafeDirection(Vector3 v, Vector3 fallback)
+		{
+			return v.sqrMagnitude > 0.000001f ? v.normalized : fallback;
 		}
 
 		// drives FirstPersonController.ExtraPitchOffset over the whole climb, independent of which

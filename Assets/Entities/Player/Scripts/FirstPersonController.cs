@@ -141,6 +141,11 @@ namespace StarterAssets
 			get => _cinemachineTargetPitch;
 			set => _cinemachineTargetPitch = ClampAngle(value, BottomClamp, TopClamp);
 		}
+		// горизонтальная скорость игрока — например, LedgeMantle берёт из неё скорость разбега перед перелезанием
+		// и возвращает её после приземления, чтобы бег продолжался без остановки
+		public Vector3 HorizontalVelocity => _horizontalVelocity;
+		public void SetHorizontalVelocity(Vector3 velocity) => _horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);
+
 		public void StopMotion()
 		{
 			_horizontalVelocity = Vector3.zero;

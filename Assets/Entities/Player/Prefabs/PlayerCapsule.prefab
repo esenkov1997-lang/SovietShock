@@ -258,6 +258,8 @@ MonoBehaviour:
   ExtraPositionOffset: {x: 0, y: 0, z: 0}
   ExtraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
   ExtraCameraDrop: 0
+  AnimatedCameraPositionOffset: {x: 0, y: 0, z: 0}
+  AnimatedCameraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
 --- !u!114 &1978471637655604388
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -412,7 +414,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MinClimbHeight: 1
-  MaxClimbHeight: 3
+  MaxClimbHeight: 3.5
   ClimbCheckDistance: 0.5
   ClimbSpeed: 6
   ClimbProbeRadius: 0.2
@@ -424,6 +426,8 @@ MonoBehaviour:
   VaultLandingOffset: 0.1
   VaultClearance: 0.1
   VaultSpeed: 6
+  VaultArcHeight: 0.1
+  VaultKeepMomentum: 1
   VaultCrouched: 1
   CameraTiltCurve:
     serializedVersion: 2
@@ -440,21 +444,21 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 0.3
       value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
+      inSlope: 1.6666666
+      outSlope: 1.6666666
+      tangentMode: 34
       weightedMode: 0
-      inWeight: 0
-      outWeight: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
     - serializedVersion: 3
       time: 0.7
       value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
+      inSlope: -1.6666666
+      outSlope: -1.6666666
+      tangentMode: 34
       weightedMode: 0
-      inWeight: 0
-      outWeight: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
     - serializedVersion: 3
       time: 1
       value: 0
@@ -468,7 +472,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   CameraTiltAmount: 8
-  VaultTiltAmount: 5
+  VaultTiltAmount: 1
   MantlePrompt:
     m_TableReference:
       m_TableCollectionName: UI
@@ -504,14 +508,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   climbClip: {fileID: 8091285221300464070, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
   vaultClip: {fileID: 0}
-  grabEvent: MantleGrab
-  releaseEvent: MantleRelease
   mantleLayerName: Mantle
   climbTrigger: Mantle
   vaultTrigger: Vault
   layerBlendIn: 0.08
   layerBlendOut: 0.15
   emptyHandsPrefab: {fileID: 2464030264905777258, guid: 3b790d18ff3ecf147b4009b9063509a9, type: 3}
+  animateCamera: 1
+  cameraRotationWeight: 1
+  cameraPositionWeight: 0
+  cameraBlendOut: 0.15
 --- !u!114 &5487982537949972152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -603,8 +609,8 @@ MonoBehaviour:
   WalkBobAmount: 0.03
   SprintBobSpeed: 2.6
   SprintBobAmount: 0.07
-  BlendSpeed: 15
-  MinSpeed: 0.2
+  BlendSpeed: 30
+  MinSpeed: 1
 --- !u!114 &1055818204457968310
 MonoBehaviour:
   m_ObjectHideFlags: 0
