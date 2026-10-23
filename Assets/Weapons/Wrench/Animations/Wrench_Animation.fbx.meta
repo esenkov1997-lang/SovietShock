@@ -103,8 +103,8 @@ ModelImporter:
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
-      name: Hit_Miss.01
-      takeName: Hit_Miss.01
+      name: Miss.01
+      takeName: Miss.01
       internalID: -4245568711645638939
       firstFrame: 0
       lastFrame: 39
@@ -127,6 +127,13 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
+      - time: 0.17173404
+        functionName: MeleeHit
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
       - time: 0.3308476
         functionName: ComboWindow
         data: 
@@ -141,20 +148,13 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.1849711
-        functionName: MeleeHit
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
       transformMask: []
       maskType: 3
       maskSource: {instanceID: 0}
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
-      name: Hit_Miss.02
-      takeName: Hit_Miss.02
+      name: Miss.02
+      takeName: Miss.02
       internalID: 5102687865660001299
       firstFrame: 0
       lastFrame: 39
@@ -186,6 +186,13 @@ ModelImporter:
         messageOptions: 0
       - time: 0.7490849
         functionName: WeaponReady
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.17158176
+        functionName: MeleeHit
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
@@ -372,14 +379,57 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.16763005
+      - time: 0.17190965
         functionName: ComboWindow
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.4990366
+      - time: 0.6702206
+        functionName: WeaponReady
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    - serializedVersion: 16
+      name: Impact.02
+      takeName: Impact.02
+      internalID: 9062752780018648992
+      firstFrame: 0
+      lastFrame: 26
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 0
+      loopBlend: 0
+      loopBlendOrientation: 0
+      loopBlendPositionY: 0
+      loopBlendPositionXZ: 0
+      keepOriginalOrientation: 0
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 0
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events:
+      - time: 0.17118643
+        functionName: ComboWindow
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.6711405
         functionName: WeaponReady
         data: 
         objectReferenceParameter: {instanceID: 0}
