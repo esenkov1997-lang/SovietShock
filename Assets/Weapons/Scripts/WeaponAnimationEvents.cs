@@ -45,9 +45,9 @@ namespace Weapons
 			if (_weaponController != null) _weaponController.NotifyReloadComplete();
 		}
 
-		// повесь Animation Event с этим методом на кадр в клипе ПОПАДАНИЯ Melee-оружия, где оружие касается цели —
-		// именно тут наносится урон. На клип промаха его ставить не нужно (там нечему наносить урон), а вот
-		// WeaponReady в конце клипа промаха нужен обязательно, иначе следующий удар ждёт таймер-подстраховку
+		// повесь Animation Event с этим методом на КАДР КОНТАКТА во взмахе Melee-оружия (клип, который играется по
+		// AttackTrigger) — здесь проверяется попадание: попал — урон и клип удара (ImpactTrigger), который должен
+		// начинаться с позы этого кадра; мимо — взмах играет дальше. В клип удара MeleeHit ставить не нужно
 		public void MeleeHit()
 		{
 			if (_weaponController != null) _weaponController.NotifyMeleeHit();

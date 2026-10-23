@@ -101,6 +101,8 @@ namespace Weapons
 		private WeaponSlot _pendingSlot;
 		private float _hideFinishTime;
 		private bool _currentHasHideTrigger;
+		// у холодного оружия есть клип удара (ImpactTrigger) — проверяется при экипировке, как и Hide
+		private bool _currentHasImpactTrigger;
 
 		// идёт смена: старое оружие убирается — стрелять, бить, перезаряжаться, чинить и выбрасывать нельзя
 		public bool IsSwitching => _pendingSlot != null;
@@ -720,6 +722,7 @@ namespace Weapons
 			// проверяем один раз при экипировке: SetTrigger на несуществующий параметр сыпал бы предупреждение
 			// в консоль, а смена ждала бы таймер-подстраховку — у оружия без Hide она просто мгновенная
 			_currentHasHideTrigger = HasTrigger(_currentAnimator, data.HideTrigger);
+			_currentHasImpactTrigger = data is MeleeWeaponData melee && HasTrigger(_currentAnimator, melee.ImpactTrigger);
 
 			if (_currentAudio != null) _currentAudio.PlayDraw();
 
@@ -827,16 +830,30 @@ namespace Weapons
 			if (_isReloading) CompleteReload();
 		}
 
-		// вызывается из WeaponAnimationEvents по Animation Event в клипе удара (кадр, где оружие реально касается цели) —
-		// это единственное место, где Melee-оружие наносит урон
+		// вызывается из WeaponAnimationEvents по Animation Event MeleeHit в кадре контакта взмаха — здесь и только здесь
+		// решается, попал ли удар: по тому, куда игрок смотрит ИМЕННО СЕЙЧАС (нажал и отвернулся — промах).
+		// Попал — урон и клип удара (ImpactTrigger); промахнулся — взмах играет дальше, это и есть промах
 		public void NotifyMeleeHit()
 		{
 			if (_currentIndex < 0) return;
+			if (!(_inventory[_currentIndex].Data is MeleeWeaponData melee)) return;
 
-			WeaponData data = _inventory[_currentIndex].Data;
-			if (!(data is MeleeWeaponData)) return;
+			if (!PerformHitscan(melee))
+			{
+				Debug.Log($"{melee.WeaponName}: удар {_comboStep + 1} — промах");
+				return;
+			}
 
-			PerformHitscan(data);
+			PlayImpactAnimation(melee);
+		}
+
+		private void PlayImpactAnimation(MeleeWeaponData data)
+		{
+			if (_currentAnimator == null || !_currentHasImpactTrigger) return;
+
+			// триггер взмаха, если вдруг не "съеден" переходом, не должен перезапустить взмах после клипа удара
+			if (!string.IsNullOrEmpty(data.AttackTrigger)) _currentAnimator.ResetTrigger(data.AttackTrigger);
+			_currentAnimator.SetTrigger(data.ImpactTrigger);
 		}
 
 		private void CompleteReload()
@@ -972,13 +989,9 @@ namespace Weapons
 			// в конце клипа, таймер — подстраховка на случай, если событие не проставлено
 			_readyToFireTime = Time.time + FallbackAnimationDuration;
 
-			// попал/промах решается сейчас, в момент начала взмаха: анимацию нельзя выбрать задним числом,
-			// когда клип уже играет. Проверка — тот же луч, что и у реального урона (TryRaycastFromCamera).
-			// Сам урон — в NotifyMeleeHit, по Animation Event в кадре касания клипа попадания
-			bool willHit = TryRaycastFromCamera(data, out _);
-			Debug.Log($"{data.WeaponName}: удар {_comboStep + 1} ({(willHit ? "попадание" : "промах")})");
-
-			PlayMeleeAnimation(data, _comboStep, willHit);
+			// взмах всегда один и тот же — попал или нет, решится в кадре контакта (NotifyMeleeHit)
+			Debug.Log($"{data.WeaponName}: удар {_comboStep + 1}");
+			PlayMeleeAnimation(data, _comboStep);
 			if (_currentAudio != null) _currentAudio.PlayAttack();
 			Fired?.Invoke(data);
 		}
@@ -1023,9 +1036,10 @@ namespace Weapons
 
 		// мгновенное попадание лучом от камеры — визуальная пуля (SpawnBulletVisual) чисто декоративна
 		// и на реальное попадание не влияет, ровно как договаривались (без физики пули)
-		private void PerformHitscan(WeaponData data)
+		// true — попали во что-то с коллизией (враг или проп)
+		private bool PerformHitscan(WeaponData data)
 		{
-			if (!TryRaycastFromCamera(data, out RaycastHit hit)) return;
+			if (!TryRaycastFromCamera(data, out RaycastHit hit)) return false;
 
 			SpawnImpactDecal(data, hit);
 			PlayHitSound(data, hit);
@@ -1042,6 +1056,7 @@ namespace Weapons
 			}
 
 			ApplyHitForce(data, hit);
+			return true;
 		}
 
 		// толкает Rigidbody цели в точку попадания по направлению взгляда — ящики, обломки и т.п. отлетают от удара/пули.
@@ -1189,21 +1204,20 @@ namespace Weapons
 			}
 		}
 
-		// холодное: номер удара в комбо (ComboStepParam) + триггер попадания (AttackTrigger) или промаха
-		// (AttackMissTrigger). Если отдельный триггер промаха не задан — играется обычная анимация удара
-		private void PlayMeleeAnimation(MeleeWeaponData data, int comboStep, bool hit)
+		// холодное: номер удара в комбо (ComboStepParam) + триггер взмаха (AttackTrigger). Клип удара при попадании
+		// запускается позже, в кадре контакта (PlayImpactAnimation)
+		private void PlayMeleeAnimation(MeleeWeaponData data, int comboStep)
 		{
 			if (_currentAnimator == null) return;
 
 			if (!string.IsNullOrEmpty(data.ComboStepParam)) _currentAnimator.SetInteger(data.ComboStepParam, comboStep);
 
-			// сбрасываем оба триггера: нажатие, не "съеденное" переходом (например, пришло во время Draw),
-			// иначе осталось бы висеть и запустило бы лишний удар позже
+			// сбрасываем триггеры: нажатие или попадание, не "съеденное" переходом (например, пришло во время Draw),
+			// иначе осталось бы висеть и запустило бы лишний взмах или клип удара позже
 			if (!string.IsNullOrEmpty(data.AttackTrigger)) _currentAnimator.ResetTrigger(data.AttackTrigger);
-			if (!string.IsNullOrEmpty(data.AttackMissTrigger)) _currentAnimator.ResetTrigger(data.AttackMissTrigger);
+			if (_currentHasImpactTrigger) _currentAnimator.ResetTrigger(data.ImpactTrigger);
 
-			string trigger = !hit && !string.IsNullOrEmpty(data.AttackMissTrigger) ? data.AttackMissTrigger : data.AttackTrigger;
-			if (!string.IsNullOrEmpty(trigger)) _currentAnimator.SetTrigger(trigger);
+			if (!string.IsNullOrEmpty(data.AttackTrigger)) _currentAnimator.SetTrigger(data.AttackTrigger);
 		}
 
 		private void SpawnBulletVisual(FirearmData data)
