@@ -510,7 +510,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   climbClip: {fileID: 8091285221300464070, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
-  vaultClip: {fileID: 0}
+  vaultClip: {fileID: 1725478086162327817, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
   mantleLayerName: Mantle
   climbTrigger: Mantle
   vaultTrigger: Vault

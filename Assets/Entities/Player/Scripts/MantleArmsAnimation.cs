@@ -37,11 +37,14 @@ namespace Player
 		[SerializeField] private AnimationClip vaultClip;
 
 		[Header("Weapon Arms")]
-		[Tooltip("Имя слоя в Animator Controller оружия (Override, маска свободной руки, Weight 0)")]
+		[Tooltip("Имя слоя подъёма в Animator Controller оружия (Override, маска свободной руки, Weight 0)")]
 		[SerializeField] private string mantleLayerName = "Mantle";
 		[Tooltip("Trigger-параметр, запускающий в этом слое клип подъёма")]
 		[SerializeField] private string climbTrigger = "Mantle";
-		[Tooltip("Trigger-параметр клипа перелезания. Если его нет в контроллере — используется Climb Trigger")]
+		[Tooltip("Имя отдельного слоя перелезания (так же: Override, маска, Weight 0). Если такого слоя нет — состояние " +
+			"перелезания ищется в слое Mantle Layer Name")]
+		[SerializeField] private string vaultLayerName = "Vault";
+		[Tooltip("Trigger-параметр клипа перелезания. Если его нет в контроллере — играется клип подъёма (Climb Trigger)")]
 		[SerializeField] private string vaultTrigger = "Vault";
 		[Tooltip("За сколько секунд слой плавно включается — рука уходит из позы оружия в клип")]
 		[SerializeField] private float layerBlendIn = 0.08f;
@@ -126,9 +129,12 @@ namespace Player
 			bool weaponArms = false;
 			if (hasWeapon && !holdingItem)
 			{
-				string trigger = isVault ? vaultTrigger : climbTrigger;
-				weaponArms = _weapons.BeginMantleLayer(mantleLayerName, trigger, layerBlendIn)
-					|| (isVault && _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn));
+				// перелезание: свой слой → состояние Vault в слое подъёма → на крайний случай клип подъёма
+				weaponArms = isVault
+					? _weapons.BeginMantleLayer(vaultLayerName, vaultTrigger, layerBlendIn)
+						|| _weapons.BeginMantleLayer(mantleLayerName, vaultTrigger, layerBlendIn)
+						|| _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn)
+					: _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn);
 				if (weaponArms) _animatingWeapons = _weapons;
 			}
 
@@ -236,13 +242,7 @@ namespace Player
 			_handsCameraBone = FindDeep(root, _weapons.CameraBoneName);
 			if (_handsCameraBone != null)
 			{
-				// поза кости камеры относительно корня рига (сразу после Instantiate — поза покоя из модели)
-				Vector3 bonePosition = Vector3.Scale(root.localScale, root.InverseTransformPoint(_handsCameraBone.position));
-				Quaternion inverseBoneRotation = Quaternion.Inverse(Quaternion.Inverse(root.rotation) * _handsCameraBone.rotation);
-
-				Quaternion offsetRotation = _weapons.ViewModelOffsetRotation;
-				root.localRotation = offsetRotation * inverseBoneRotation;
-				root.localPosition = offsetRotation * -(inverseBoneRotation * bonePosition) + _weapons.ViewModelOffset;
+				AlignRigToCamera(); // сразу после Instantiate — по позе покоя из модели
 			}
 			else
 			{
@@ -252,6 +252,20 @@ namespace Player
 
 			if (_weapons.WeaponLayer >= 0) SetLayerRecursively(_hands, _weapons.WeaponLayer);
 			_hands.SetActive(false);
+		}
+
+		// Один раз, по позе покоя из модели — так же, как руки оружия (WeaponController.AlignToCameraBone): кость камеры
+		// рига совмещается с камерой игрока (WeaponHolder), плюс общее смещение рук. Дальше корень рига не двигается —
+		// поэтому в клипах подъёма/перелезания кость камеры должна стоять на месте и только вращаться
+		private void AlignRigToCamera()
+		{
+			Transform root = _hands.transform;
+			Vector3 bonePosition = Vector3.Scale(root.localScale, root.InverseTransformPoint(_handsCameraBone.position));
+			Quaternion inverseBoneRotation = Quaternion.Inverse(Quaternion.Inverse(root.rotation) * _handsCameraBone.rotation);
+
+			Quaternion offsetRotation = _weapons.ViewModelOffsetRotation;
+			root.localRotation = offsetRotation * inverseBoneRotation;
+			root.localPosition = offsetRotation * -(inverseBoneRotation * bonePosition) + _weapons.ViewModelOffset;
 		}
 
 		// клип напрямую через Playables — Animator Controller для рига не нужен (как в PlayerSyncedAnimation).
