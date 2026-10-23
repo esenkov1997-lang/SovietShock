@@ -48,6 +48,15 @@ namespace StarterAssets
 		[Tooltip("How fast the character transitions between standing and crouching height")]
 		public float CrouchTransitionSpeed = 8.0f;
 
+		[Header("Step Offset")]
+		[Tooltip("Высота ступеньки, на которую игрок шагает сам, стоя, м. Задаётся здесь, а не в CharacterController: " +
+			"контроллер получает её от этого компонента")]
+		public float StandingStepOffset = 0.5f;
+		[Tooltip("То же в приседе, м. CharacterController, шагая, сначала поднимает капсулу на Step Offset — в низком проходе " +
+			"(вентшахта, лаз) этот подъём упирается в потолок, и игрок спотыкается на входе. Проход должен быть не ниже " +
+			"Crouch Height + Crouch Step Offset + 2 × Skin Width. Пока капсула приседает/встаёт, шаг плавно меняется вместе с высотой")]
+		public float CrouchStepOffset = 0.2f;
+
 		[Header("Player Grounded")]
 		[Tooltip("If the character is grounded or not. Not part of the CharacterController built in grounded check")]
 		public bool Grounded = true;
@@ -396,6 +405,13 @@ namespace StarterAssets
 
 			_controller.height = newHeight;
 			_controller.center = new Vector3(_standingCenter.x, _standingCenter.y - (_standingHeight - newHeight) * 0.5f, _standingCenter.z);
+
+			// шаг — между "стоя" и "в приседе" по тому, насколько капсула сейчас присела. Не выше самой капсулы:
+			// CharacterController не принимает Step Offset больше своей высоты
+			float crouchAmount = Mathf.Approximately(_standingHeight, CrouchHeight)
+				? (_isCrouching ? 1f : 0f)
+				: Mathf.InverseLerp(_standingHeight, CrouchHeight, newHeight);
+			_controller.stepOffset = Mathf.Min(Mathf.Lerp(StandingStepOffset, CrouchStepOffset, crouchAmount), newHeight);
 
 			// only updates the tracked base position — CameraRotation() is the single place that actually
 			// writes to the Transform, combining this with ExtraPositionOffset

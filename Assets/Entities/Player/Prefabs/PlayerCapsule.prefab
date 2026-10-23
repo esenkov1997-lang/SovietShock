@@ -244,6 +244,8 @@ MonoBehaviour:
   CrouchSpeed: 2
   CrouchHeight: 0.9
   CrouchTransitionSpeed: 8
+  StandingStepOffset: 0.5
+  CrouchStepOffset: 0.1
   Grounded: 1
   GroundedOffset: -0.25
   GroundedRadius: 0.4
@@ -423,9 +425,9 @@ MonoBehaviour:
   VaultMaxHeight: 1.5
   VaultMaxDepth: 0.8
   VaultMaxDrop: 1.5
-  VaultLandingOffset: 0.1
+  VaultLandingOffset: 0.5
   VaultClearance: 0.1
-  VaultSpeed: 6
+  VaultSpeed: 8
   VaultArcHeight: 0.1
   VaultKeepMomentum: 1
   VaultCrouched: 1
@@ -764,7 +766,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _movement: {fileID: 0}
-  _defaultSoundSet: {fileID: 11400000, guid: 3105519c5a7de6944ac877c5579f1667, type: 2}
+  _defaultSoundSet: {fileID: 11400000, guid: c579058adc7ff3f428748edf0e639202, type: 2}
   _walkStepDistance: 1.5
   _sprintStepDistance: 1.8
   _minSpeed: 0.2
