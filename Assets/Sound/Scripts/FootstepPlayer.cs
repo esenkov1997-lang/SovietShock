@@ -53,12 +53,12 @@ namespace Sound
 				// landing already gave audio feedback this frame — if the player is still holding forward,
 				// don't also fire the "just started moving" footstep from the isMoving check below and get
 				// two overlapping sounds on the same touchdown; normal step cadence resumes next frame
-				_wasMoving = _movement.Grounded && _movement.CurrentSpeed >= _minSpeed;
+				_wasMoving = _movement.IsGroundedStable && _movement.CurrentSpeed >= _minSpeed;
 				_distanceAccumulator = 0f;
 				return;
 			}
 
-			bool isMoving = _movement.Grounded && _movement.CurrentSpeed >= _minSpeed;
+			bool isMoving = _movement.IsGroundedStable && _movement.CurrentSpeed >= _minSpeed;
 
 			if (!isMoving)
 			{

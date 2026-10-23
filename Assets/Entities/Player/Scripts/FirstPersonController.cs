@@ -68,6 +68,10 @@ namespace StarterAssets
 		public LayerMask GroundLayers;
 		[Tooltip("Max gap below the controller that gets snapped shut every frame while grounded (stairs, downhill slopes). Without this, gravity alone only pulls the controller down a tiny amount per frame, so walking off a stair tread leaves it briefly airborne until the next tread catches it — Grounded flickers false/true once per step, which then reads as a real landing to anything watching JustLanded (e.g. weapon-bob impact springs). Should be at least as tall as your steepest stair riser")]
 		public float StepDownDistance = 0.3f;
+		[Tooltip("Сколько секунд игрок должен провести в воздухе, чтобы это считалось полётом для эффектов: приземления " +
+			"(звук, импульс оружия), остановки шагов и покачивания. Короче — микроотрыв (край ступени, кочка), эффекты его " +
+			"не замечают. После прыжка полёт засчитывается сразу, без задержки")]
+		public float LandingMinAirTime = 0.15f;
 
 		[Header("Cinemachine")]
 		[Tooltip("The follow target set in the Cinemachine Virtual Camera that the camera will follow")]
@@ -93,6 +97,10 @@ namespace StarterAssets
 		private float _jumpTimeoutDelta;
 		private float _fallTimeoutDelta;
 
+		// сколько секунд подряд нет земли под ногами, и был ли этот полёт начат прыжком — см. IsGroundedStable/JustLanded
+		private float _airTime;
+		private bool _airborneFromJump;
+
 		// crouch
 		private bool _isCrouching;
 		private bool _crouchButtonLatch;
@@ -110,9 +118,14 @@ namespace StarterAssets
 		// already gives crouch priority over sprint, so this must exclude crouch too, or a consumer
 		// (e.g. CameraHeadBob) would see "sprinting" while the character is actually moving at CrouchSpeed
 		public bool IsSprinting => !_isCrouching && Grounded && _input.sprint && _input.move.y > 0.1f;
-		// true for exactly the one Update() where Grounded flips from false to true, so a consumer
-		// (e.g. a footstep/landing sound component) can react to touchdown without polling Grounded itself
+		// true for exactly the one Update() where the character touches down after a REAL flight — a jump, or at least
+		// LandingMinAirTime in the air — so a consumer (landing sound, weapon impact spring) can react to touchdown
+		// without polling Grounded itself, and isn't spammed by every stair-edge micro-hop
 		public bool JustLanded { get; private set; }
+		// "на земле" для эффектов (шаги, покачивание камеры и оружия, разброс прицела, шум): как Grounded, но короткая
+		// потеря земли (меньше LandingMinAirTime — край ступени, кочка) полётом не считается. После прыжка — сразу false.
+		// Для физики и правил (можно ли прыгнуть и т.п.) по-прежнему Grounded
+		public bool IsGroundedStable => !_airborneFromJump && (Grounded || _airTime < LandingMinAirTime);
 		// downward speed at the moment JustLanded became true, e.g. to scale a landing sound by fall height
 		public float LandingSpeed { get; private set; }
 		public void ClearVerticalVelocity() => _verticalVelocity = 0f;
@@ -168,6 +181,8 @@ namespace StarterAssets
 		{
 			_horizontalVelocity = Vector3.zero;
 			JustLanded = false;
+			_airTime = 0f;
+			_airborneFromJump = false;
 		}
 
 		// base local position (X/Z from the original prefab setup, Y adjusted for crouch) — set at Start
@@ -269,11 +284,24 @@ namespace StarterAssets
 			bool wasGrounded = Grounded;
 			Grounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers, QueryTriggerInteraction.Ignore);
 
+			if (!Grounded)
+			{
+				JustLanded = false;
+				_airTime += Time.deltaTime;
+				return;
+			}
+
 			// _verticalVelocity is still the real impact speed here: JumpAndGravity() (earlier this same
 			// Update) only zeroes it once Grounded is already true, i.e. starting next frame — so this is
-			// the one place that can capture the speed the character actually landed at
-			JustLanded = Grounded && !wasGrounded;
+			// the one place that can capture the speed the character actually landed at.
+			// Приземлением считается только касание после настоящего полёта — прыжка или LandingMinAirTime в воздухе
+			JustLanded = !wasGrounded && (_airborneFromJump || _airTime >= LandingMinAirTime);
 			if (JustLanded) LandingSpeed = Mathf.Max(0f, -_verticalVelocity);
+
+			_airTime = 0f;
+			// прыжок закончен, когда под ногами земля и игрок уже не поднимается (обычное приземление или упёрся
+			// головой в потолок сразу после отрыва). Пока поднимается — сфера проверки ещё может касаться пола
+			if (_verticalVelocity <= 0f) _airborneFromJump = false;
 		}
 
 		private void CameraRotation()
@@ -457,7 +485,9 @@ namespace StarterAssets
 			// Grounded here still reflects the check from earlier this Update (before this Move ran) — only
 			// snap while we were already on the ground and aren't actively rising from a jump; a real fall
 			// off a ledge should stay a real fall, not get glued back down
-			if (Grounded && _verticalVelocity <= 0f) SnapToGround();
+			// и в первые мгновения после потери земли (край высокой ступени), но не после прыжка — прыжок не "приклеиваем"
+			bool nearlyGrounded = Grounded || _airTime < LandingMinAirTime;
+			if (nearlyGrounded && !_airborneFromJump && _verticalVelocity <= 0f) SnapToGround();
 		}
 
 		// Stair/slope descent assist (industry-standard "step down" snap — see StepDownDistance tooltip):
@@ -465,16 +495,30 @@ namespace StarterAssets
 		// finds ground just past where the sphere already sits, closes that exact gap in one extra Move()
 		// call so the controller settles on the next tread the same frame it walked off the previous one,
 		// instead of free-falling into it over the next frame or two.
+		// Прилипание к земле на спуске (лестница, склон): если под ногами в пределах StepDownDistance есть пол —
+		// опускаем капсулу на него в этом же кадре, а не ждём, пока её стянет гравитация. Иначе на каждой ступени
+		// игрок по обычной физике "слетает" вперёд и падает на следующую — микрополёт, тряска оружия, лишние шаги.
+		//
+		// Проба стартует ВНУТРИ нижней части капсулы, чуть выше её низа: SphereCast не видит коллайдеры, которые
+		// пересекает уже в стартовой точке, поэтому проба, начатая на уровне пола (как раньше — от точки проверки
+		// Grounded), на краю ступени "не замечала" ни её, ни пол ниже, и прилипание не срабатывало вовсе.
+		// Радиус — чуть меньше капсулы, чтобы не цеплять стены сбоку
 		private void SnapToGround()
 		{
-			Vector3 origin = new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z);
+			const float startLift = 0.05f;
+			float probeRadius = Mathf.Max(_controller.radius - _controller.skinWidth, 0.05f);
+			float bottomY = transform.position.y + _controller.center.y - _controller.height * 0.5f;
+			Vector3 origin = new Vector3(transform.position.x, bottomY + probeRadius + startLift, transform.position.z);
+			float maxDistance = startLift + _controller.skinWidth + StepDownDistance;
 
-			if (!Physics.SphereCast(origin, GroundedRadius, Vector3.down, out RaycastHit hit, StepDownDistance, GroundLayers, QueryTriggerInteraction.Ignore))
+			if (!Physics.SphereCast(origin, probeRadius, Vector3.down, out RaycastHit hit, maxDistance, GroundLayers, QueryTriggerInteraction.Ignore))
 			{
 				return; // nothing within the allowed step-down range — a genuine drop-off, let gravity take over
 			}
 
-			if (hit.distance > 0f) _controller.Move(Vector3.down * hit.distance);
+			// зазор между низом капсулы и полом; CharacterController сам остановится на поверхности (с Skin Width)
+			float gap = hit.distance - startLift;
+			if (gap > 0.001f) _controller.Move(Vector3.down * gap);
 		}
 
 		private void OnControllerColliderHit(ControllerColliderHit hit)
@@ -505,6 +549,8 @@ namespace StarterAssets
 				{
 					// the square root of H * -2 * G = how much velocity needed to reach desired height
 					_verticalVelocity = Mathf.Sqrt(JumpHeight * -2f * Gravity);
+					// для эффектов полёт начинается сразу — без ожидания LandingMinAirTime
+					_airborneFromJump = true;
 				}
 
 				// jump timeout

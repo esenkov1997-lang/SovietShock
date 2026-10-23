@@ -48,7 +48,7 @@ namespace StarterAssets
 
 		private void Update()
 		{
-			bool isMoving = _movement.Grounded && _movement.CurrentSpeed > MinSpeed;
+			bool isMoving = _movement.IsGroundedStable && _movement.CurrentSpeed > MinSpeed;
 			// IsSprinting (not raw _input.sprint) already excludes crouch — holding sprint while crouched
 			// must still bob at crouch pace, since movement itself stays at CrouchSpeed
 			bool sprinting = isMoving && _movement.IsSprinting;

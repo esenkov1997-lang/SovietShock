@@ -73,7 +73,7 @@ namespace Player
 				Emit(Mathf.Lerp(walkRadius, landingRadius, t));
 			}
 
-			bool isMoving = _movement.Grounded && _movement.CurrentSpeed >= minSpeed;
+			bool isMoving = _movement.IsGroundedStable && _movement.CurrentSpeed >= minSpeed;
 			if (!isMoving)
 			{
 				_movementTimer = 0f; // первый шаг после остановки слышен сразу

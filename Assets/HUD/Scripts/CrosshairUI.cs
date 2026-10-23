@@ -116,7 +116,7 @@ namespace HUD
 			{
 				float speed01 = Movement.SprintSpeed > 0f ? Mathf.Clamp01(Movement.CurrentSpeed / Movement.SprintSpeed) : 0f;
 				target = speed01 * movementSpread;
-				if (!Movement.Grounded) target += airborneSpread;
+				if (!Movement.IsGroundedStable) target += airborneSpread;
 				if (Movement.IsCrouching) target *= crouchMultiplier;
 			}
 

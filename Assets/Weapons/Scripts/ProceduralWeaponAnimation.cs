@@ -51,7 +51,7 @@ namespace Weapons
 			if (firstPersonController == null) firstPersonController = GetComponentInParent<FirstPersonController>();
 			_visualRoot = _weaponController.VisualRoot;
 
-			if (firstPersonController != null) _wasGrounded = firstPersonController.Grounded;
+			if (firstPersonController != null) _wasGrounded = firstPersonController.IsGroundedStable;
 		}
 
 		private void LateUpdate()
@@ -109,7 +109,7 @@ namespace Weapons
 		private Vector3 UpdateBob(out Quaternion rotation)
 		{
 			float speed = firstPersonController != null ? firstPersonController.CurrentSpeed : 0f;
-			bool isMoving = firstPersonController != null && firstPersonController.Grounded && speed > _currentProfile.MinMoveSpeedForBob;
+			bool isMoving = firstPersonController != null && firstPersonController.IsGroundedStable && speed > _currentProfile.MinMoveSpeedForBob;
 
 			float stateMultiplier = 1f;
 			if (firstPersonController != null)
@@ -203,7 +203,8 @@ namespace Weapons
 				AddImpactImpulse(Vector3.down * strength);
 			}
 
-			bool grounded = firstPersonController.Grounded;
+			// устойчивая земля: при прыжке false сразу, а микроотрыв на краю ступени импульса "отрыва" не даёт
+			bool grounded = firstPersonController.IsGroundedStable;
 			if (_wasGrounded && !grounded)
 			{
 				// оторвались от земли — фиксированный импульс вниз, аналог проседания веса оружия при взлёте,
