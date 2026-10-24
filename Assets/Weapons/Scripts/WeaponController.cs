@@ -280,6 +280,23 @@ namespace Weapons
 			UpdateAimPose();
 		}
 
+		// Поворот камеры из анимации (например, подъём на уступ — Player.MantleArmsAnimation) относительно тела. Модель
+		// в руках висит на камере и сама повернулась бы вместе с ней — тогда руки "прилипли" бы к экрану, а не остались
+		// в пространстве тела (на крае уступа). Поэтому модель поворачивается обратно на тот же угол вокруг камеры:
+		// руки на месте, а камера смотрит вокруг них, как в Blender. Без анимации камеры — identity, ничего не меняется
+		//
+		// rotation/offset — поворот и смещение камеры из анимации (в её осях) В ЭТОМ КАДРЕ. Вызывать раз за кадр в LateUpdate
+		// до ProceduralWeaponAnimation и FirstPersonController (как делает MantleArmsAnimation): базовая поза VisualRoot
+		// на этот кадр уже выставлена в Update, обратный поворот ложится поверх неё сразу — без отставания от камеры на кадр
+		public void SetAnimatedCameraOffset(Quaternion rotation, Vector3 offset)
+		{
+			if (_currentVisual == null || (rotation == Quaternion.identity && offset == Vector3.zero)) return;
+
+			Quaternion counter = Quaternion.Inverse(rotation);
+			_visualRoot.localPosition = counter * (_visualRoot.localPosition - offset);
+			_visualRoot.localRotation = counter * _visualRoot.localRotation;
+		}
+
 		// Анимация подъёма на уступ на руках текущего оружия: в его Animator Controller должен быть слой layerName
 		// (Override, с маской свободной руки, вес по умолчанию 0) и Trigger trigger, запускающий в нём клип подъёма.
 		// false — у оружия такого слоя/триггера нет (или руки сейчас скрыты): анимировать нечем

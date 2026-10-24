@@ -36,6 +36,24 @@ namespace Player
 		[Tooltip("Клип перелезания. Пусто — перелезание без анимации рук и камеры")]
 		[SerializeField] private AnimationClip vaultClip;
 
+		[Header("High Climb (движение тела из клипа)")]
+		[Tooltip("Клип высокого подъёма (прыжок → вис → подтягивание) с анимацией КОРНЯ: тело игрока идёт ровно по корню клипа, " +
+			"подогнанному под реальный уступ. Нужно событие Grab Event в кадре, где ладони легли на край. Пусто — высокие уступы как обычные")]
+		[SerializeField] private AnimationClip highClimbClip;
+		[Tooltip("С какой высоты уступа (от ног) включается высокий подъём, м. Ниже — обычный подъём (Climb Clip). Подгонка " +
+			"растягивает/сжимает прыжок под реальную высоту — держи диапазон в разумных пределах вокруг высоты, под которую сделан клип")]
+		[SerializeField] private float highClimbMinHeight = 2f;
+		[Tooltip("Имя Animation Event в клипе высокого подъёма: ладони легли на край")]
+		[SerializeField] private string grabEvent = "MantleGrab";
+		[Tooltip("Trigger-параметр в слое Mantle Layer Name контроллера оружия, запускающий клип высокого подъёма. Нет — руки оружия не анимируются")]
+		[SerializeField] private string highClimbTrigger = "MantleHigh";
+		[Tooltip("Имя корневой кости рига рук (её движение в клипе — движение тела игрока)")]
+		[SerializeField] private string rootBoneName = "root";
+		[Tooltip("Кости ладоней: в кадре захвата (Grab Event) они лежат на крае уступа — по ним край из клипа совмещается " +
+			"с реальной передней гранью. Если ладони чуть не доходят или заходят за край, можно взять другую кость кисти")]
+		[SerializeField] private string leftPalmBoneName = "middle_metacarpal_l";
+		[SerializeField] private string rightPalmBoneName = "middle_metacarpal_r";
+
 		[Header("Weapon Arms")]
 		[Tooltip("Имя слоя подъёма в Animator Controller оружия (Override, маска свободной руки, Weight 0)")]
 		[SerializeField] private string mantleLayerName = "Mantle";
@@ -79,6 +97,19 @@ namespace Player
 		private Renderer[] _handsRenderers;
 		private Transform _handsCameraBone;
 		private PlayableGraph _graph;
+		// корень рига у камеры не двигается: движение корня в клипе — это движение тела, его делает LedgeMantle
+		private Transform _handsRootBone;
+		private Vector3 _handsRootRest;
+
+		// источник движения тела для высокого подъёма: скрытый экземпляр рига у ног игрока, без поворота камеры —
+		// так клип и строился в Blender. Клип ставится на нужное время вручную, корень читается в осях игрока
+		private GameObject _rootSampler;
+		private Transform _samplerRootBone;
+		private Transform _samplerLeftPalm;
+		private Transform _samplerRightPalm;
+		private PlayableGraph _samplerGraph;
+		private AnimationClipPlayable _samplerPlayable;
+		private Vector3 _samplerRootStart;
 
 		// что сейчас анимируется: слой Animator оружия и/или клип на риге пустых рук (видимом или нет)
 		private WeaponController _animatingWeapons;
@@ -86,8 +117,12 @@ namespace Player
 		private bool _drivingCamera;
 
 		// поза кости камеры на первом кадре клипа в пространстве WeaponHolder (= камеры) — это "взгляд прямо"
-		private Quaternion _cameraBoneStartRotation;
-		private Vector3 _cameraBoneStartPosition;
+		// поза покоя: кость камеры относительно корня рига и сам корень рига в пространстве камеры (после выставления
+		// по камере) — от неё считается поворот камеры из клипа и обратный поворот рук
+		private Quaternion _cameraBoneRestRotation = Quaternion.identity;
+		private Vector3 _cameraBoneRestPosition;
+		private Quaternion _rigRestLocalRotation = Quaternion.identity;
+		private Vector3 _rigRestLocalPosition;
 
 		// последнее смещение камеры — с него плавно возвращаемся в ноль после подъёма
 		private Quaternion _cameraRotation = Quaternion.identity;
@@ -114,7 +149,13 @@ namespace Player
 		private void OnDisable()
 		{
 			StopRig();
+			StopSampler();
 			ResetCamera();
+		}
+
+		private void OnDestroy()
+		{
+			StopSampler();
 		}
 
 		public bool TryBegin(bool isVault)
@@ -122,6 +163,70 @@ namespace Player
 			AnimationClip clip = isVault ? vaultClip : climbClip;
 			if (clip == null) return false;
 
+			// перелезание: свой слой → состояние Vault в слое подъёма → на крайний случай клип подъёма
+			return BeginVisuals(clip, () => isVault
+				? _weapons.BeginMantleLayer(vaultLayerName, vaultTrigger, layerBlendIn)
+					|| _weapons.BeginMantleLayer(mantleLayerName, vaultTrigger, layerBlendIn)
+					|| _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn)
+				: _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn));
+		}
+
+		public bool TryBeginClimbMotion(float ledgeHeight, out MantleClipMotion motion)
+		{
+			motion = default;
+			if (highClimbClip == null || ledgeHeight < highClimbMinHeight || _rootSampler == null || _samplerRootBone == null) return false;
+
+			float grabTime = -1f;
+			foreach (AnimationEvent e in highClimbClip.events)
+			{
+				if (e.functionName == grabEvent) grabTime = e.time;
+			}
+			if (grabTime < 0f)
+			{
+				Debug.LogWarning($"{name}: в клипе {highClimbClip.name} нет Animation Event \"{grabEvent}\" — высокий подъём не работает, " +
+					"используется обычный", highClimbClip);
+				return false;
+			}
+
+			StartSampler(highClimbClip);
+			Vector3 rootAtGrab = SampleClimbRoot(grabTime);
+			float edgeForward = PalmsForward(); // поза на кадре захвата — ладони на крае
+			motion = new MantleClipMotion
+			{
+				Duration = highClimbClip.length,
+				GrabTime = grabTime,
+				RootAtGrab = rootAtGrab,
+				RootAtEnd = SampleClimbRoot(highClimbClip.length),
+				EdgeForwardAtGrab = edgeForward,
+			};
+
+			// руки и камера — тот же клип; у рук оружия — свой слой (если есть). Движение тела работает и без них
+			BeginVisuals(highClimbClip, () => _weapons.BeginMantleLayer(mantleLayerName, highClimbTrigger, layerBlendIn));
+			return true;
+		}
+
+		public Vector3 SampleClimbRoot(float time)
+		{
+			if (!_samplerGraph.IsValid() || _samplerRootBone == null) return Vector3.zero;
+
+			_samplerPlayable.SetTime(time);
+			_samplerGraph.Evaluate(0f);
+			return transform.InverseTransformPoint(_samplerRootBone.position) - _samplerRootStart;
+		}
+
+		// где ладони в текущей позе источника по оси "вперёд" от старта — среднее двух (NaN, если костей нет)
+		private float PalmsForward()
+		{
+			if (_samplerLeftPalm == null || _samplerRightPalm == null) return float.NaN;
+
+			float left = (transform.InverseTransformPoint(_samplerLeftPalm.position) - _samplerRootStart).z;
+			float right = (transform.InverseTransformPoint(_samplerRightPalm.position) - _samplerRootStart).z;
+			return (left + right) * 0.5f;
+		}
+
+		// руки (слой оружия или пустые руки) и камера из клипа. beginWeaponLayer — как запустить клип на руках оружия
+		private bool BeginVisuals(AnimationClip clip, System.Func<bool> beginWeaponLayer)
+		{
 			bool holdingItem = _itemHold != null && _itemHold.IsHolding;
 			bool hasWeapon = _weapons != null && _weapons.HasWeaponInHands && !_weapons.IsHolstered;
 
@@ -129,12 +234,7 @@ namespace Player
 			bool weaponArms = false;
 			if (hasWeapon && !holdingItem)
 			{
-				// перелезание: свой слой → состояние Vault в слое подъёма → на крайний случай клип подъёма
-				weaponArms = isVault
-					? _weapons.BeginMantleLayer(vaultLayerName, vaultTrigger, layerBlendIn)
-						|| _weapons.BeginMantleLayer(mantleLayerName, vaultTrigger, layerBlendIn)
-						|| _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn)
-					: _weapons.BeginMantleLayer(mantleLayerName, climbTrigger, layerBlendIn);
+				weaponArms = beginWeaponLayer();
 				if (weaponArms) _animatingWeapons = _weapons;
 			}
 
@@ -155,6 +255,7 @@ namespace Player
 			}
 
 			StopRig();
+			StopSampler();
 
 			if (_drivingCamera)
 			{
@@ -170,16 +271,27 @@ namespace Player
 		{
 			if (_movement == null) return;
 
+			// корень рига у камеры — на месте (Animator только что выставил его по клипу): руки стоят относительно камеры,
+			// а движение тела делает LedgeMantle. У клипов без движения корня это ничего не меняет
+			if (_rigPlaying && _handsRootBone != null) _handsRootBone.localPosition = _handsRootRest;
+
 			if (_drivingCamera && _rigPlaying)
 			{
-				// поза кости камеры в пространстве камеры (WeaponHolder) — и её изменение от первого кадра клипа
-				Transform holder = _weapons.transform;
-				Quaternion boneRotation = Quaternion.Inverse(holder.rotation) * _handsCameraBone.rotation;
-				Vector3 bonePosition = holder.InverseTransformPoint(_handsCameraBone.position);
+				// поза кости камеры относительно корня рига — и её отклонение от ПОЗЫ ПОКОЯ: именно по позе покоя руки
+				// выставлены к камере (AlignRigToCamera), поэтому и "взгляд прямо" — это покой. Считается в осях корня
+				// рига, поэтому не зависит от того, как риг сейчас повёрнут (см. обратный поворот ниже). В оси камеры
+				// игрока переводится через общее смещение рук (View Model Offset Rotation)
+				Transform rigRoot = _hands.transform;
+				Quaternion boneRotation = Quaternion.Inverse(rigRoot.rotation) * _handsCameraBone.rotation;
+				Vector3 bonePosition = Vector3.Scale(rigRoot.localScale, rigRoot.InverseTransformPoint(_handsCameraBone.position));
 
-				Quaternion delta = boneRotation * Quaternion.Inverse(_cameraBoneStartRotation);
+				Quaternion offsetRotation = _weapons.ViewModelOffsetRotation;
+				Quaternion localDelta = Quaternion.Inverse(_cameraBoneRestRotation) * boneRotation;
+				Quaternion delta = offsetRotation * localDelta * Quaternion.Inverse(offsetRotation);
+				Vector3 positionDelta = _rigRestLocalRotation * (bonePosition - _cameraBoneRestPosition);
+
 				_cameraRotation = Quaternion.Slerp(Quaternion.identity, delta, cameraRotationWeight);
-				_cameraPosition = (bonePosition - _cameraBoneStartPosition) * cameraPositionWeight;
+				_cameraPosition = positionDelta * cameraPositionWeight;
 				ApplyCamera(_cameraRotation, _cameraPosition);
 			}
 			else if (_fadeProgress < 1f)
@@ -191,10 +303,22 @@ namespace Player
 			}
 		}
 
+		// Камера поворачивается по клипу относительно ТЕЛА. Руки висят на камере и повернулись бы вместе с ней — "прилипли"
+		// бы к экрану, а не остались на крае уступа. Поэтому и пустые руки, и модель оружия поворачиваются обратно на тот
+		// же угол вокруг камеры: руки на месте в пространстве тела, а камера смотрит вокруг них — как в Blender
 		private void ApplyCamera(Quaternion rotation, Vector3 position)
 		{
 			_movement.AnimatedCameraRotationOffset = rotation;
 			_movement.AnimatedCameraPositionOffset = position;
+
+			if (_weapons != null) _weapons.SetAnimatedCameraOffset(rotation, position);
+
+			if (_hands != null && _handsCameraBone != null)
+			{
+				Quaternion counter = Quaternion.Inverse(rotation);
+				_hands.transform.localRotation = counter * _rigRestLocalRotation;
+				_hands.transform.localPosition = counter * (_rigRestLocalPosition - position);
+			}
 		}
 
 		private void ResetCamera()
@@ -243,6 +367,12 @@ namespace Player
 			if (_handsCameraBone != null)
 			{
 				AlignRigToCamera(); // сразу после Instantiate — по позе покоя из модели
+
+				// поза покоя — точка отсчёта поворота камеры из клипа и обратного поворота рук (см. LateUpdate, ApplyCamera)
+				_cameraBoneRestRotation = Quaternion.Inverse(root.rotation) * _handsCameraBone.rotation;
+				_cameraBoneRestPosition = Vector3.Scale(root.localScale, root.InverseTransformPoint(_handsCameraBone.position));
+				_rigRestLocalRotation = root.localRotation;
+				_rigRestLocalPosition = root.localPosition;
 			}
 			else
 			{
@@ -250,8 +380,64 @@ namespace Player
 					"камера из клипа не анимируется", this);
 			}
 
+			_handsRootBone = FindDeep(root, rootBoneName);
+			if (_handsRootBone != null) _handsRootRest = _handsRootBone.localPosition;
+
 			if (_weapons.WeaponLayer >= 0) SetLayerRecursively(_hands, _weapons.WeaponLayer);
 			_hands.SetActive(false);
+
+			if (highClimbClip != null) CreateRootSampler();
+		}
+
+		// скрытый экземпляр того же рига у ног игрока (ребёнок PlayerCapsule, без поворота) — источник движения тела
+		// для высокого подъёма. Не рисуется; клип на нём ставится на нужное время вручную (SampleClimbRoot)
+		private void CreateRootSampler()
+		{
+			_rootSampler = Instantiate(emptyHandsPrefab, transform);
+			_rootSampler.name = $"{emptyHandsPrefab.name} (Mantle Root Sampler)";
+			_rootSampler.transform.localPosition = Vector3.zero;
+			_rootSampler.transform.localRotation = Quaternion.identity;
+
+			foreach (Renderer r in _rootSampler.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+
+			Animator samplerAnimator = _rootSampler.GetComponentInChildren<Animator>(true);
+			_samplerRootBone = FindDeep(_rootSampler.transform, rootBoneName);
+			_samplerLeftPalm = FindDeep(_rootSampler.transform, leftPalmBoneName);
+			_samplerRightPalm = FindDeep(_rootSampler.transform, rightPalmBoneName);
+			if (samplerAnimator == null || _samplerRootBone == null)
+			{
+				Debug.LogWarning($"{name}: в Empty Hands Prefab нет Animator или кости \"{rootBoneName}\" — высокий подъём не работает", this);
+				Destroy(_rootSampler);
+				_rootSampler = null;
+				return;
+			}
+
+			// ничего не рисуется — без этого Animator мог бы решить, что риг вне кадра, и не обновлять кости
+			samplerAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+			if (samplerAnimator.GetComponent<MantleEventSink>() == null) samplerAnimator.gameObject.AddComponent<MantleEventSink>();
+		}
+
+		// клип на источнике движения: ручной режим — время ставит SampleClimbRoot. Запоминаем корень на первом кадре — от него
+		// и считается движение тела
+		private void StartSampler(AnimationClip clip)
+		{
+			StopSampler();
+
+			Animator samplerAnimator = _rootSampler.GetComponentInChildren<Animator>(true);
+			_samplerGraph = PlayableGraph.Create($"{name}_MantleRootSampler");
+			_samplerGraph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
+			AnimationPlayableOutput output = AnimationPlayableOutput.Create(_samplerGraph, "Root", samplerAnimator);
+			_samplerPlayable = AnimationClipPlayable.Create(_samplerGraph, clip);
+			output.SetSourcePlayable(_samplerPlayable);
+
+			_samplerPlayable.SetTime(0);
+			_samplerGraph.Evaluate(0f);
+			_samplerRootStart = transform.InverseTransformPoint(_samplerRootBone.position);
+		}
+
+		private void StopSampler()
+		{
+			if (_samplerGraph.IsValid()) _samplerGraph.Destroy();
 		}
 
 		// Один раз, по позе покоя из модели — так же, как руки оружия (WeaponController.AlignToCameraBone): кость камеры
@@ -289,13 +475,6 @@ namespace Player
 
 			// ставим кости ровно на первый кадр и запоминаем позу кости камеры — от неё считается всё движение камеры
 			_graph.Evaluate(0f);
-			if (_handsCameraBone != null)
-			{
-				Transform holder = _weapons.transform;
-				_cameraBoneStartRotation = Quaternion.Inverse(holder.rotation) * _handsCameraBone.rotation;
-				_cameraBoneStartPosition = holder.InverseTransformPoint(_handsCameraBone.position);
-			}
-
 			_graph.Play();
 			_rigPlaying = true;
 			_fadeProgress = 1f; // новый подъём начался посреди возврата камеры — возврат больше не нужен

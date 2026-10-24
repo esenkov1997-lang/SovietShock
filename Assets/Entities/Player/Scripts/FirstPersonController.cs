@@ -139,6 +139,8 @@ namespace StarterAssets
 		// lets add-on components (LedgeMantle's climb tilt, hand-animated weapon camera bones, etc.)
 		// contribute to the camera without fighting CameraRotation() for ownership of the Transform
 		public float ExtraPitchOffset;
+		// мышь не крутит камеру (например, на время подъёма по клипу — взгляд целиком из анимации, см. LedgeMantle)
+		public bool LookInputBlocked;
 		// крен камеры (вокруг направления взгляда), градусы — например, наклон головы в такт шагам (CameraHeadBob).
 		// Отдельное поле: ExtraRotationOffset каждый кадр перезаписывает WeaponCameraAnchor
 		public float ExtraRollOffset;
@@ -331,7 +333,7 @@ namespace StarterAssets
 		{
 			// пропускаем накопление только когда мышь реально не двигалась (ровно ноль), а не по маленькому
 			// порогу — иначе медленное движение мышью частично "проглатывается" и камера будто подвисает
-			if (_input.look != Vector2.zero)
+			if (_input.look != Vector2.zero && !LookInputBlocked)
 			{
 				//Don't multiply mouse input by Time.deltaTime
 				float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;

@@ -259,6 +259,7 @@ MonoBehaviour:
   TopClamp: 89
   BottomClamp: -89
   ExtraPitchOffset: 0
+  LookInputBlocked: 0
   ExtraRollOffset: 0
   ExtraPositionOffset: {x: 0, y: 0, z: 0}
   ExtraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
@@ -292,7 +293,7 @@ MonoBehaviour:
     RotationStiffness: 60
     RotationDamping: 6
     ArcCoupling: 0
-  strength: 1
+  strength: 0.5
 --- !u!114 &1978471637655604388
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -451,6 +452,7 @@ MonoBehaviour:
   ClimbCheckDistance: 0.5
   ClimbSpeed: 6
   ClimbProbeRadius: 0.2
+  ClimbAlignDuration: 0.15
   EnableVault: 1
   VaultMinHeight: 0.5
   VaultMaxHeight: 1.5
@@ -541,6 +543,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   climbClip: {fileID: 8091285221300464070, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
   vaultClip: {fileID: 1725478086162327817, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
+  highClimbClip: {fileID: -1805994397365421099, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
+  highClimbMinHeight: 2
+  grabEvent: MantleGrab
+  highClimbTrigger: MantleHigh
+  rootBoneName: root
+  leftPalmBoneName: middle_02_l
+  rightPalmBoneName: middle_02_r
   mantleLayerName: Mantle
   climbTrigger: Mantle
   vaultLayerName: Vault

@@ -5,12 +5,32 @@ using UnityEngine.Localization;
 
 namespace StarterAssets
 {
+	// Движение тела из клипа подъёма (высокий подъём): длительность клипа, время захвата (MantleGrab) и где корень
+	// (ноги игрока) относительно старта в кадре захвата и в последнем кадре — в осях игрока (X — вбок, Y — вверх, Z — вперёд)
+	public struct MantleClipMotion
+	{
+		public float Duration;
+		public float GrabTime;
+		public Vector3 RootAtGrab;
+		public Vector3 RootAtEnd;
+		// где в клипе край уступа по оси "вперёд" (от старта) — по ладоням в кадре захвата. NaN — неизвестно
+		// (тогда движение вперёд привязывается к точке приземления)
+		public float EdgeForwardAtGrab;
+	}
+
 	// Необязательная анимация рук при подъёме (см. Player.MantleArmsAnimation) — LedgeMantle не знает ни про оружие,
-	// ни про риг рук. На движение не влияет: подъём идёт по ClimbSpeed/VaultSpeed, клип играет на своей скорости
+	// ни про риг рук.
+	//  • обычный подъём и перелезание (TryBegin): движение идёт по ClimbSpeed/VaultSpeed, клип играет поверх на своей скорости;
+	//  • высокий подъём (TryBeginClimbMotion): наоборот, движение тела берётся из корня клипа (SampleClimbRoot),
+	//    LedgeMantle только подгоняет его под реальную высоту уступа
 	public interface IMantleAnimation
 	{
 		// начать анимацию; false — анимировать нечем
 		bool TryBegin(bool isVault);
+		// высокий подъём с движением тела из клипа; false — для этой высоты такого клипа нет (тогда обычный подъём)
+		bool TryBeginClimbMotion(float ledgeHeight, out MantleClipMotion motion);
+		// где корень клипа высокого подъёма в момент time относительно старта — в осях игрока
+		Vector3 SampleClimbRoot(float time);
 		// анимация сама ведёт камеру — тогда наклон по CameraTiltCurve не добавляется, чтобы наклоны не сложились
 		bool DrivesCamera { get; }
 		// подъём закончен или прерван — убрать анимацию
@@ -43,6 +63,9 @@ namespace StarterAssets
 		public float ClimbSpeed = 4.0f;
 		[Tooltip("Radius of the SphereCast probes used to detect a ledge. Thicker is more forgiving of angle/edge cases than a thin raycast")]
 		public float ClimbProbeRadius = 0.2f;
+		[Tooltip("Высокий подъём по клипу: за сколько секунд в начале игрок плавно разворачивается лицом к стене, а камера — " +
+			"в \"прямо\" (клип строился с таким взглядом, руки привязаны к камере). Пока идёт подъём, мышь камеру не крутит")]
+		public float ClimbAlignDuration = 0.15f;
 
 		[Header("Vault (перелезание)")]
 		[Tooltip("Перелезать через препятствия, а не только залезать на них")]
@@ -98,6 +121,9 @@ namespace StarterAssets
 
 		private void OnDisable()
 		{
+			// подъём по клипу прервали посреди — мышь снова управляет камерой
+			if (_movement != null) _movement.LookInputBlocked = false;
+
 			if (!_animating) return;
 			_animating = false;
 			_animation.End();
@@ -105,6 +131,11 @@ namespace StarterAssets
 
 		// captured at Start, before any crouch shrinking has happened, so this reflects the standing pose
 		private float _feetOffset;
+
+		// на сколько точка опоры (pivot) игрока ниже поверхности, на которой он стоит: низ капсулы выше pivot на _feetOffset,
+		// но CharacterController стоит на Skin Width над поверхностью. Перевод "уровень пола → положение игрока" для точек
+		// приземления — без учёта Skin Width игрок "приземлялся" на эти сантиметры в уступ (и высокий подъём шёл ниже края)
+		private float StandingPivotOffset => _feetOffset - _controller.skinWidth;
 
 		private bool _isClimbing;
 		public bool IsClimbing => _isClimbing;
@@ -120,6 +151,10 @@ namespace StarterAssets
 			public Vector3 FrontEdge;
 			public Vector3 BackEdge;
 			public Vector3 Direction;
+			// нормаль передней грани (подъём) — куда развернуть игрока лицом к стене перед подъёмом по клипу
+			public Vector3 WallNormal;
+			// точка на передней грани (подъём) — по ней ладони из клипа совмещаются с реальным краем
+			public Vector3 EdgePoint;
 		}
 
 		// last climb attempt — only for gizmo visualization in the editor
@@ -159,7 +194,20 @@ namespace StarterAssets
 			}
 			else
 			{
-				StartCoroutine(ClimbLedge(move.Target, move.PassHeight, false, ClimbSpeed, CameraTiltAmount, 0f));
+				// высокий уступ и есть клип с движением тела под эту высоту — подъём по клипу, иначе обычный
+				Quaternion originalRotation = transform.rotation;
+				if (TryFaceWall(ref move) && _animation != null &&
+					_animation.TryBeginClimbMotion(move.Target.y - transform.position.y, out MantleClipMotion motion))
+				{
+					Quaternion facingWall = transform.rotation;
+					transform.rotation = originalRotation; // разворот к стене — плавно, в ClimbWithClip
+					StartCoroutine(ClimbWithClip(move.Target, move.EdgePoint, motion, facingWall));
+				}
+				else
+				{
+					transform.rotation = originalRotation;
+					StartCoroutine(ClimbLedge(move.Target, move.PassHeight, false, ClimbSpeed, CameraTiltAmount, 0f));
+				}
 			}
 			return true;
 		}
@@ -259,7 +307,7 @@ namespace StarterAssets
 				if (log) Debug.Log($"Vault: перелезть! высота {ledgeHeight:F2}м, приземление {vaultFeet}");
 				move = new LedgeMove
 				{
-					Target = vaultFeet - new Vector3(0f, _feetOffset, 0f),
+					Target = vaultFeet - new Vector3(0f, StandingPivotOffset, 0f),
 					PassHeight = ledgeHit.point.y + VaultClearance - _feetOffset,
 					IsVault = true,
 					FrontEdge = wallHit.point,
@@ -287,12 +335,14 @@ namespace StarterAssets
 
 			if (log) Debug.Log($"Mantle: залезть! высота уступа {ledgeHeight:F2}м, точка приземления {landingFeet}");
 
-			Vector3 target = landingFeet - new Vector3(0f, _feetOffset, 0f);
+			Vector3 target = landingFeet - new Vector3(0f, StandingPivotOffset, 0f);
 			move = new LedgeMove
 			{
 				Target = target,
 				PassHeight = target.y + Mathf.Max(_controller.radius, 0.15f),
 				IsVault = false,
+				WallNormal = wallHit.normal,
+				EdgePoint = wallHit.point,
 			};
 			return true;
 		}
@@ -558,6 +608,113 @@ namespace StarterAssets
 			}
 			_controller.enabled = true;
 			_isClimbing = false;
+		}
+
+		// Высокий подъём: тело идёт ровно по корню из клипа (прыжок → вис → подтягивание, как в Blender), а не по скорости.
+		// Подгонка под реальный уступ (motion warping) — отдельно по высоте и по движению вперёд:
+		//  • до MantleGrab (прыжок) движение корня масштабируется так, чтобы в кадре захвата смещение до реального уступа
+		//    было таким же, как в клипе, — ладони ложатся на край при любой высоте в диапазоне клипа;
+		//  • после захвата (вис и подтягивание) — как в клипе, просто сдвинуто: относительно края всё то же.
+		// Привязка: по высоте — верх уступа (корень в последнем кадре клипа стоит на уступе), вперёд — КРАЙ: ладони в кадре
+		// захвата (в клипе они лежат на крае заготовки) совмещаются с реальной передней гранью. Поэтому и приземление —
+		// как в Blender относительно края; место для игрока там проверяется заранее. Если ладони найти не удалось или
+		// места нет — вперёд привязываемся к точке приземления из проверок FindLedge
+		//
+		// Взгляд — как в синхронных анимациях: клип строился с камерой, смотрящей прямо на стену, а руки привязаны к камере.
+		// Поэтому в начале игрок плавно (ClimbAlignDuration) разворачивается лицом к стене и наклон камеры уходит в "прямо",
+		// а на всё время подъёма мышь камеру не крутит — поворот камеры целиком из клипа (MantleArmsAnimation)
+		private IEnumerator ClimbWithClip(Vector3 targetPosition, Vector3 edgePoint, MantleClipMotion motion, Quaternion facingWall)
+		{
+			_isClimbing = true;
+			_animating = true;
+			_controller.enabled = false;
+
+			Quaternion startRotation = transform.rotation;
+			float startPitch = _movement != null ? _movement.CameraPitch : 0f;
+			if (_movement != null) _movement.LookInputBlocked = true;
+
+			// движение — сразу в направлении "лицом к стене", а не по тому, куда игрок смотрел
+			Vector3 start = transform.position;
+			Quaternion yaw = Quaternion.Euler(0f, facingWall.eulerAngles.y, 0f);
+			Vector3 targetLocal = Quaternion.Inverse(yaw) * (targetPosition - start);
+
+			// на сколько реальный уступ выше/дальше, чем в клипе
+			float heightShift = targetLocal.y - motion.RootAtEnd.y;
+			float forwardShift = targetLocal.z - motion.RootAtEnd.z;
+
+			// вперёд — по краю: ладони из клипа на реальную переднюю грань, если в получившейся точке приземления есть место
+			if (!float.IsNaN(motion.EdgeForwardAtGrab))
+			{
+				float edgeForward = Vector3.Dot(edgePoint - start, yaw * Vector3.forward);
+				float edgeShift = edgeForward - motion.EdgeForwardAtGrab;
+				Vector3 edgeAlignedEnd = start + yaw * new Vector3(0f, motion.RootAtEnd.y + heightShift, motion.RootAtEnd.z + edgeShift);
+				Vector3 endFeet = edgeAlignedEnd + new Vector3(0f, StandingPivotOffset, 0f);
+				// там и место для игрока, и опора под ногами (узкий уступ мог закончиться раньше, чем в клипе)
+				bool hasGround = Physics.Raycast(endFeet + Vector3.up * 0.3f, Vector3.down, 0.5f,
+					_movement != null ? _movement.CollisionMask : ~0, QueryTriggerInteraction.Ignore);
+				if (_movement != null && hasGround && _movement.HasHeadroomAt(endFeet))
+				{
+					forwardShift = edgeShift;
+					targetPosition = edgeAlignedEnd;
+				}
+			}
+
+			float elapsed = 0f;
+			while (elapsed < motion.Duration)
+			{
+				elapsed = Mathf.Min(elapsed + Time.deltaTime, motion.Duration);
+				Vector3 root = _animation.SampleClimbRoot(elapsed);
+
+				float y = WarpToLedge(root.y, motion.RootAtGrab.y, heightShift, elapsed, motion.GrabTime);
+				float z = WarpToLedge(root.z, motion.RootAtGrab.z, forwardShift, elapsed, motion.GrabTime);
+				transform.position = start + yaw * new Vector3(0f, y, z); // вбок не двигаем — уступ строго впереди
+
+				// плавный разворот лицом к стене и наклон камеры в "прямо"
+				float align = ClimbAlignDuration > 0f ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / ClimbAlignDuration)) : 1f;
+				transform.rotation = Quaternion.Slerp(startRotation, facingWall, align);
+				if (_movement != null) _movement.CameraPitch = Mathf.Lerp(startPitch, 0f, align);
+				yield return null;
+			}
+
+			transform.rotation = facingWall;
+			if (_movement != null) _movement.LookInputBlocked = false;
+			_animation.End();
+			_animating = false;
+
+			transform.position = targetPosition;
+			if (_movement != null) _movement.ClearVerticalVelocity();
+			_controller.enabled = true;
+			_isClimbing = false;
+		}
+
+		// Разворачивает игрока лицом к стене (по горизонтальной нормали передней грани) и заново проверяет уступ уже
+		// в этом направлении — точка приземления и высота считаются перпендикулярно стене. false — стена не
+		// вертикальная или в новом направлении уступ не проходит (тогда вызывающий возвращает поворот и лезет как обычно)
+		private bool TryFaceWall(ref LedgeMove move)
+		{
+			Vector3 facing = -new Vector3(move.WallNormal.x, 0f, move.WallNormal.z);
+			if (facing.sqrMagnitude < 0.01f) return false;
+
+			transform.rotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
+			if (!FindLedge(false, out LedgeMove aligned) || aligned.IsVault) return false;
+
+			move = aligned;
+			return true;
+		}
+
+		// одна ось подгонки: до захвата — масштаб так, чтобы в кадре захвата значение сдвинулось ровно на shift
+		// (если в клипе по этой оси до захвата почти нет движения — сдвиг набирается равномерно по времени),
+		// после захвата — значение из клипа + shift
+		private static float WarpToLedge(float clipValue, float clipValueAtGrab, float shift, float time, float grabTime)
+		{
+			if (time >= grabTime || grabTime <= 0f) return clipValue + shift;
+
+			if (Mathf.Abs(clipValueAtGrab) > 0.1f)
+			{
+				float scale = Mathf.Max(0f, (clipValueAtGrab + shift) / clipValueAtGrab);
+				return clipValue * scale;
+			}
+			return clipValue + shift * (time / grabTime);
 		}
 
 		// отрезок дуги p0→p1: кубический Эрмит с касательными по направлениям dir0/dir1, масштабированными на длину
