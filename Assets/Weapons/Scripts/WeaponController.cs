@@ -94,6 +94,9 @@ namespace Weapons
 		private bool _comboWindowOpen;
 		private int _comboStep;
 		private float _attackBufferedUntil = float.NegativeInfinity;
+		// идёт последний удар полного комбо (MeleeWeaponData.ComboCooldown > 0) и до какого времени после него нельзя бить
+		private bool _comboCompleted;
+		private float _meleeCooldownEndTime;
 
 		// смена оружия с анимацией Hide (см. SwitchTo): старое оружие доигрывает Hide, новое появляется только
 		// после Animation Event WeaponHidden (или по таймеру-подстраховке). Храним сам слот, а не индекс —
@@ -699,6 +702,7 @@ namespace Weapons
 			_mantleWeight = 0f;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
 			ResetCombo(); // и недоигранное комбо — новое оружие начинает с первого удара
+			_meleeCooldownEndTime = 0f; // пауза после комбо была у прошлого оружия
 			_attackBufferedUntil = float.NegativeInfinity;
 			_aimBlend = 0f; // смена оружия сбрасывает прицел — новое оружие всегда начинается от бедра
 
@@ -781,21 +785,36 @@ namespace Weapons
 		{
 			_readyToFireTime = Time.time;
 			// у холодного это конец удара: комбо не продолжили — следующий удар снова первый
-			ResetCombo();
+			EndSwingSequence();
 		}
 
 		// вызывается из WeaponAnimationEvents по Animation Event ComboWindow — кадр в клипе удара, начиная с которого
-		// можно перейти в следующий удар комбо, не дожидаясь конца клипа
+		// можно перейти в следующий удар комбо, не дожидаясь конца клипа. После последнего удара полного комбо
+		// с паузой (MeleeWeaponData.ComboCooldown) окно не открывается — комбо закончено
 		public void NotifyComboWindow()
 		{
-			if (_swingActive) _comboWindowOpen = true;
+			if (_swingActive && !_comboCompleted) _comboWindowOpen = true;
+		}
+
+		// удар закончился (WeaponReady или таймер-подстраховка): если это был последний удар полного комбо — пауза
+		private void EndSwingSequence()
+		{
+			if (_comboCompleted && CurrentWeaponData is MeleeWeaponData melee)
+			{
+				_meleeCooldownEndTime = Time.time + melee.ComboCooldown;
+			}
+			ResetCombo();
 		}
 
 		private void ResetCombo()
 		{
 			_swingActive = false;
 			_comboWindowOpen = false;
+			_comboCompleted = false;
 		}
+
+		// сколько секунд осталось до конца паузы после полного комбо (0 — бить можно) — например, для HUD
+		public float MeleeCooldownRemaining => Mathf.Max(0f, _meleeCooldownEndTime - Time.time);
 
 		// начинает перезарядку текущего оружия (кнопка R)
 		public void Reload()
@@ -969,7 +988,10 @@ namespace Weapons
 			if (_isReloading || Time.time < _inventory[_currentIndex].NextFireTime) return false;
 
 			// подстраховка: WeaponReady в конце клипа не пришёл — удар считается законченным по таймеру
-			if (_swingActive && Time.time >= _readyToFireTime) ResetCombo();
+			if (_swingActive && Time.time >= _readyToFireTime) EndSwingSequence();
+
+			// пауза после полного комбо
+			if (!_swingActive && Time.time < _meleeCooldownEndTime) return false;
 
 			// идёт удар — следующий только в окне комбо; иначе — когда оружие готово (достали, перезарядили)
 			return _swingActive ? _comboWindowOpen : Time.time >= _readyToFireTime;
@@ -982,6 +1004,8 @@ namespace Weapons
 
 			// продолжаем комбо — следующий удар по кругу; начинаем заново — первый
 			_comboStep = _swingActive ? (_comboStep + 1) % Mathf.Max(1, data.ComboLength) : 0;
+			// последний удар полного комбо — если у оружия есть пауза после комбо, продолжения не будет
+			_comboCompleted = data.ComboCooldown > 0f && _comboStep == Mathf.Max(1, data.ComboLength) - 1;
 			_swingActive = true;
 			_comboWindowOpen = false;
 

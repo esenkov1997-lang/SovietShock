@@ -30,6 +30,11 @@ namespace Weapons
 		public string ComboStepParam = "ComboStep";
 		[Tooltip("Сколько секунд помнится нажатие атаки. Нажал чуть раньше, чем открылось окно комбо (ComboWindow), — следующий удар всё равно выйдет, как только окно откроется")]
 		public float InputBufferTime = 0.25f;
+		[Tooltip("Пауза после полного комбо, сек: после последнего удара (Combo Length) комбо не продолжается, а следующий удар " +
+			"доступен только через это время, считая от конца последнего удара (WeaponReady). Неполное комбо паузу не вызывает. " +
+			"0 — бесконечное комбо 1-2-1-2 без пауз")]
+		[Min(0f)]
+		public float ComboCooldown = 0f;
 
 		[Header("Repair / Burn (ПКМ)")]
 		public RepairToolData Repair = new RepairToolData();

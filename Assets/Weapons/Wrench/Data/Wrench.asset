@@ -20,6 +20,7 @@ MonoBehaviour:
   HitForce: 20
   AttackTrigger: Attack
   DrawTrigger: Draw
+  HideTrigger: Hide
   VFX:
     DecalPrefab: {fileID: 0}
     DecalLifetime: 15
@@ -30,7 +31,11 @@ MonoBehaviour:
   AlignArmsToCameraBone: 1
   AnimationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}
   HitRadius: 0.15
-  AttackMissTrigger: AttackMiss
+  ImpactTrigger: Impact
+  ComboLength: 2
+  ComboStepParam: ComboStep
+  InputBufferTime: 0.25
+  ComboCooldown: 0.05
   Repair:
     CanRepair: 1
     Tank:
