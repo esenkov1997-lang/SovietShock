@@ -44,6 +44,7 @@ namespace Weapons
 
 		// ---- Movement Inertia (оружие как груз на пружине: отстаёт на старте, проскакивает при остановке) ----
 		private Vector3 _lastWorldVelocity;
+		private float _lastCameraHeight;
 		private bool _hasLastVelocity;
 		private Vector3 _smoothedAcceleration;   // в осях игрока: X — вбок, Z — вперёд
 		private Vector3 _inertiaAngles;          // pitch / yaw / roll, градусы
@@ -214,20 +215,37 @@ namespace Weapons
 			float dt = Time.deltaTime;
 			if (firstPersonController == null || dt <= 0f) return Vector3.zero;
 
-			Vector3 worldVelocity = firstPersonController.HorizontalVelocity;
+			// Вертикаль — не реальная высота камеры (на лестнице каждая ступень давала бы рывок), а вертикальная скорость
+			// из физики игрока (прыжок, приземление, падение; на земле она постоянна) плюс скорость смены высоты камеры
+			// при приседании/вставании
+			float cameraHeight = firstPersonController.CameraBaseHeight;
+			float crouchVelocity = _hasLastVelocity ? (cameraHeight - _lastCameraHeight) / dt : 0f;
+			_lastCameraHeight = cameraHeight;
+
+			Vector3 worldVelocity = firstPersonController.HorizontalVelocity
+				+ Vector3.up * (firstPersonController.VerticalVelocity + crouchVelocity);
 			Vector3 worldAcceleration = _hasLastVelocity ? (worldVelocity - _lastWorldVelocity) / dt : Vector3.zero;
 			_lastWorldVelocity = worldVelocity;
 			_hasLastVelocity = true;
 
 			Vector3 acceleration = Quaternion.Inverse(firstPersonController.transform.rotation) * worldAcceleration;
-			acceleration = Vector3.ClampMagnitude(acceleration, _currentProfile.InertiaMaxAcceleration);
+			// ограничение отдельно по горизонтали и по вертикали: приземление (скорость меняется за кадр) не должно
+			// "забивать" собой реакцию на старт/остановку и наоборот
+			float maxAcceleration = _currentProfile.InertiaMaxAcceleration;
+			Vector3 horizontal = Vector3.ClampMagnitude(new Vector3(acceleration.x, 0f, acceleration.z), maxAcceleration);
+			acceleration = new Vector3(horizontal.x, Mathf.Clamp(acceleration.y, -maxAcceleration, maxAcceleration), horizontal.z);
 			// ускорение игрока ступенчатое (при нажатии сразу полное, при наборе скорости сразу ноль) — сглаживаем,
 			// чтобы вход в наклон и выход из него были плавными, а не скачком цели (не зависит от FPS)
 			_smoothedAcceleration = Vector3.Lerp(_smoothedAcceleration, acceleration, 1f - Mathf.Exp(-_currentProfile.InertiaInputSmoothing * dt));
 
 			Vector3 a = _smoothedAcceleration * Mathf.Lerp(1f, _currentProfile.InertiaAimMultiplier, _weaponController.AimBlend);
-			Vector3 targetAngles = new Vector3(a.z * _currentProfile.InertiaPitchPerAcceleration, 0f, -a.x * _currentProfile.InertiaRollPerAcceleration);
-			Vector3 targetPosition = new Vector3(-a.x, 0f, -a.z) * _currentProfile.InertiaPositionPerAcceleration;
+			// наклон: вперёд-назад и вертикаль (прыжок/приземление/присед) — оба кивок по X, но со своими силами
+			float pitch = a.z * _currentProfile.InertiaPitchPerAcceleration + a.y * _currentProfile.InertiaVerticalPitchPerAcceleration;
+			Vector3 targetAngles = new Vector3(pitch, 0f, -a.x * _currentProfile.InertiaRollPerAcceleration);
+			Vector3 targetPosition = new Vector3(
+				-a.x * _currentProfile.InertiaPositionPerAcceleration,
+				-a.y * _currentProfile.InertiaVerticalPositionPerAcceleration,
+				-a.z * _currentProfile.InertiaPositionPerAcceleration);
 
 			// у смещения и поворота разные пружины: поворот мягче, откликается позже и "догоняет" смещение — из этой
 			// разницы фаз складывается дуга. С одной общей пружиной оба шли синхронно, и дуги не получалось

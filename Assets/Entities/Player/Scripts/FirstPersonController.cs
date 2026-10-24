@@ -174,6 +174,11 @@ namespace StarterAssets
 		// горизонтальная скорость игрока — например, LedgeMantle берёт из неё скорость разбега перед перелезанием
 		// и возвращает её после приземления, чтобы бег продолжался без остановки
 		public Vector3 HorizontalVelocity => _horizontalVelocity;
+		// вертикальная скорость из физики игрока (прыжок, падение; на земле постоянная, в том числе на лестнице — прилипание
+		// к ступеням её не трогает) и высота камеры над ногами без эффектов (меняется при приседании) — например, для
+		// инерции оружия при прыжке, приземлении и приседании
+		public float VerticalVelocity => _verticalVelocity;
+		public float CameraBaseHeight => _cameraBaseLocalPosition.y;
 		public void SetHorizontalVelocity(Vector3 velocity)
 		{
 			_horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);

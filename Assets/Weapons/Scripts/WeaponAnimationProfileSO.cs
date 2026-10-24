@@ -81,8 +81,15 @@ namespace Weapons
 		[SerializeField] private float inertiaRollPerAcceleration = 0.12f;
 		[Tooltip("Смещение оружия против ускорения на каждый м/с², метры — отставание при старте и \"проскок\" при остановке")]
 		[SerializeField] private float inertiaPositionPerAcceleration = 0.001f;
-		[Tooltip("Ускорение игрока, выше которого эффект больше не растёт, м/с² — защита от рывков при резкой смене направления")]
+		[Tooltip("Ускорение игрока, выше которого эффект больше не растёт, м/с² — защита от рывков при резкой смене направления " +
+			"и при приземлении (там скорость меняется за один кадр). Действует отдельно по горизонтали и по вертикали")]
 		[SerializeField] private float inertiaMaxAcceleration = 30f;
+		[Tooltip("Вертикаль (прыжок, приземление, приседание/вставание): наклон оружия на каждый м/с² вертикального ускорения, " +
+			"градусы. При приземлении и приседании оружие проседает и кивает, при прыжке и вставании — наоборот. Знак — направление. " +
+			"Если включаете — уменьшите или обнулите Landing Impulse Multiplier и Jump Impulse Strength, иначе эффект удвоится")]
+		[SerializeField] private float inertiaVerticalPitchPerAcceleration = 0.1f;
+		[Tooltip("Вертикаль: смещение оружия против вертикального ускорения на каждый м/с², метры")]
+		[SerializeField] private float inertiaVerticalPositionPerAcceleration = 0.001f;
 		[Tooltip("Насколько плавно эффект реагирует на старт и остановку: ускорение игрока ступенчатое (при нажатии сразу полное, " +
 			"при наборе скорости сразу ноль), и без сглаживания вход и выход из наклона получаются резкими. Меньше — мягче и тягучее, " +
 			"больше — резче. Обычно 4–12")]
@@ -135,6 +142,8 @@ namespace Weapons
 		public float InertiaRollPerAcceleration => inertiaRollPerAcceleration;
 		public float InertiaPositionPerAcceleration => inertiaPositionPerAcceleration;
 		public float InertiaMaxAcceleration => inertiaMaxAcceleration;
+		public float InertiaVerticalPitchPerAcceleration => inertiaVerticalPitchPerAcceleration;
+		public float InertiaVerticalPositionPerAcceleration => inertiaVerticalPositionPerAcceleration;
 		public float InertiaInputSmoothing => inertiaInputSmoothing;
 		public float InertiaStiffness => inertiaStiffness;
 		public float InertiaDamping => inertiaDamping;

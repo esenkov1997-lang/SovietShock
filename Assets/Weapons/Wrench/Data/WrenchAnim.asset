@@ -34,11 +34,13 @@ MonoBehaviour:
   impulseToRotationCoupling: -80
   landingImpulseMultiplier: 1.2
   jumpImpulseStrength: 9.2
-  maxImpulseStrength: 1
+  maxImpulseStrength: 2
   inertiaPitchPerAcceleration: -0.2
   inertiaRollPerAcceleration: -0.2
   inertiaPositionPerAcceleration: 0.0008
   inertiaMaxAcceleration: 30
+  inertiaVerticalPitchPerAcceleration: 0.5
+  inertiaVerticalPositionPerAcceleration: 0.002
   inertiaInputSmoothing: 60
   inertiaStiffness: 80
   inertiaDamping: 6

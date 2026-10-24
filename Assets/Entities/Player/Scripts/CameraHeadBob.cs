@@ -56,6 +56,12 @@ namespace StarterAssets
 
 		private float _phase;
 		private float _blend;
+
+		// "дошагивание" при остановке: фаза доигрывается до ближайшей нейтральной точки (центр, низ шага), а не обрывается
+		private bool _settling;
+		private float _settleTargetPhase;
+		private float _settleRate;
+		private float _lastMovingBobSpeed;
 		// сглаженные частота и амплитуды — см. Update
 		private float _bobSpeed;
 		private float _bobAmount;
@@ -97,11 +103,13 @@ namespace StarterAssets
 			_bobAmount = Mathf.Lerp(_bobAmount, targetAmount, stateT);
 			_rollAmount = Mathf.Lerp(_rollAmount, targetRoll, stateT);
 
-			_phase += Time.deltaTime * _bobSpeed;
+			AdvancePhase(isMoving);
 			float cycle = Mathf.Repeat(_phase, 1f);       // стрейд: боковое качание и крен
 			float step = Mathf.Repeat(_phase * 2f, 1f);   // шаг: вверх-вниз — дважды за стрейд
 
-			_blend = Mathf.MoveTowards(_blend, isMoving ? 1f : 0f, Time.deltaTime * BlendSpeed);
+			// пока камера дошагивает до нейтрали — покачивание не гасим: иначе из крайнего положения она вернулась бы
+			// в центр за время гашения (при большой Blend Speed — за кадр). Гасим, только когда она уже в нейтрали
+			_blend = Mathf.MoveTowards(_blend, isMoving || _settling ? 1f : 0f, Time.deltaTime * BlendSpeed);
 
 			if (_blend <= 0f)
 			{
@@ -117,6 +125,46 @@ namespace StarterAssets
 			float y = BobY.Evaluate(step) * _bobAmount * blend;
 			_movement.ExtraPositionOffset = new Vector3(x, y, 0f);
 			_movement.ExtraRollOffset = BobRoll.Evaluate(cycle) * _rollAmount * blend;
+		}
+
+		// Фаза шага. Идём — фаза растёт в темпе шага. Остановились посреди шага — не обрываем, а "дошагиваем":
+		// фаза доигрывается до ближайшей нейтральной точки — границы полушага (0 или 0.5 цикла: по центру по горизонтали,
+		// внизу шага по вертикали, без крена) — в темпе последнего шага, с плавным замедлением к концу, как будто
+		// человек ставит ногу и останавливается. Пошли снова посреди дошагивания — шаг продолжается с того же места
+		private void AdvancePhase(bool isMoving)
+		{
+			if (isMoving)
+			{
+				_settling = false;
+				_phase += Time.deltaTime * _bobSpeed;
+				_lastMovingBobSpeed = _bobSpeed;
+				return;
+			}
+
+			if (!_settling)
+			{
+				if (_blend <= 0f) return; // уже стоим, покачивания нет
+
+				_settleTargetPhase = Mathf.Ceil(_phase * 2f) * 0.5f;
+				float remaining = _settleTargetPhase - _phase;
+				if (remaining <= 0.0001f) return; // и так в нейтрали
+
+				// стартовая скорость дошагивания — темп последнего шага (но не "замирание", если игрок едва шёл);
+				// дальше экспоненциальное замедление к цели: rate подобран так, что в первый момент скорость равна этому темпу
+				float speed = Mathf.Max(_lastMovingBobSpeed, WalkBobSpeed * 0.5f);
+				_settleRate = speed / remaining;
+				_settling = true;
+			}
+
+			_phase = Mathf.Lerp(_phase, _settleTargetPhase, 1f - Mathf.Exp(-_settleRate * Time.deltaTime));
+
+			// дошли до нейтрали — или амплитуда уже затухла вместе с остановкой (хвост экспоненты длинный, а двигать
+			// камеру к этому моменту уже некуда)
+			if (_settleTargetPhase - _phase < 0.002f || _bobAmount < 0.0005f)
+			{
+				_phase = _settleTargetPhase;
+				_settling = false;
+			}
 		}
 	}
 }
