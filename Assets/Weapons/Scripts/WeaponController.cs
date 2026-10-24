@@ -299,6 +299,8 @@ namespace Weapons
 
 		// Анимация подъёма на уступ на руках текущего оружия: в его Animator Controller должен быть слой layerName
 		// (Override, с маской свободной руки, вес по умолчанию 0) и Trigger trigger, запускающий в нём клип подъёма.
+		// В маске — ТОЛЬКО кости руки: без root (движение тела делает капсула) и без CameraBone (камерой управляет
+		// анимация подъёма; иначе WeaponCameraAnchor на кости камеры оружия перенесёт её движение на камеру — двойной подъём).
 		// false — у оружия такого слоя/триггера нет (или руки сейчас скрыты): анимировать нечем
 		public bool BeginMantleLayer(string layerName, string trigger, float blendIn)
 		{

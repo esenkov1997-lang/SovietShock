@@ -32,10 +32,10 @@ ModelImporter:
     clipAnimations:
     - serializedVersion: 16
       name: Mantle
-      takeName: Mantle_hands_SK
+      takeName: Mantle
       internalID: 8091285221300464070
-      firstFrame: 1.5
-      lastFrame: 20
+      firstFrame: 0
+      lastFrame: 40
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -61,9 +61,9 @@ ModelImporter:
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
       name: Vault
-      takeName: Vault_hands_SK
+      takeName: Vault
       internalID: 1725478086162327817
-      firstFrame: 1.7
+      firstFrame: 0
       lastFrame: 25
       wrapMode: 0
       orientationOffsetY: 0
@@ -90,7 +90,7 @@ ModelImporter:
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
       name: Mantle_2.6m
-      takeName: Mantle_2.6m_hands_SK
+      takeName: Mantle_2.6m
       internalID: -1805994397365421099
       firstFrame: 0
       lastFrame: 36

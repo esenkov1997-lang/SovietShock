@@ -415,13 +415,19 @@ namespace Player
 			// ничего не рисуется — без этого Animator мог бы решить, что риг вне кадра, и не обновлять кости
 			samplerAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
 			if (samplerAnimator.GetComponent<MantleEventSink>() == null) samplerAnimator.gameObject.AddComponent<MantleEventSink>();
+
+			// включается только на время высокого подъёма (StartSampler/StopSampler)
+			_rootSampler.SetActive(false);
 		}
 
 		// клип на источнике движения: ручной режим — время ставит SampleClimbRoot. Запоминаем корень на первом кадре — от него
 		// и считается движение тела
+		// Источник — ребёнок капсулы: в сцене его корень оказывается на "подъём капсулы + подъём из клипа" и выглядит как
+		// двойной подъём. На движение это не влияет — читается смещение относительно капсулы (SampleClimbRoot)
 		private void StartSampler(AnimationClip clip)
 		{
 			StopSampler();
+			_rootSampler.SetActive(true);
 
 			Animator samplerAnimator = _rootSampler.GetComponentInChildren<Animator>(true);
 			_samplerGraph = PlayableGraph.Create($"{name}_MantleRootSampler");
@@ -435,9 +441,16 @@ namespace Player
 			_samplerRootStart = transform.InverseTransformPoint(_samplerRootBone.position);
 		}
 
+		// после подъёма — поза первого кадра (корень снова у ног) и выключить, пока не нужен
 		private void StopSampler()
 		{
-			if (_samplerGraph.IsValid()) _samplerGraph.Destroy();
+			if (_samplerGraph.IsValid())
+			{
+				_samplerPlayable.SetTime(0);
+				_samplerGraph.Evaluate(0f);
+				_samplerGraph.Destroy();
+			}
+			if (_rootSampler != null) _rootSampler.SetActive(false);
 		}
 
 		// Один раз, по позе покоя из модели — так же, как руки оружия (WeaponController.AlignToCameraBone): кость камеры

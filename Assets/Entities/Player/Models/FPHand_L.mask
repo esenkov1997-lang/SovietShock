@@ -16,7 +16,7 @@ AvatarMask:
   - m_Path: root
     m_Weight: 0
   - m_Path: root/CameraBone
-    m_Weight: 1
+    m_Weight: 0
   - m_Path: root/clavicle_l
     m_Weight: 1
   - m_Path: root/clavicle_l/upperarm_l
