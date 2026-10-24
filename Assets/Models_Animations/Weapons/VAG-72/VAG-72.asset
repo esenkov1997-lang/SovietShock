@@ -20,13 +20,15 @@ MonoBehaviour:
   HitForce: 100
   AttackTrigger: Attack
   DrawTrigger: Draw
+  HideTrigger: Hide
   VFX:
     DecalPrefab: {fileID: 6828405310610758102, guid: 817842dac46591f48af84541d3497080, type: 3}
     DecalLifetime: 10
   InHandPrefab: {fileID: 3597379192207977521, guid: ce83a36df8817de40a3622124c91948f, type: 3}
   PickupPrefab: {fileID: 6662143721343058744, guid: 99ef294ff648f4c458561321c82d5b25, type: 3}
-  HandPosition: {x: 0.13, y: -0.11, z: 0.33}
+  HandPosition: {x: 0.13, y: -0.05, z: 0.42}
   HandRotation: {x: 0, y: 0, z: 0}
+  AlignArmsToCameraBone: 0
   AnimationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}
   Mode: 1
   Magazine:

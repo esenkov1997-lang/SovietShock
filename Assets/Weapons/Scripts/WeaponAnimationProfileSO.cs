@@ -73,6 +73,36 @@ namespace Weapons
 		[Tooltip("Ограничение силы одного импульса — защита от неадекватно сильного 'подброса' оружия при падении с большой высоты")]
 		[SerializeField] private float maxImpulseStrength = 0.6f;
 
+		[Header("Movement Inertia — старт/остановка (anticipation и overlap)")]
+		[Tooltip("Наклон оружия (pitch) на каждый м/с² ускорения игрока вперёд-назад, градусы. При старте оружие отстаёт и наклоняется, " +
+			"при остановке проскакивает вперёд и качается с затуханием. Знак — направление наклона")]
+		[SerializeField] private float inertiaPitchPerAcceleration = 0.15f;
+		[Tooltip("Крен оружия (roll) на каждый м/с² бокового ускорения (стрейф), градусы")]
+		[SerializeField] private float inertiaRollPerAcceleration = 0.12f;
+		[Tooltip("Смещение оружия против ускорения на каждый м/с², метры — отставание при старте и \"проскок\" при остановке")]
+		[SerializeField] private float inertiaPositionPerAcceleration = 0.001f;
+		[Tooltip("Ускорение игрока, выше которого эффект больше не растёт, м/с² — защита от рывков при резкой смене направления")]
+		[SerializeField] private float inertiaMaxAcceleration = 30f;
+		[Tooltip("Насколько плавно эффект реагирует на старт и остановку: ускорение игрока ступенчатое (при нажатии сразу полное, " +
+			"при наборе скорости сразу ноль), и без сглаживания вход и выход из наклона получаются резкими. Меньше — мягче и тягучее, " +
+			"больше — резче. Обычно 4–12")]
+		[SerializeField] private float inertiaInputSmoothing = 8f;
+		[Tooltip("Жёсткость пружины СМЕЩЕНИЯ: больше — быстрее и мельче колебания")]
+		[SerializeField] private float inertiaStiffness = 90f;
+		[Tooltip("Затухание пружины СМЕЩЕНИЯ: меньше — больше покачиваний после остановки, больше — гасится без колебаний. " +
+			"Без колебаний (критическое затухание) примерно при 2 × √Stiffness")]
+		[SerializeField] private float inertiaDamping = 9f;
+		[Tooltip("Жёсткость пружины ПОВОРОТА. Мягче, чем у смещения, — поворот откликается позже и \"догоняет\" смещение: из этой " +
+			"разницы фаз и получается дуга. Чем ниже относительно смещения — тем сильнее отставание")]
+		[SerializeField] private float inertiaRotationStiffness = 40f;
+		[Tooltip("Затухание пружины ПОВОРОТА (критическое — примерно 2 × √Rotation Stiffness)")]
+		[SerializeField] private float inertiaRotationDamping = 6f;
+		[Tooltip("Насколько затухающий наклон закручивается в дугу: часть колебания по наклону с запаздыванием переходит в поворот " +
+			"в сторону — ствол описывает затухающую дугу/круг, а не просто кивает. 0 — только кивок")]
+		[SerializeField] private float inertiaArcCoupling = 0.3f;
+		[Tooltip("Множитель инерции в прицеле (AimBlend = 1) — обычно сильно гасит эффект")]
+		[SerializeField] private float inertiaAimMultiplier = 0.3f;
+
 		public float SwayPositionAmount => swayPositionAmount;
 		public float MaxSwayPositionOffset => maxSwayPositionOffset;
 		public float SwayRotationAmount => swayRotationAmount;
@@ -100,5 +130,17 @@ namespace Weapons
 		public float LandingImpulseMultiplier => landingImpulseMultiplier;
 		public float JumpImpulseStrength => jumpImpulseStrength;
 		public float MaxImpulseStrength => maxImpulseStrength;
+
+		public float InertiaPitchPerAcceleration => inertiaPitchPerAcceleration;
+		public float InertiaRollPerAcceleration => inertiaRollPerAcceleration;
+		public float InertiaPositionPerAcceleration => inertiaPositionPerAcceleration;
+		public float InertiaMaxAcceleration => inertiaMaxAcceleration;
+		public float InertiaInputSmoothing => inertiaInputSmoothing;
+		public float InertiaStiffness => inertiaStiffness;
+		public float InertiaDamping => inertiaDamping;
+		public float InertiaRotationStiffness => inertiaRotationStiffness;
+		public float InertiaRotationDamping => inertiaRotationDamping;
+		public float InertiaArcCoupling => inertiaArcCoupling;
+		public float InertiaAimMultiplier => inertiaAimMultiplier;
 	}
 }

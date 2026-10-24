@@ -20,12 +20,15 @@ namespace StarterAssets
 		public float RotationSpeed = 1.0f;
 
 		[Header("Movement Feel")]
-		[Tooltip("How fast horizontal speed ramps up towards its target while grounded, in m/s^2")]
-		public float Acceleration = 25.0f;
-		[Tooltip("How fast horizontal speed ramps down towards its target (e.g. to a stop) while grounded, in m/s^2")]
-		public float Deceleration = 30.0f;
+		[Tooltip("Плавность разгона, сек. Скорость меняется по S-кривой (SmoothDamp): ускорение плавно нарастает с нуля и плавно " +
+			"спадает у целевой скорости — без острых углов, которые камера, покачивание и инерция оружия ощущают как рывок. " +
+			"~95% скорости набирается примерно за 2.4 × это значение. Обычно 0.06–0.15")]
+		public float AccelerationTime = 0.1f;
+		[Tooltip("Плавность торможения (в том числе до полной остановки), сек — так же, как Acceleration Time")]
+		public float DecelerationTime = 0.08f;
 		[Range(0f, 1f)]
-		[Tooltip("Fraction of ground Acceleration/Deceleration applied while airborne. Keep this low so jumps carry momentum instead of being steerable like on the ground; 0 = no air control at all")]
+		[Tooltip("Насколько управляемо движение в воздухе: разгон и торможение там во столько раз медленнее. Keep this low so jumps carry " +
+			"momentum instead of being steerable like on the ground; 0 = no air control at all")]
 		public float AirControl = 0.1f;
 
 		[Space(10)]
@@ -89,6 +92,8 @@ namespace StarterAssets
 		// acceleration/deceleration and reduced air control both work: it's the character's actual
 		// carried momentum, not just "whatever the input currently says"
 		private Vector3 _horizontalVelocity;
+		// текущее "ускорение" SmoothDamp (его внутреннее состояние) — см. Move
+		private Vector3 _horizontalAcceleration;
 		private float _rotationVelocity;
 		private float _verticalVelocity;
 		private float _terminalVelocity = 53.0f;
@@ -169,11 +174,16 @@ namespace StarterAssets
 		// горизонтальная скорость игрока — например, LedgeMantle берёт из неё скорость разбега перед перелезанием
 		// и возвращает её после приземления, чтобы бег продолжался без остановки
 		public Vector3 HorizontalVelocity => _horizontalVelocity;
-		public void SetHorizontalVelocity(Vector3 velocity) => _horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);
+		public void SetHorizontalVelocity(Vector3 velocity)
+		{
+			_horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);
+			_horizontalAcceleration = Vector3.zero;
+		}
 
 		public void StopMotion()
 		{
 			_horizontalVelocity = Vector3.zero;
+			_horizontalAcceleration = Vector3.zero;
 			_verticalVelocity = 0f;
 		}
 
@@ -183,6 +193,7 @@ namespace StarterAssets
 		private void OnDisable()
 		{
 			_horizontalVelocity = Vector3.zero;
+			_horizontalAcceleration = Vector3.zero;
 			JustLanded = false;
 			_airTime = 0f;
 			_airborneFromJump = false;
@@ -464,13 +475,19 @@ namespace StarterAssets
 
 			Vector3 wishVelocity = inputDirection * (targetSpeed * inputMagnitude);
 
-			// speeding up uses Acceleration, slowing down (or stopping) uses Deceleration; both are scaled
-			// down by AirControl while airborne so jumps carry their ground momentum instead of being
-			// freely steerable mid-air
-			float rate = wishVelocity.sqrMagnitude > _horizontalVelocity.sqrMagnitude ? Acceleration : Deceleration;
-			if (!Grounded) rate *= AirControl;
+			// Скорость меняется по S-кривой (SmoothDamp — критически задемпфированная пружина): ускорение нарастает с нуля
+			// и плавно спадает у цели. Раньше было линейно (MoveTowards): ускорение сразу полное при нажатии и сразу ноль
+			// при наборе скорости — острые углы, которые камера и оружие ощущали как рывок на старте и остановке.
+			// Разгон — AccelerationTime, торможение — DecelerationTime; в воздухе оба медленнее в 1/AirControl раз, чтобы
+			// прыжок сохранял разгон, а не управлялся как на земле
+			float smoothTime = wishVelocity.sqrMagnitude > _horizontalVelocity.sqrMagnitude ? AccelerationTime : DecelerationTime;
+			if (!Grounded) smoothTime = AirControl > 0f ? smoothTime / AirControl : float.PositiveInfinity;
 
-			_horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, wishVelocity, rate * Time.deltaTime);
+			if (!float.IsPositiveInfinity(smoothTime))
+			{
+				_horizontalVelocity = Vector3.SmoothDamp(_horizontalVelocity, wishVelocity, ref _horizontalAcceleration,
+					Mathf.Max(smoothTime, 0.0001f));
+			}
 
 			// sliding along the wall instead of stalling: only redirect when actually moving into it
 			// (dot < 0), otherwise a wall grazed earlier would keep deflecting velocity away from it.
@@ -480,6 +497,8 @@ namespace StarterAssets
 			if (_touchingWall && Vector3.Dot(_horizontalVelocity, _wallNormal) < 0f)
 			{
 				_horizontalVelocity = Vector3.ProjectOnPlane(_horizontalVelocity, _wallNormal);
+				// и накопленное ускорение SmoothDamp — иначе оно продолжало бы "давить" в стену
+				_horizontalAcceleration = Vector3.ProjectOnPlane(_horizontalAcceleration, _wallNormal);
 			}
 			_touchingWall = false; // re-set by OnControllerColliderHit below if still against a wall this move
 

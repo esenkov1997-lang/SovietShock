@@ -234,8 +234,8 @@ MonoBehaviour:
   MoveSpeed: 3
   SprintSpeed: 6
   RotationSpeed: 1
-  Acceleration: 15
-  Deceleration: 30
+  AccelerationTime: 0.1
+  DecelerationTime: 0.08
   AirControl: 0.2
   JumpHeight: 1.2
   Gravity: -30
@@ -658,8 +658,8 @@ MonoBehaviour:
   SprintBobSpeed: 1.5
   SprintBobAmount: 0.15
   SprintRollAmount: 0.5
-  BlendSpeed: 30
-  MinSpeed: 1
+  BlendSpeed: 6
+  MinSpeed: 0.2
   StateSmoothing: 6
 --- !u!114 &1055818204457968310
 MonoBehaviour:

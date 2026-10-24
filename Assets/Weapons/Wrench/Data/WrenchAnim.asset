@@ -18,8 +18,8 @@ MonoBehaviour:
   maxSwayRotationAngle: 30
   swaySmoothing: 4
   bobFrequency: 2
-  bobAmplitude: {x: 0.02, y: 0.005}
-  bobRollAmount: 1.33
+  bobAmplitude: {x: 0.01, y: 0.003}
+  bobRollAmount: 0.5
   bobPitchAmount: -1.78
   bobBlendSpeed: 6
   minMoveSpeedForBob: 1
@@ -35,3 +35,14 @@ MonoBehaviour:
   landingImpulseMultiplier: 1.2
   jumpImpulseStrength: 9.2
   maxImpulseStrength: 1
+  inertiaPitchPerAcceleration: -0.2
+  inertiaRollPerAcceleration: -0.2
+  inertiaPositionPerAcceleration: 0.0008
+  inertiaMaxAcceleration: 30
+  inertiaInputSmoothing: 60
+  inertiaStiffness: 80
+  inertiaDamping: 6
+  inertiaRotationStiffness: 60
+  inertiaRotationDamping: 6
+  inertiaArcCoupling: -0.3
+  inertiaAimMultiplier: 0.03

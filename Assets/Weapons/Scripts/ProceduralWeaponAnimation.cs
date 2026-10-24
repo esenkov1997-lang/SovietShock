@@ -42,6 +42,15 @@ namespace Weapons
 		private Vector3 _springRotationVelocity;
 		private bool _wasGrounded = true;
 
+		// ---- Movement Inertia (оружие как груз на пружине: отстаёт на старте, проскакивает при остановке) ----
+		private Vector3 _lastWorldVelocity;
+		private bool _hasLastVelocity;
+		private Vector3 _smoothedAcceleration;   // в осях игрока: X — вбок, Z — вперёд
+		private Vector3 _inertiaAngles;          // pitch / yaw / roll, градусы
+		private Vector3 _inertiaAngleVelocity;
+		private Vector3 _inertiaPosition;
+		private Vector3 _inertiaPositionVelocity;
+
 		private void Awake()
 		{
 			_weaponController = GetComponent<WeaponController>();
@@ -67,11 +76,12 @@ namespace Weapons
 			Vector3 swayOffset = UpdateSway(out Quaternion swayRotation);
 			Vector3 bobOffset = UpdateBob(out Quaternion bobRotation);
 			Vector3 springOffset = UpdateSpring(out Quaternion springRotation);
+			Vector3 inertiaOffset = UpdateInertia(out Quaternion inertiaRotation);
 
-			// Композиция: базовая поза (уже в VisualRoot) + sway + bobbing + пружина импульсов —
+			// Композиция: базовая поза (уже в VisualRoot) + sway + bobbing + пружина импульсов + инерция движения —
 			// позиции складываются, повороты перемножаются (кватернионный аналог суммы)
-			_visualRoot.localPosition += swayOffset + bobOffset + springOffset;
-			_visualRoot.localRotation = _visualRoot.localRotation * swayRotation * bobRotation * springRotation;
+			_visualRoot.localPosition += swayOffset + bobOffset + springOffset + inertiaOffset;
+			_visualRoot.localRotation = _visualRoot.localRotation * swayRotation * bobRotation * springRotation * inertiaRotation;
 		}
 
 		// ------------------------------------------------------------------
@@ -186,6 +196,61 @@ namespace Weapons
 			Vector3 acceleration = -stiffness * value - damping * velocity;
 			velocity += acceleration * Time.deltaTime;
 			value += velocity * Time.deltaTime;
+		}
+
+		// ------------------------------------------------------------------
+		// Movement Inertia: оружие как груз на пружине, привязанной к телу игрока. Цель пружины — отклонение против
+		// ускорения игрока: на старте тело ускоряется, оружие отстаёт и наклоняется (anticipation); при остановке
+		// тело тормозит, оружие по инерции проскакивает вперёд, а когда ускорение пропадает — пружина возвращает
+		// его к нулю с затухающими колебаниями (overlap). Стрейф — то же вбок, с креном.
+		// Часть колебания по наклону с запаздыванием по фазе (через скорость) уходит в поворот вбок — ствол
+		// описывает затухающую дугу, а не просто кивает.
+		// Ускорение считается в мировых осях и только потом переводится в оси игрока — поэтому поворот мышью
+		// на бегу (вектор скорости поворачивается вместе с игроком) ложной "инерции" не создаёт
+		// ------------------------------------------------------------------
+		private Vector3 UpdateInertia(out Quaternion rotation)
+		{
+			rotation = Quaternion.identity;
+			float dt = Time.deltaTime;
+			if (firstPersonController == null || dt <= 0f) return Vector3.zero;
+
+			Vector3 worldVelocity = firstPersonController.HorizontalVelocity;
+			Vector3 worldAcceleration = _hasLastVelocity ? (worldVelocity - _lastWorldVelocity) / dt : Vector3.zero;
+			_lastWorldVelocity = worldVelocity;
+			_hasLastVelocity = true;
+
+			Vector3 acceleration = Quaternion.Inverse(firstPersonController.transform.rotation) * worldAcceleration;
+			acceleration = Vector3.ClampMagnitude(acceleration, _currentProfile.InertiaMaxAcceleration);
+			// ускорение игрока ступенчатое (при нажатии сразу полное, при наборе скорости сразу ноль) — сглаживаем,
+			// чтобы вход в наклон и выход из него были плавными, а не скачком цели (не зависит от FPS)
+			_smoothedAcceleration = Vector3.Lerp(_smoothedAcceleration, acceleration, 1f - Mathf.Exp(-_currentProfile.InertiaInputSmoothing * dt));
+
+			Vector3 a = _smoothedAcceleration * Mathf.Lerp(1f, _currentProfile.InertiaAimMultiplier, _weaponController.AimBlend);
+			Vector3 targetAngles = new Vector3(a.z * _currentProfile.InertiaPitchPerAcceleration, 0f, -a.x * _currentProfile.InertiaRollPerAcceleration);
+			Vector3 targetPosition = new Vector3(-a.x, 0f, -a.z) * _currentProfile.InertiaPositionPerAcceleration;
+
+			// у смещения и поворота разные пружины: поворот мягче, откликается позже и "догоняет" смещение — из этой
+			// разницы фаз складывается дуга. С одной общей пружиной оба шли синхронно, и дуги не получалось
+			float rotationStiffness = _currentProfile.InertiaRotationStiffness;
+			DriveSpring(ref _inertiaPosition, ref _inertiaPositionVelocity, targetPosition,
+				_currentProfile.InertiaStiffness, _currentProfile.InertiaDamping, dt);
+			DriveSpring(ref _inertiaAngles, ref _inertiaAngleVelocity, targetAngles,
+				rotationStiffness, _currentProfile.InertiaRotationDamping, dt);
+
+			// дуга: скорость кивка подталкивает поворот вбок (сдвиг по фазе на четверть колебания — путь по кругу);
+			// √stiffness — собственная частота пружины поворота, так что Arc Coupling = 1 даёт поворот примерно той же амплитуды
+			_inertiaAngleVelocity.y += _inertiaAngleVelocity.x * _currentProfile.InertiaArcCoupling * Mathf.Sqrt(rotationStiffness) * dt;
+
+			rotation = Quaternion.Euler(_inertiaAngles);
+			return _inertiaPosition;
+		}
+
+		// пружина, которая тянет value к target (а не к нулю, как IntegrateSpring) — тот же полуявный Эйлер
+		private static void DriveSpring(ref Vector3 value, ref Vector3 velocity, Vector3 target, float stiffness, float damping, float dt)
+		{
+			Vector3 acceleration = stiffness * (target - value) - damping * velocity;
+			velocity += acceleration * dt;
+			value += velocity * dt;
 		}
 
 		// публичный вход для физических толчков по позиции (в локальных координатах VisualRoot) —
