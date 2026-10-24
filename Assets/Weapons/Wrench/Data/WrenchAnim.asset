@@ -26,6 +26,7 @@ MonoBehaviour:
   sprintMultiplier: 1.5
   crouchMultiplier: 0.6
   aimMultiplier: 0.5
+  bobStateSmoothing: 3
   positionSpringStiffness: 200
   positionSpringDamping: 18
   rotationSpringStiffness: 40

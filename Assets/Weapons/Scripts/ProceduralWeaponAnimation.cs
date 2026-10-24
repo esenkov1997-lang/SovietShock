@@ -32,6 +32,8 @@ namespace Weapons
 		// ---- Bobbing (фигура Лиссажу по фазе шага) ----
 		private float _bobPhase;
 		private float _bobBlend;
+		// сглаженный множитель состояния (ходьба/спринт/присед/прицел) — см. UpdateBob
+		private float _bobStateMultiplier = 1f;
 
 		// ---- Impact Spring (затухающая пружина для толчков — прыжок/приземление/что угодно ещё) ----
 		private Vector3 _springPosition;
@@ -124,6 +126,12 @@ namespace Weapons
 			// а не резким переключением, чтобы вход/выход из прицела не дёргал покачивание
 			stateMultiplier = Mathf.Lerp(stateMultiplier, stateMultiplier * _currentProfile.AimMultiplier, _weaponController.AimBlend);
 
+			// Состояние переключается за один кадр (спринт вкл/выкл — в том числе сам по себе, при стрейфе на бегу:
+			// IsSprinting требует движения вперёд), а множитель меняет и частоту, и амплитуду в 1.5–2 раза. Без сглаживания
+			// амплитуда прыгала бы скачком прямо посреди шага — оружие дёргалось. Сглаживаем экспоненциально (не зависит от FPS)
+			float stateT = 1f - Mathf.Exp(-_currentProfile.BobStateSmoothing * Time.deltaTime);
+			_bobStateMultiplier = Mathf.Lerp(_bobStateMultiplier, stateMultiplier, stateT);
+
 			float targetBlend = isMoving ? 1f : 0f;
 			_bobBlend = Mathf.MoveTowards(_bobBlend, targetBlend, Time.deltaTime * _currentProfile.BobBlendSpeed);
 
@@ -134,7 +142,7 @@ namespace Weapons
 				return Vector3.zero;
 			}
 
-			_bobPhase += Time.deltaTime * _currentProfile.BobFrequency * stateMultiplier;
+			_bobPhase += Time.deltaTime * _currentProfile.BobFrequency * _bobStateMultiplier;
 			float phaseRadians = _bobPhase * Mathf.PI * 2f;
 
 			// сама фигура Лиссажу: X на половинной частоте относительно Y. Pitch (кивок) идёт на той же
@@ -145,7 +153,9 @@ namespace Weapons
 			float roll = Mathf.Sin(phaseRadians * 0.5f) * _currentProfile.BobRollAmount;
 			float pitch = Mathf.Sin(phaseRadians) * _currentProfile.BobPitchAmount;
 
-			float amount = _bobBlend * stateMultiplier;
+			// нарастание/спад по плавной кривой (SmoothStep), а не линейно: покачивание мягко трогается и мягко
+			// затихает, без рывка в начале и резкой остановки в конце
+			float amount = Mathf.SmoothStep(0f, 1f, _bobBlend) * _bobStateMultiplier;
 			rotation = Quaternion.Euler(pitch * amount, 0f, roll * amount);
 			return new Vector3(x, y, 0f) * amount;
 		}

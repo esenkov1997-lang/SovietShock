@@ -258,6 +258,7 @@ MonoBehaviour:
   TopClamp: 89
   BottomClamp: -89
   ExtraPitchOffset: 0
+  ExtraRollOffset: 0
   ExtraPositionOffset: {x: 0, y: 0, z: 0}
   ExtraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
   ExtraCameraDrop: 0
@@ -513,6 +514,7 @@ MonoBehaviour:
   vaultClip: {fileID: 1725478086162327817, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
   mantleLayerName: Mantle
   climbTrigger: Mantle
+  vaultLayerName: Vault
   vaultTrigger: Vault
   layerBlendIn: 0.08
   layerBlendOut: 0.15
@@ -539,15 +541,15 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 0
       value: 0
-      inSlope: 1
-      outSlope: 1
+      inSlope: 2
+      outSlope: 2
       tangentMode: 34
       weightedMode: 0
       inWeight: 0.33333334
       outWeight: 0.33333334
     - serializedVersion: 3
       time: 0.5
-      value: 0.5
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 136
@@ -556,7 +558,7 @@ MonoBehaviour:
       outWeight: 0.33333334
     - serializedVersion: 3
       time: 1.5
-      value: -0.5
+      value: -1
       inSlope: 0
       outSlope: 0
       tangentMode: 136
@@ -566,8 +568,8 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 2
       value: 0
-      inSlope: 1
-      outSlope: 1
+      inSlope: 2
+      outSlope: 2
       tangentMode: 34
       weightedMode: 0
       inWeight: 0.33333334
@@ -580,7 +582,7 @@ MonoBehaviour:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: -1
+      value: 0
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -589,7 +591,7 @@ MonoBehaviour:
       outWeight: 0
     - serializedVersion: 3
       time: 0.5
-      value: 1
+      value: -1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -598,7 +600,7 @@ MonoBehaviour:
       outWeight: 0
     - serializedVersion: 3
       time: 1
-      value: -1
+      value: 0
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -608,12 +610,57 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  WalkBobSpeed: 1.5
-  WalkBobAmount: 0.03
-  SprintBobSpeed: 2.6
-  SprintBobAmount: 0.07
+  BobRoll:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 4
+      outSlope: 4
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.25
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.75
+      value: -1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 4
+      outSlope: 4
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  WalkBobSpeed: 1
+  WalkBobAmount: 0.1
+  WalkRollAmount: 0.2
+  SprintBobSpeed: 1.5
+  SprintBobAmount: 0.15
+  SprintRollAmount: 0.5
   BlendSpeed: 30
   MinSpeed: 1
+  StateSmoothing: 6
 --- !u!114 &1055818204457968310
 MonoBehaviour:
   m_ObjectHideFlags: 0

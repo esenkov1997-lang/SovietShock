@@ -134,6 +134,9 @@ namespace StarterAssets
 		// lets add-on components (LedgeMantle's climb tilt, hand-animated weapon camera bones, etc.)
 		// contribute to the camera without fighting CameraRotation() for ownership of the Transform
 		public float ExtraPitchOffset;
+		// крен камеры (вокруг направления взгляда), градусы — например, наклон головы в такт шагам (CameraHeadBob).
+		// Отдельное поле: ExtraRotationOffset каждый кадр перезаписывает WeaponCameraAnchor
+		public float ExtraRollOffset;
 		public Vector3 ExtraPositionOffset;
 		public Quaternion ExtraRotationOffset = Quaternion.identity;
 		// how far the camera is lowered on top of the normal crouch height, in metres (LedgeMantle drops it
@@ -327,7 +330,7 @@ namespace StarterAssets
 			// camera tilt or a hand-animated weapon camera bone still show up even if the player isn't
 			// currently moving the mouse. Position and rotation are each written exactly once, here,
 			// combining every contributor — nothing else should touch CinemachineCameraTarget's transform
-			Quaternion lookRotation = Quaternion.Euler(_cinemachineTargetPitch + ExtraPitchOffset, 0.0f, 0.0f) * ExtraRotationOffset;
+			Quaternion lookRotation = Quaternion.Euler(_cinemachineTargetPitch + ExtraPitchOffset, 0.0f, ExtraRollOffset) * ExtraRotationOffset;
 			CinemachineCameraTarget.transform.localPosition =
 				_cameraBaseLocalPosition + ExtraPositionOffset + Vector3.down * ExtraCameraDrop
 				+ lookRotation * AnimatedCameraPositionOffset;

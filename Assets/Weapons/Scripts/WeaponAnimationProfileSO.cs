@@ -47,6 +47,9 @@ namespace Weapons
 		[SerializeField] private float crouchMultiplier = 0.5f;
 		[Tooltip("Множитель частоты И амплитуды bob при полном прицеливании (WeaponController.AimBlend = 1) — обычно сильно гасит покачивание. Между 0 и 1 линейно интерполируется вместе с самим прицеливанием")]
 		[SerializeField] private float aimMultiplier = 0.25f;
+		[Tooltip("Скорость, с которой bob плавно перестраивается при смене состояния (ходьба ↔ спринт ↔ присед): частота и амплитуда " +
+			"не прыгают за один кадр, а догоняют новое значение. Больше — быстрее перестройка, меньше — мягче. Обычно 4–10")]
+		[SerializeField] private float bobStateSmoothing = 6f;
 
 		[Header("Impact Spring — жёсткость/затухание (позиция, метры)")]
 		[Tooltip("Жёсткость пружины (stiffness) — чем больше, тем быстрее толчок стягивается обратно к нулю")]
@@ -86,6 +89,7 @@ namespace Weapons
 		public float SprintMultiplier => sprintMultiplier;
 		public float CrouchMultiplier => crouchMultiplier;
 		public float AimMultiplier => aimMultiplier;
+		public float BobStateSmoothing => bobStateSmoothing;
 
 		public float PositionSpringStiffness => positionSpringStiffness;
 		public float PositionSpringDamping => positionSpringDamping;
