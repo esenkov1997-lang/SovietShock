@@ -1,3 +1,4 @@
+using StarterAssets;
 using UnityEngine;
 
 namespace Weapons
@@ -151,5 +152,29 @@ namespace Weapons
 		public float InertiaRotationDamping => inertiaRotationDamping;
 		public float InertiaArcCoupling => inertiaArcCoupling;
 		public float InertiaAimMultiplier => inertiaAimMultiplier;
+
+		// те же значения одним набором — для общего расчёта инерции (StarterAssets.MovementInertia, им же пользуется камера).
+		// Заполняется при каждом обращении — правки профиля в Play Mode применяются сразу
+		private MovementInertiaSettings _inertiaSettings;
+		public MovementInertiaSettings InertiaSettings
+		{
+			get
+			{
+				if (_inertiaSettings == null) _inertiaSettings = new MovementInertiaSettings();
+				_inertiaSettings.PitchPerAcceleration = inertiaPitchPerAcceleration;
+				_inertiaSettings.RollPerAcceleration = inertiaRollPerAcceleration;
+				_inertiaSettings.PositionPerAcceleration = inertiaPositionPerAcceleration;
+				_inertiaSettings.VerticalPitchPerAcceleration = inertiaVerticalPitchPerAcceleration;
+				_inertiaSettings.VerticalPositionPerAcceleration = inertiaVerticalPositionPerAcceleration;
+				_inertiaSettings.MaxAcceleration = inertiaMaxAcceleration;
+				_inertiaSettings.InputSmoothing = inertiaInputSmoothing;
+				_inertiaSettings.Stiffness = inertiaStiffness;
+				_inertiaSettings.Damping = inertiaDamping;
+				_inertiaSettings.RotationStiffness = inertiaRotationStiffness;
+				_inertiaSettings.RotationDamping = inertiaRotationDamping;
+				_inertiaSettings.ArcCoupling = inertiaArcCoupling;
+				return _inertiaSettings;
+			}
+		}
 	}
 }

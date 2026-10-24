@@ -35,7 +35,7 @@ MonoBehaviour:
   ComboLength: 2
   ComboStepParam: ComboStep
   InputBufferTime: 0.25
-  ComboCooldown: 0.05
+  ComboCooldown: 0.02
   Repair:
     CanRepair: 1
     Tank:

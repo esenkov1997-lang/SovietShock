@@ -154,6 +154,7 @@ GameObject:
   - component: {fileID: 8997996947095583982}
   - component: {fileID: 8616685848737228382}
   - component: {fileID: 8616685848737228371}
+  - component: {fileID: -3036965637234915808}
   - component: {fileID: 1978471637655604388}
   - component: {fileID: 5420857361349278248}
   - component: {fileID: 8616685848737228376}
@@ -264,6 +265,34 @@ MonoBehaviour:
   ExtraCameraDrop: 0
   AnimatedCameraPositionOffset: {x: 0, y: 0, z: 0}
   AnimatedCameraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
+  InertiaCameraPositionOffset: {x: 0, y: 0, z: 0}
+  InertiaCameraRotationOffset: {x: 0, y: 0, z: 0, w: 1}
+--- !u!114 &-3036965637234915808
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616685848737228372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc586b46b69138d4780c83ae18019cc6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  settings:
+    PitchPerAcceleration: 0.04
+    RollPerAcceleration: 0.03
+    PositionPerAcceleration: 0
+    VerticalPitchPerAcceleration: -0.05
+    VerticalPositionPerAcceleration: -0.0015
+    MaxAcceleration: 30
+    InputSmoothing: 8
+    Stiffness: 80
+    Damping: 12
+    RotationStiffness: 60
+    RotationDamping: 6
+    ArcCoupling: 0
+  strength: 1
 --- !u!114 &1978471637655604388
 MonoBehaviour:
   m_ObjectHideFlags: 0

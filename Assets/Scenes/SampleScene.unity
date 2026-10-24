@@ -3712,7 +3712,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 9005220659476430818, guid: 2d3a85ecde41a8246a79669975912b74, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -40.14464
+      value: -78.14464
       objectReference: {fileID: 0}
     - target: {fileID: 9005220659476430818, guid: 2d3a85ecde41a8246a79669975912b74, type: 3}
       propertyPath: m_LocalPosition.y
@@ -3720,7 +3720,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9005220659476430818, guid: 2d3a85ecde41a8246a79669975912b74, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 56.8
+      value: 55.8
       objectReference: {fileID: 0}
     - target: {fileID: 9005220659476430818, guid: 2d3a85ecde41a8246a79669975912b74, type: 3}
       propertyPath: m_LocalRotation.w
@@ -4174,6 +4174,7 @@ MonoBehaviour:
     m_LocalVariables: []
   holdOffsetPosition: {x: 0, y: -0.5, z: 0.2}
   holdOffsetRotation: {x: 0, y: 0, z: 0}
+  maxDepenetrationVelocity: 3
   transparentMaterial: {fileID: 0}
   OnPickedUp:
     m_PersistentCalls:
@@ -14902,27 +14903,27 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -1
+      value: -2
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -3.6488574
+      value: -4.148857
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.70710695
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.7071067
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -14934,7 +14935,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6599809959589329521, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
+      value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
       propertyPath: m_Name
@@ -53528,6 +53529,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1437836331}
+  - component: {fileID: 1437836332}
   m_Layer: 0
   m_Name: Ref probe
   m_TagString: Untagged
@@ -53556,6 +53558,38 @@ Transform:
   - {fileID: 455140300}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1437836332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1437836330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 23800000, guid: 3fec7a99fe15f8e418d917fbdf104d6a, type: 2}
+  m_BuildHeightMesh: 0
 --- !u!1001 &1440002037
 PrefabInstance:
   m_ObjectHideFlags: 0

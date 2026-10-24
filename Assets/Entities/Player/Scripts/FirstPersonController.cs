@@ -152,6 +152,10 @@ namespace StarterAssets
 		// in the camera's own axes. Separate fields because WeaponCameraAnchor overwrites ExtraRotationOffset every frame
 		public Vector3 AnimatedCameraPositionOffset;
 		public Quaternion AnimatedCameraRotationOffset = Quaternion.identity;
+		// инерция камеры (CameraInertia): смещение в осях игрока (как ExtraPositionOffset) и поворот в осях камеры.
+		// Отдельные поля — остальные каждый кадр пишут другие компоненты
+		public Vector3 InertiaCameraPositionOffset;
+		public Quaternion InertiaCameraRotationOffset = Quaternion.identity;
 
 		// full standing capsule height (captured at Awake) — e.g. for LedgeMantle to know how much a
 		// crouch-height pass lowers the camera
@@ -349,8 +353,8 @@ namespace StarterAssets
 			Quaternion lookRotation = Quaternion.Euler(_cinemachineTargetPitch + ExtraPitchOffset, 0.0f, ExtraRollOffset) * ExtraRotationOffset;
 			CinemachineCameraTarget.transform.localPosition =
 				_cameraBaseLocalPosition + ExtraPositionOffset + Vector3.down * ExtraCameraDrop
-				+ lookRotation * AnimatedCameraPositionOffset;
-			CinemachineCameraTarget.transform.localRotation = lookRotation * AnimatedCameraRotationOffset;
+				+ lookRotation * AnimatedCameraPositionOffset + InertiaCameraPositionOffset;
+			CinemachineCameraTarget.transform.localRotation = lookRotation * AnimatedCameraRotationOffset * InertiaCameraRotationOffset;
 		}
 
 		// returns true if jump was freshly pressed this frame and wasn't consumed to stand up from a crouch
