@@ -77,10 +77,14 @@ namespace Weapons
 		// подстраховка на случай, если Animation Event (WeaponReady/ReloadComplete) забыли проставить в клипе —
 		// не обязана быть точной, это просто "не застрять навсегда", а не основной механизм тайминга
 		private const float FallbackAnimationDuration = 3f;
+		// то же для клипа предмета в руках (аптечка): он длиннее клипов оружия, ждём дольше
+		private const float FallbackItemActionDuration = 10f;
 
 		private readonly List<WeaponSlot> _inventory = new List<WeaponSlot>();
 		private int _currentIndex = -1;
 		private GameObject _currentVisual;
+		// что сейчас показано в руках: текущее оружие или предмет действия (BeginItemAction)
+		private IViewModelSource _currentViewModel;
 		private WeaponMuzzle _currentMuzzle;
 		private MuzzleFlash _currentMuzzleFlash;
 		private Animator _currentAnimator;
@@ -109,6 +113,19 @@ namespace Weapons
 
 		// идёт смена: старое оружие убирается — стрелять, бить, перезаряжаться, чинить и выбрасывать нельзя
 		public bool IsSwitching => _pendingSlot != null;
+
+		// действие с предметом в руках (BeginItemAction): оружие доигрывает Hide, затем в руках предмет со своим клипом,
+		// в конце клипа (WeaponHidden) оружие возвращается с Draw. Всё это время оружием пользоваться нельзя
+		private IViewModelSource _itemSource;
+		private string _itemTrigger;
+		private IItemActionHandler _itemHandler;
+		// предмет уже в руках (до этого доигрывает Hide оружия)
+		private bool _itemSpawned;
+		// клип уже дошёл до ItemUseFinished
+		private bool _itemFinished;
+		private float _itemFallbackTime;
+
+		public bool IsUsingItem => _itemHandler != null;
 
 		// общая постановка рук — чтобы другие риги рук (например, пустые руки при подъёме, Player.MantleArmsAnimation)
 		// стояли относительно камеры ровно так же, как руки оружия
@@ -181,8 +198,10 @@ namespace Weapons
 		// магазин был тем же, а не снова полным
 		public event System.Action<WeaponData, GameObject, int> WeaponDropped;
 
-		// данные текущего оружия — читает, например, ProceduralWeaponAnimation для AnimationProfile
+		// данные выбранного оружия. Во время действия с предметом (IsUsingItem) — то, что вернётся в руки после него
 		public WeaponData CurrentWeaponData => _currentIndex >= 0 ? _inventory[_currentIndex].Data : null;
+		// что сейчас реально в руках (оружие или предмет) — читает, например, ProceduralWeaponAnimation для AnimationProfile
+		public IViewModelSource CurrentViewModel => _currentVisual != null ? _currentViewModel : null;
 
 		// --- состояние для HUD (только чтение) ---
 
@@ -251,13 +270,15 @@ namespace Weapons
 			if (_inventory.Count > 0) EquipByIndex(_inventory.Count - 1);
 		}
 
-		// позиция/поворот в руках для этого WeaponHolder: сначала смотрим оверрайд (handPlacementOverrides),
-		// иначе — значения по умолчанию из самого WeaponData
-		private Vector3 GetHandPosition(WeaponData data) =>
-			_handPlacementByWeapon.TryGetValue(data, out WeaponHandPlacementOverride placement) ? placement.HandPosition : data.HandPosition;
+		// позиция/поворот в руках для этого WeaponHolder: сначала смотрим оверрайд (handPlacementOverrides, только для оружия),
+		// иначе — значения по умолчанию из самих данных
+		private Vector3 GetHandPosition(IViewModelSource source) =>
+			source is WeaponData weapon && _handPlacementByWeapon.TryGetValue(weapon, out WeaponHandPlacementOverride placement)
+				? placement.HandPosition : source.HandPosition;
 
-		private Vector3 GetHandRotation(WeaponData data) =>
-			_handPlacementByWeapon.TryGetValue(data, out WeaponHandPlacementOverride placement) ? placement.HandRotation : data.HandRotation;
+		private Vector3 GetHandRotation(IViewModelSource source) =>
+			source is WeaponData weapon && _handPlacementByWeapon.TryGetValue(weapon, out WeaponHandPlacementOverride placement)
+				? placement.HandRotation : source.HandRotation;
 
 		private void Update()
 		{
@@ -273,6 +294,15 @@ namespace Weapons
 			{
 				Debug.LogWarning($"{CurrentWeaponData?.name}: смена оружия по таймеру — в клипе Hide нет Animation Event WeaponHidden", CurrentWeaponData);
 				FinishSwitch();
+			}
+
+			// подстраховка для действия с предметом: нет WeaponHidden в конце Hide оружия или в конце клипа предмета
+			if (IsUsingItem && Time.time >= _itemFallbackTime)
+			{
+				Debug.LogWarning($"{_itemSource.name}: действие с предметом продолжено по таймеру — в клипе " +
+					$"{(_itemSpawned ? "предмета" : "Hide оружия")} нет Animation Event WeaponHidden", _itemSource as Object);
+				if (_itemSpawned) FinishItemAction();
+				else SpawnItem();
 			}
 
 			UpdateMantleLayer();
@@ -339,7 +369,7 @@ namespace Weapons
 		// вызывать каждый кадр с текущим состоянием ПКМ. Прицел есть только у огнестрела
 		public void SetAiming(bool held)
 		{
-			if (IsHolstered || IsSwitching) held = false;
+			if (IsHolstered || IsSwitching || IsUsingItem) held = false;
 			_isAiming = held && CurrentWeaponData is FirearmData;
 		}
 
@@ -349,7 +379,8 @@ namespace Weapons
 		// просто тратится со своей скоростью Repair.AmmoPerSecond
 		public void TickHeal(bool held)
 		{
-			if (IsHolstered) return;
+			// в руках предмет — Animator принадлежит ему, а горелку погасил BeginItemAction
+			if (IsHolstered || IsUsingItem) return;
 
 			WeaponSlot slot = _currentIndex >= 0 ? _inventory[_currentIndex] : null;
 			MeleeWeaponData tool = slot?.Data as MeleeWeaponData;
@@ -384,7 +415,7 @@ namespace Weapons
 		// Если ПКМ к этому моменту уже отпустили, событие игнорируется: анимация всё равно уходит в Repair_End
 		public void NotifyRepairStart()
 		{
-			if (IsHolstered || float.IsPositiveInfinity(_repairStartFallbackTime)) return;
+			if (IsHolstered || IsUsingItem || float.IsPositiveInfinity(_repairStartFallbackTime)) return;
 			SetRepairFlame(true);
 		}
 
@@ -487,12 +518,12 @@ namespace Weapons
 		// Для рига "в реальном положении": запоминает позу кости камеры в префабе и кость оружия (точку раскачки),
 		// дальше UpdateAlignedPose каждый кадр держит кость камеры в камере игрока (WeaponHolder).
 		// Вызывается сразу после Instantiate — Animator ещё не отработал, кости стоят в позе покоя из модели.
-		private void AlignToCameraBone(Transform visual, WeaponData data)
+		private void AlignToCameraBone(Transform visual, IViewModelSource data)
 		{
 			Transform cameraBone = FindDeep(visual, cameraBoneName);
 			if (cameraBone == null)
 			{
-				Debug.LogWarning($"{data.name}: включён Align Arms To Camera Bone, но в In Hand Prefab нет кости \"{cameraBoneName}\"", data);
+				Debug.LogWarning($"{data.name}: включён Align Arms To Camera Bone, но в In Hand Prefab нет кости \"{cameraBoneName}\"", data as Object);
 				return;
 			}
 
@@ -506,7 +537,7 @@ namespace Weapons
 
 			_swayPivotBone = FindDeep(visual, swayPivotBoneName);
 			if (_swayPivotBone == null)
-				Debug.LogWarning($"{data.name}: в In Hand Prefab нет кости \"{swayPivotBoneName}\" — точка раскачки берётся из Hand Position", data);
+				Debug.LogWarning($"{data.name}: в In Hand Prefab нет кости \"{swayPivotBoneName}\" — точка раскачки берётся из Hand Position", data as Object);
 
 			UpdateAlignedPose(data);
 		}
@@ -517,7 +548,7 @@ namespace Weapons
 		//   корень префаба сдвигается обратно на ту же величину — руки остаются ровно по кости камеры, как в Blender;
 		//   прицел — смещение VisualRoot от точки раскачки (Aim Position/Rotation), оно сдвигает руки.
 		// Положение кости берётся с прошлого кадра (Animator обновляет кости после Update) — запаздывание незаметно.
-		private void UpdateAlignedPose(WeaponData data)
+		private void UpdateAlignedPose(IViewModelSource data)
 		{
 			Transform visual = _currentVisual.transform;
 
@@ -585,9 +616,7 @@ namespace Weapons
 		// Update гарантированно отрабатывает раньше LateUpdate, так что база всегда чистая к их началу.
 		private void UpdateAimPose()
 		{
-			if (_currentVisual == null) return;
-
-			WeaponData data = CurrentWeaponData;
+			IViewModelSource data = CurrentViewModel;
 			if (data == null) return;
 
 			if (_alignedToCameraBone)
@@ -618,13 +647,13 @@ namespace Weapons
 		{
 			// при одном оружии в инвентаре (currentIndex + 1) % 1 всегда даёт 0 — переключение
 			// на самого себя без надобности переигрывало бы Draw-анимацию
-			if (IsHolstered || _inventory.Count <= 1) return;
+			if (IsHolstered || IsUsingItem || _inventory.Count <= 1) return;
 			SwitchTo((SelectedIndex + 1) % _inventory.Count);
 		}
 
 		public void Previous()
 		{
-			if (IsHolstered || _inventory.Count <= 1) return;
+			if (IsHolstered || IsUsingItem || _inventory.Count <= 1) return;
 			SwitchTo((SelectedIndex - 1 + _inventory.Count) % _inventory.Count);
 		}
 
@@ -639,6 +668,13 @@ namespace Weapons
 			if (index < 0 || index >= _inventory.Count) return;
 
 			WeaponSlot target = _inventory[index];
+
+			// в руках предмет (например, подобрали оружие во время лечения) — меняем только то, что вернётся в руки после него
+			if (IsUsingItem)
+			{
+				_currentIndex = index;
+				return;
+			}
 
 			// листают дальше, пока старое ещё убирается — меняем только цель, Hide не перезапускаем
 			if (IsSwitching)
@@ -670,9 +706,17 @@ namespace Weapons
 			_currentAnimator.SetTrigger(CurrentWeaponData.HideTrigger);
 		}
 
-		// вызывается из WeaponAnimationEvents по Animation Event WeaponHidden в конце клипа Hide
+		// вызывается из WeaponAnimationEvents по Animation Event WeaponHidden в конце клипа Hide — и в конце клипа
+		// предмета в руках (аптечка): предмет убран из кадра, оружие возвращается
 		public void NotifyWeaponHidden()
 		{
+			if (IsUsingItem)
+			{
+				if (_itemSpawned) FinishItemAction();
+				else SpawnItem();
+				return;
+			}
+
 			if (IsSwitching) FinishSwitch();
 		}
 
@@ -695,12 +739,13 @@ namespace Weapons
 		}
 
 		// мгновенно спавнит InHandPrefab выбранного оружия внутри VisualRoot, убирая старый визуал — без анимации
-		// Hide (для обычной смены с анимацией — SwitchTo). Отменяет незаконченную смену, если она шла
+		// Hide (для обычной смены с анимацией — SwitchTo). Отменяет незаконченную смену и действие с предметом, если они шли
 		public void EquipByIndex(int index)
 		{
 			if (index < 0 || index >= _inventory.Count) return;
 
 			_pendingSlot = null;
+			AbortItemAction();
 
 			// гасим горелку ещё со старым оружием (_currentIndex не сменён) — выключится его пламя/свет,
 			// остановится луп и сыграет его звук затухания
@@ -709,38 +754,14 @@ namespace Weapons
 
 			_currentIndex = index;
 
-			if (_currentVisual != null) Destroy(_currentVisual);
-
 			WeaponData data = _inventory[_currentIndex].Data;
-			_alignedToCameraBone = false;
-			_currentMuzzle = null;
-			_currentMuzzleFlash = null;
-			_currentAnimator = null;
-			_currentAudio = null;
-			_mantleLayer = -1; // слой подъёма был у старого Animator — у нового вес по умолчанию из контроллера
-			_mantleWeight = 0f;
 			_isReloading = false; // смена оружия отменяет незаконченную перезарядку предыдущего
 			ResetCombo(); // и недоигранное комбо — новое оружие начинает с первого удара
 			_meleeCooldownEndTime = 0f; // пауза после комбо была у прошлого оружия
 			_attackBufferedUntil = float.NegativeInfinity;
 			_aimBlend = 0f; // смена оружия сбрасывает прицел — новое оружие всегда начинается от бедра
 
-			if (data.InHandPrefab != null)
-			{
-				_currentVisual = Instantiate(data.InHandPrefab, _visualRoot);
-				_currentVisual.transform.localPosition = Vector3.zero;
-				_currentVisual.transform.localRotation = Quaternion.identity;
-				if (data.AlignArmsToCameraBone) AlignToCameraBone(_currentVisual.transform, data);
-				if (_weaponLayer >= 0) SetLayerRecursively(_currentVisual, _weaponLayer);
-				_currentMuzzle = _currentVisual.GetComponentInChildren<WeaponMuzzle>();
-				_currentMuzzleFlash = _currentVisual.GetComponentInChildren<MuzzleFlash>();
-				_currentAnimator = _currentVisual.GetComponentInChildren<Animator>();
-				_currentAudio = _currentVisual.GetComponentInChildren<WeaponAudio>();
-			}
-			else
-			{
-				Debug.LogWarning($"{data.name}: не задан In Hand Prefab — оружие экипировано, но в руках ничего не появится", data);
-			}
+			SpawnViewModel(data);
 
 			// проверяем один раз при экипировке: SetTrigger на несуществующий параметр сыпал бы предупреждение
 			// в консоль, а смена ждала бы таймер-подстраховку — у оружия без Hide она просто мгновенная
@@ -788,6 +809,10 @@ namespace Weapons
 				SetRepairFlame(false);
 				_repairStartFallbackTime = float.PositiveInfinity;
 
+				// руки убрали посреди действия с предметом (терминал, захват, смерть) — действие прерывается,
+				// при возвращении в руки появится оружие
+				CancelItemAction();
+
 				_visualRoot.gameObject.SetActive(false);
 			}
 			else
@@ -796,6 +821,199 @@ namespace Weapons
 				// заново "достаём" текущее оружие — с Draw-анимацией и задержкой перед первым выстрелом
 				if (_currentIndex >= 0) EquipByIndex(_currentIndex);
 			}
+		}
+
+		// Взять предмет в руки на время его анимации (аптечка): текущее оружие играет Hide, после WeaponHidden в руках
+		// появляется item.InHandPrefab и запускается trigger (пусто — клип играет как состояние по умолчанию контроллера).
+		// Ключевые моменты клипа приходят в handler (Animation Event ItemApplied / ItemUseFinished), в конце клипа
+		// (WeaponHidden) оружие возвращается с Draw. false — сейчас нельзя (руки убраны, уже идёт действие, нет префаба)
+		public bool BeginItemAction(IViewModelSource item, string trigger, IItemActionHandler handler)
+		{
+			if (item == null || handler == null || IsHolstered || IsUsingItem) return false;
+			if (item.InHandPrefab == null)
+			{
+				Debug.LogWarning($"{item.name}: не задан In Hand Prefab — предмет нечем показать в руках", item as Object);
+				return false;
+			}
+
+			// всё, что делало оружие, прерываем — как при смене оружия
+			SetRepairFlame(false);
+			_repairStartFallbackTime = float.PositiveInfinity;
+			_isReloading = false;
+			ResetCombo();
+			_attackBufferedUntil = float.NegativeInfinity;
+			_isAiming = false;
+
+			_itemSource = item;
+			_itemTrigger = trigger;
+			_itemHandler = handler;
+			_itemSpawned = false;
+			_itemFinished = false;
+			_itemFallbackTime = Time.time + FallbackAnimationDuration;
+
+			// шла смена — старое оружие уже играет Hide: дожидаемся его, а после предмета в руки вернётся новое
+			if (IsSwitching)
+			{
+				int target = _inventory.IndexOf(_pendingSlot);
+				if (target >= 0) _currentIndex = target;
+				_pendingSlot = null;
+				return true;
+			}
+
+			// убирать нечего (пустые руки) или у оружия нет Hide — предмет сразу
+			if (_currentViewModel is WeaponData shown && _currentAnimator != null && _currentHasHideTrigger)
+			{
+				_currentAnimator.SetTrigger(shown.HideTrigger);
+			}
+			else
+			{
+				SpawnItem();
+			}
+			return true;
+		}
+
+		// прервать действие с предметом: предмет убирается сразу, без доигрывания клипа, оружие возвращается с Draw
+		// (если руки не убраны). Всё, что успело произойти до этого (например, лечение), остаётся
+		public void CancelItemAction()
+		{
+			bool spawned = _itemSpawned;
+			if (!AbortItemAction()) return;
+
+			if (IsHolstered)
+			{
+				// при возвращении в руки EquipByIndex всё равно заменит визуал — но без оружия предмет остался бы висеть
+				if (spawned) ClearVisual();
+				return;
+			}
+			ReturnWeapon();
+		}
+
+		// вызывается из WeaponAnimationEvents по Animation Event ItemApplied в клипе предмета
+		public void NotifyItemApplied(AnimationEvent animationEvent)
+		{
+			if (!IsUsingItem || !_itemSpawned) return;
+			_itemHandler.OnItemApplied(ActiveDurationUntilFinish(animationEvent));
+		}
+
+		// вызывается из WeaponAnimationEvents по Animation Event ItemUseFinished в клипе предмета
+		public void NotifyItemUseFinished()
+		{
+			if (!IsUsingItem || !_itemSpawned || _itemFinished) return;
+			_itemFinished = true;
+			_itemHandler.OnItemFinished();
+		}
+
+		// оружие убрано (WeaponHidden) — показываем предмет
+		private void SpawnItem()
+		{
+			_itemSpawned = true;
+			_itemFallbackTime = Time.time + FallbackItemActionDuration;
+			_aimBlend = 0f;
+			SpawnViewModel(_itemSource);
+
+			if (string.IsNullOrEmpty(_itemTrigger) || _currentAnimator == null) return;
+			if (HasTrigger(_currentAnimator, _itemTrigger)) _currentAnimator.SetTrigger(_itemTrigger);
+			else Debug.LogWarning($"{_itemSource.name}: в Animator Controller предмета нет Trigger \"{_itemTrigger}\"", _itemSource as Object);
+		}
+
+		// клип предмета закончился (WeaponHidden) — возвращаем оружие
+		private void FinishItemAction()
+		{
+			IItemActionHandler handler = _itemHandler;
+			bool finished = _itemFinished;
+			ClearItemAction();
+
+			// в клипе нет ItemUseFinished — окно действия закрывается вместе с клипом
+			if (!finished) handler.OnItemFinished();
+			ReturnWeapon();
+		}
+
+		// сбрасывает действие с предметом и сообщает о прерывании; false — действия не было
+		private bool AbortItemAction()
+		{
+			if (!IsUsingItem) return false;
+
+			IItemActionHandler handler = _itemHandler;
+			ClearItemAction();
+			handler.OnItemCancelled();
+			return true;
+		}
+
+		private void ClearItemAction()
+		{
+			_itemSource = null;
+			_itemTrigger = null;
+			_itemHandler = null;
+			_itemSpawned = false;
+			_itemFinished = false;
+		}
+
+		private void ReturnWeapon()
+		{
+			if (_currentIndex >= 0 && _currentIndex < _inventory.Count) EquipByIndex(_currentIndex);
+			else ClearVisual();
+		}
+
+		// сколько секунд от события ItemApplied до ItemUseFinished в том же клипе — по времени событий в самом клипе
+		// и скорости состояния, чтобы тайминг правился только в анимации
+		private float ActiveDurationUntilFinish(AnimationEvent applied)
+		{
+			AnimationClip clip = applied.animatorClipInfo.clip;
+			if (clip != null)
+			{
+				foreach (AnimationEvent e in clip.events)
+				{
+					if (e.functionName != nameof(WeaponAnimationEvents.ItemUseFinished) || e.time < applied.time) continue;
+
+					AnimatorStateInfo state = applied.animatorStateInfo;
+					float speed = Mathf.Abs(state.speed * state.speedMultiplier * (_currentAnimator != null ? _currentAnimator.speed : 1f));
+					return speed > 0f ? (e.time - applied.time) / speed : 0f;
+				}
+			}
+
+			Debug.LogWarning($"{_itemSource.name}: в клипе {(clip != null ? clip.name : "?")} нет Animation Event ItemUseFinished " +
+				"после ItemApplied — действие применится сразу целиком", _itemSource as Object);
+			return 0f;
+		}
+
+		// спавнит модель в руках (оружие или предмет) внутри VisualRoot, убирая старую — без анимаций
+		private void SpawnViewModel(IViewModelSource source)
+		{
+			ClearVisual();
+			_currentViewModel = source;
+
+			if (source.InHandPrefab == null)
+			{
+				Debug.LogWarning($"{source.name}: не задан In Hand Prefab — в руках ничего не появится", source as Object);
+				return;
+			}
+
+			_currentVisual = Instantiate(source.InHandPrefab, _visualRoot);
+			_currentVisual.transform.localPosition = Vector3.zero;
+			_currentVisual.transform.localRotation = Quaternion.identity;
+			if (source.AlignArmsToCameraBone) AlignToCameraBone(_currentVisual.transform, source);
+			if (_weaponLayer >= 0) SetLayerRecursively(_currentVisual, _weaponLayer);
+			_currentMuzzle = _currentVisual.GetComponentInChildren<WeaponMuzzle>();
+			_currentMuzzleFlash = _currentVisual.GetComponentInChildren<MuzzleFlash>();
+			_currentAnimator = _currentVisual.GetComponentInChildren<Animator>();
+			_currentAudio = _currentVisual.GetComponentInChildren<WeaponAudio>();
+		}
+
+		private void ClearVisual()
+		{
+			if (_currentVisual != null) Destroy(_currentVisual);
+			_currentVisual = null;
+			_currentViewModel = null;
+			_alignedToCameraBone = false;
+			_swayPivotBone = null;
+			_currentMuzzle = null;
+			_currentMuzzleFlash = null;
+			_currentAnimator = null;
+			_currentAudio = null;
+			_currentHasHideTrigger = false;
+			_currentHasImpactTrigger = false;
+			_mantleLayer = -1; // слой подъёма был у старого Animator — у нового вес по умолчанию из контроллера
+			_mantleWeight = 0f;
 		}
 
 		// вызывается из WeaponAnimationEvents по Animation Event WeaponReady — универсальное "действие закончено,
@@ -838,7 +1056,7 @@ namespace Weapons
 		// начинает перезарядку текущего оружия (кнопка R)
 		public void Reload()
 		{
-			if (IsHolstered || IsSwitching || _currentIndex < 0 || _isReloading || Time.time < _readyToFireTime) return;
+			if (IsHolstered || IsSwitching || IsUsingItem || _currentIndex < 0 || _isReloading || Time.time < _readyToFireTime) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;
@@ -927,7 +1145,7 @@ namespace Weapons
 		// выбрасывает текущее оружие перед игроком с физическим импульсом
 		public void DropCurrentWeapon()
 		{
-			if (IsHolstered || IsSwitching || _currentIndex < 0) return;
+			if (IsHolstered || IsSwitching || IsUsingItem || _currentIndex < 0) return;
 
 			// выбросили прямо во время ремонта — гасим горелку, пока оружие ещё текущее
 			SetRepairFlame(false);
@@ -954,7 +1172,7 @@ namespace Weapons
 			if (_inventory.Count == 0)
 			{
 				_currentIndex = -1;
-				if (_currentVisual != null) Destroy(_currentVisual);
+				ClearVisual();
 			}
 			else
 			{
@@ -969,7 +1187,7 @@ namespace Weapons
 			bool triggerPressed = triggerHeld && !_firePreviouslyHeld;
 			_firePreviouslyHeld = triggerHeld;
 
-			if (IsHolstered || IsSwitching || _currentIndex < 0) return;
+			if (IsHolstered || IsSwitching || IsUsingItem || _currentIndex < 0) return;
 
 			// у холодного своя логика — комбо с буфером нажатия, см. TickMelee
 			if (_inventory[_currentIndex].Data is MeleeWeaponData melee)
@@ -1042,7 +1260,7 @@ namespace Weapons
 		// тратит патрон текущего оружия, спавнит визуализацию пули и логирует результат. Холодное — удар комбо
 		public void Shoot()
 		{
-			if (IsHolstered || IsSwitching || _currentIndex < 0) return;
+			if (IsHolstered || IsSwitching || IsUsingItem || _currentIndex < 0) return;
 
 			WeaponSlot slot = _inventory[_currentIndex];
 			WeaponData data = slot.Data;

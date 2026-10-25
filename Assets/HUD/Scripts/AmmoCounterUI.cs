@@ -43,7 +43,7 @@ namespace HUD
 
 		private void Update()
 		{
-			WeaponData data = Weapons != null && !Weapons.IsHolstered ? Weapons.CurrentWeaponData : null;
+			WeaponData data = Weapons != null && !Weapons.IsHolstered && !Weapons.IsUsingItem ? Weapons.CurrentWeaponData : null;
 			AmmoData ammo = data != null ? data.Ammo : null;
 
 			SetVisible(ammo != null);

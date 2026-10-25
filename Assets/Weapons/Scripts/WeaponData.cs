@@ -9,7 +9,7 @@ namespace Weapons
 	//
 	// Чистые данные: не хранит рантайм-состояние (например, текущий боезапас), чтобы один и тот же ассет
 	// не расшаривал состояние между разными игроками/подборами.
-	public abstract class WeaponData : ScriptableObject
+	public abstract class WeaponData : ScriptableObject, IViewModelSource
 	{
 		[Header("Identity")]
 		public string WeaponId;
@@ -61,5 +61,12 @@ namespace Weapons
 		// заряжать и перезаряжать (обычное холодное оружие). По нему работают WeaponController (боезапас,
 		// перезарядка) и Inventory.InventoryReloadHandler (тип патронов в инвентаре)
 		public abstract AmmoData Ammo { get; }
+
+		// модель в руках — поля выше (сериализуются как раньше), интерфейс только открывает их WeaponController
+		GameObject IViewModelSource.InHandPrefab => InHandPrefab;
+		bool IViewModelSource.AlignArmsToCameraBone => AlignArmsToCameraBone;
+		Vector3 IViewModelSource.HandPosition => HandPosition;
+		Vector3 IViewModelSource.HandRotation => HandRotation;
+		WeaponAnimationProfileSO IViewModelSource.AnimationProfile => AnimationProfile;
 	}
 }

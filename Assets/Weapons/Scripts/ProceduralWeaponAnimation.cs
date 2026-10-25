@@ -62,8 +62,9 @@ namespace Weapons
 
 		private void LateUpdate()
 		{
-			WeaponData data = _weaponController.CurrentWeaponData;
-			_currentProfile = data != null ? data.AnimationProfile : null;
+			// профиль того, что реально в руках: оружия или предмета (аптечка)
+			IViewModelSource shown = _weaponController.CurrentViewModel;
+			_currentProfile = shown != null ? shown.AnimationProfile : null;
 			if (_currentProfile == null || _visualRoot == null) return;
 
 			DetectJumpAndLanding();

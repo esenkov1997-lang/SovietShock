@@ -122,7 +122,9 @@ namespace StarterAssets
 		// true only when sprint is actually in effect on movement speed — Move()'s targetSpeed ternary
 		// already gives crouch priority over sprint, so this must exclude crouch too, or a consumer
 		// (e.g. CameraHeadBob) would see "sprinting" while the character is actually moving at CrouchSpeed
-		public bool IsSprinting => !_isCrouching && Grounded && _input.sprint && _input.move.y > 0.1f;
+		public bool IsSprinting => !_isCrouching && !SprintBlocked && Grounded && _input.sprint && _input.move.y > 0.1f;
+		// бег запрещён (например, пока игрок лечится — Player.PlayerHealing): ходить можно, Shift игнорируется
+		public bool SprintBlocked;
 		// true for exactly the one Update() where the character touches down after a REAL flight — a jump, or at least
 		// LandingMinAirTime in the air — so a consumer (landing sound, weapon impact spring) can react to touchdown
 		// without polling Grounded itself, and isn't spammed by every stair-edge micro-hop

@@ -19,6 +19,10 @@ MonoBehaviour:
     m_Key: item.wrench
     m_Metadata:
       m_Items: []
+  - m_Id: 11345578018807808
+    m_Key: item.medkit
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

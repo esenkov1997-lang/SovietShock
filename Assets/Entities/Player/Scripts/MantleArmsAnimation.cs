@@ -227,7 +227,8 @@ namespace Player
 		// руки (слой оружия или пустые руки) и камера из клипа. beginWeaponLayer — как запустить клип на руках оружия
 		private bool BeginVisuals(AnimationClip clip, System.Func<bool> beginWeaponLayer)
 		{
-			bool holdingItem = _itemHold != null && _itemHold.IsHolding;
+			// в руках физический предмет или предмет действия (аптечка доигрывает свой клип — у неё нет слоя подъёма)
+			bool holdingItem = (_itemHold != null && _itemHold.IsHolding) || (_weapons != null && _weapons.IsUsingItem);
 			bool hasWeapon = _weapons != null && _weapons.HasWeaponInHands && !_weapons.IsHolstered;
 
 			// руки оружия — слой Mantle в его контроллере (если есть)

@@ -22,6 +22,8 @@ namespace StarterAssets
 		public bool interact;
 		public bool reload;
 		public bool aim;
+		// использовать аптечку (H) — одноразовое срабатывание, читает и сбрасывает Player.PlayerHealing
+		public bool heal;
 
 		[Header("Movement Settings")]
 		public bool analogMovement;
@@ -107,6 +109,11 @@ namespace StarterAssets
 		public void OnAim(InputValue value)
 		{
 			aim = _gameplayInputEnabled && value.isPressed;
+		}
+
+		public void OnHeal(InputValue value)
+		{
+			heal = _gameplayInputEnabled && value.isPressed;
 		}
 #endif
 

@@ -171,6 +171,7 @@ GameObject:
   - component: {fileID: 4623253651683768466}
   - component: {fileID: -7964905977533833052}
   - component: {fileID: 2385303159842949128}
+  - component: {fileID: -2770054315998993109}
   m_Layer: 10
   m_Name: PlayerCapsule
   m_TagString: Player
@@ -258,6 +259,7 @@ MonoBehaviour:
   CinemachineCameraTarget: {fileID: 4135013735270702863}
   TopClamp: 89
   BottomClamp: -89
+  SprintBlocked: 0
   ExtraPitchOffset: 0
   LookInputBlocked: 0
   ExtraRollOffset: 0
@@ -334,6 +336,7 @@ MonoBehaviour:
   interact: 0
   reload: 0
   aim: 0
+  heal: 0
   analogMovement: 0
   cursorLocked: 1
   cursorInputForLook: 1
@@ -943,6 +946,9 @@ MonoBehaviour:
   OnDeath:
     m_PersistentCalls:
       m_Calls: []
+  OnHealed:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &-7964905977533833052
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1006,6 +1012,20 @@ MonoBehaviour:
   joltPitch: 180
   joltRoll: 100
   joltYaw: 60
+--- !u!114 &-2770054315998993109
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616685848737228372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b31da64d46c218f4ca3016db09a54991, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 0}
+  weapons: {fileID: 0}
 --- !u!1 &9134040960211345392
 GameObject:
   m_ObjectHideFlags: 0

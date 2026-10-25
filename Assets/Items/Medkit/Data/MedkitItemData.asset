@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 551e0cc9c29fb7a4898e441b7314c4c1, type: 3}
+  m_Name: MedkitItemData
+  m_EditorClassIdentifier: 
+  id: 9
+  itemName:
+    m_TableReference:
+      m_TableCollectionName: GUID:633dbd3df6e6cd9499c42ae7786f76e2
+    m_TableEntryReference:
+      m_KeyId: 11345578018807808
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  icon: {fileID: 0}
+  type: 2
+  worldPrefab: {fileID: 6662143721343058744, guid: ae0c737e477cbe7408112a7f94597868, type: 3}
+  maxStack: 1
+  gridSize: {x: 1, y: 1}
+  healAmount: 10
+  inHandPrefab: {fileID: 4030566846764498208, guid: a125e50379a993548b62a1a46d55c010, type: 3}
+  useTrigger: 
+  alignArmsToCameraBone: 1
+  handPosition: {x: 0, y: 0, z: 0}
+  handRotation: {x: 0, y: 0, z: 0}
+  animationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}
+  references:
+    version: 2
+    RefIds: []

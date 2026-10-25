@@ -18,12 +18,15 @@ namespace Weapons
 		public UnityEvent<int, int> OnDamaged;
 		[Tooltip("Вызывается один раз, когда здоровье падает до нуля")]
 		public UnityEvent OnDeath;
+		[Tooltip("Вызывается, когда здоровье реально прибавилось (аптечка и т.п.): (текущее здоровье, максимум)")]
+		public UnityEvent<int, int> OnHealed;
 
 		private int _currentHealth;
 		private bool _isDead;
 
 		public int CurrentHealth => _currentHealth;
 		public bool IsDead => _isDead;
+		public bool IsFull => _currentHealth >= MaxHealth;
 
 		private void Awake()
 		{
@@ -39,6 +42,15 @@ namespace Weapons
 			OnDamaged?.Invoke(_currentHealth, MaxHealth);
 
 			if (_currentHealth <= 0) Die();
+		}
+
+		// прибавляет здоровье, не выше MaxHealth. Мёртвого не лечит — воскрешение, если понадобится, отдельный метод
+		public void Heal(int amount)
+		{
+			if (_isDead || amount <= 0 || IsFull) return;
+
+			_currentHealth = Mathf.Min(_currentHealth + amount, MaxHealth);
+			OnHealed?.Invoke(_currentHealth, MaxHealth);
 		}
 
 		private void Die()

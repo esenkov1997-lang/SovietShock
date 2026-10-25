@@ -68,5 +68,22 @@ namespace Weapons
 		{
 			if (_weaponController != null) _weaponController.NotifyRepairStart();
 		}
+
+		// --- предмет в руках (аптечка, WeaponController.BeginItemAction). В конце клипа предмета, когда он убран
+		// из кадра, ставится WeaponHidden — по нему в руки возвращается оружие ---
+
+		// повесь Animation Event с этим методом на кадр, где предмет применён (игла вошла): с него начинается действие
+		// (лечение). Параметр заполняет сам Unity — по нему находится ItemUseFinished в том же клипе
+		public void ItemApplied(AnimationEvent animationEvent)
+		{
+			if (_weaponController != null) _weaponController.NotifyItemApplied(animationEvent);
+		}
+
+		// повесь Animation Event с этим методом на кадр, где действие заканчивается (лечение набрано полностью).
+		// Может быть раньше конца клипа — дальше руки убирают предмет
+		public void ItemUseFinished()
+		{
+			if (_weaponController != null) _weaponController.NotifyItemUseFinished();
+		}
 	}
 }

@@ -105,7 +105,7 @@ namespace HUD
 
 			if (hideWhenCursorUnlocked && Cursor.lockState != CursorLockMode.Locked) return true;
 			if (Weapons == null) return false;
-			if (Weapons.IsHolstered) return true;
+			if (Weapons.IsHolstered || Weapons.IsUsingItem) return true;
 			return hideWhenAiming && Weapons.IsAiming;
 		}
 
