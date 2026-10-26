@@ -7,8 +7,8 @@ namespace Player
 {
 	// Лечение аптечкой по кнопке Heal (H). Вешается на PlayerCapsule рядом с Health и InventoryHolder.
 	//
-	// Нажатие: если здоровье не полное и в инвентаре есть лечащий предмет (Inventory.HealingItemData), WeaponController
-	// убирает оружие и берёт предмет в руки (BeginItemAction). Дальше всё по событиям клипа предмета:
+	// Нажатие: если в инвентаре есть лечащий предмет (Inventory.HealingItemData) — даже при полном здоровье, тогда он
+	// тратится впустую, — WeaponController убирает оружие и берёт предмет в руки (BeginItemAction). Дальше всё по событиям клипа предмета:
 	//   ItemApplied     — игла вошла: предмет списывается из инвентаря, начинается лечение;
 	//   ItemUseFinished — лечение набрано полностью (healAmount равномерно между этими двумя событиями);
 	//   WeaponHidden    — предмет убран, оружие возвращается (это уже делает WeaponController).
@@ -66,7 +66,8 @@ namespace Player
 
 		private void TryStartHealing()
 		{
-			if (IsHealing || weapons == null || _health.IsDead || _health.IsFull) return;
+			// полное здоровье не мешает: аптечку можно вколоть и так — она потратится впустую, решает игрок
+			if (IsHealing || weapons == null || _health.IsDead) return;
 			if (_mantle != null && _mantle.IsClimbing) return;
 
 			HealingItemData item = FindHealingItem();

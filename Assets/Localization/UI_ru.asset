@@ -84,6 +84,11 @@ MonoBehaviour:
     m_Localized: "\u0421\u0418\u0413\u041D\u0410\u041B \u041F\u041E\u0422\u0415\u0420\u042F\u041D"
     m_Metadata:
       m_Items: []
+  - m_Id: 11577609558499328
+    m_Localized: "{item} \xD7{amount}"
+    m_Metadata:
+      m_Items:
+      - rid: 2100897889538802054
   references:
     version: 2
     RefIds:
@@ -93,3 +98,4 @@ MonoBehaviour:
         m_Entries: 
         m_SharedEntries:
         - id: 94129954816
+        - id: 11577609558499328

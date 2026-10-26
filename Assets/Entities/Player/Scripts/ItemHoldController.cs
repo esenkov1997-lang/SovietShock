@@ -412,7 +412,9 @@ namespace Player
 		{
 			foreach (WeaponController weapons in _weapons)
 			{
-				if (weapons != null) weapons.SetHolstered(holstered);
+				if (weapons == null) continue;
+				if (holstered) weapons.AddHolsterRequest(this);
+				else weapons.RemoveHolsterRequest(this);
 			}
 		}
 

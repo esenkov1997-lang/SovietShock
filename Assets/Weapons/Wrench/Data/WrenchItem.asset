@@ -22,7 +22,7 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
-  icon: {fileID: 21300000, guid: 40cc2d77481114c4f89d930c5b8762c8, type: 3}
+  icon: {fileID: 21300000, guid: 418f9da8d11a6e246a03266be628445e, type: 3}
   type: 0
   worldPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
   maxStack: 1

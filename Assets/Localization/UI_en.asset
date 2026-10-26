@@ -84,6 +84,11 @@ MonoBehaviour:
     m_Localized: SIGNAL LOST
     m_Metadata:
       m_Items: []
+  - m_Id: 11577609558499328
+    m_Localized: "{item} \xD7{amount}"
+    m_Metadata:
+      m_Items:
+      - rid: 2100897889538802053
   references:
     version: 2
     RefIds:
@@ -93,3 +98,4 @@ MonoBehaviour:
         m_Entries: 
         m_SharedEntries:
         - id: 94129954816
+        - id: 11577609558499328

@@ -315,7 +315,7 @@ namespace Player
 			_movement.enabled = false;
 			if (_interactor != null) _interactor.enabled = false;
 			foreach (WeaponController weapons in _weapons)
-				if (weapons != null) weapons.SetHolstered(true);
+				if (weapons != null) weapons.AddHolsterRequest(this);
 
 			if (_input == null) return;
 			_input.move = Vector2.zero;
@@ -340,7 +340,7 @@ namespace Player
 			_movement.enabled = true;
 			if (_interactor != null) _interactor.enabled = true;
 			foreach (WeaponController weapons in _weapons)
-				if (weapons != null) weapons.SetHolstered(false);
+				if (weapons != null) weapons.RemoveHolsterRequest(this);
 		}
 
 		private static Transform FindDeep(Transform parent, string childName)

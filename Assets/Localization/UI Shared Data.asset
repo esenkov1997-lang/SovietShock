@@ -79,6 +79,12 @@ MonoBehaviour:
     m_Key: death.signalLost
     m_Metadata:
       m_Items: []
+  - m_Id: 11577609558499328
+    m_Key: 'prompt.pickup.amount
+
+'
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

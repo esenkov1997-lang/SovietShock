@@ -282,6 +282,8 @@ namespace Weapons
 
 		private void Update()
 		{
+			PruneHolsterRequests();
+
 			// подстраховка (см. NotifyReloadComplete): если Animation Event в клипе не сработал,
 			// магазин всё равно пополнится по таймеру
 			if (_isReloading && Time.time >= _reloadFinishTime)
@@ -779,15 +781,41 @@ namespace Weapons
 			}
 		}
 
-		// оружие убрано из рук (например, пока игрок работает с терминалом — см. Interactables.PlayerCameraFocus):
-		// визуал скрыт, стрелять/перезаряжаться/переключаться/выбрасывать нельзя (см. гарды ниже и WeaponInput)
-		public bool IsHolstered { get; private set; }
+		// Оружие убрано из рук: визуал скрыт, стрелять/перезаряжаться/переключаться/выбрасывать нельзя (см. гарды ниже
+		// и WeaponInput). Убирают его несколько систем независимо (терминал, предмет в руках, захват, высокий подъём,
+		// смерть) — каждая добавляет свой запрос и сама его снимает. Оружие возвращается, только когда запросов не осталось:
+		// одна система не может достать оружие, пока его держит убранным другая (например, конец захвата — мёртвому игроку)
+		private readonly HashSet<object> _holsterRequests = new HashSet<object>();
 
-		public void SetHolstered(bool holstered)
+		public bool IsHolstered => _holsterRequests.Count > 0;
+
+		// requester — кто просит (обычно сам компонент, this): по нему же запрос и снимается
+		public void AddHolsterRequest(object requester)
 		{
-			if (IsHolstered == holstered) return;
-			IsHolstered = holstered;
+			if (requester == null) return;
 
+			bool wasHolstered = IsHolstered;
+			if (_holsterRequests.Add(requester) && !wasHolstered) ApplyHolstered(true);
+		}
+
+		public void RemoveHolsterRequest(object requester)
+		{
+			if (requester == null || !_holsterRequests.Remove(requester)) return;
+			if (!IsHolstered) ApplyHolstered(false);
+		}
+
+		// запросы от уничтоженных объектов (не сняли перед Destroy) не должны держать оружие убранным вечно
+		private void PruneHolsterRequests()
+		{
+			if (_holsterRequests.Count == 0) return;
+			if (_holsterRequests.RemoveWhere(r => r is Object unityObject && unityObject == null) > 0 && !IsHolstered)
+			{
+				ApplyHolstered(false);
+			}
+		}
+
+		private void ApplyHolstered(bool holstered)
+		{
 			if (holstered)
 			{
 				_isAiming = false;

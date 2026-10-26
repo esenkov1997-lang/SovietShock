@@ -15,6 +15,9 @@ namespace Player
 	//  • пустые руки — Empty Hands Prefab (риг рук без оружия, например InteractionArms): на время подъёма
 	//    показывается у камеры так же, как руки оружия, и играет клип целиком (обе руки);
 	//  • в руках физический предмет (ItemHoldController) — рук в кадре нет.
+	// Высокий подъём (вис и подтягивание) — исключение: оружие на это время убирается (запрос WeaponController.
+	// AddHolsterRequest, без Hide — подъём не ждёт), клип целиком играют пустые руки, в конце оружие достаётся с Draw.
+	// Поэтому в первых кадрах клипа высокого подъёма рук в кадре быть не должно — иначе видна подмена.
 	//
 	// Камера — из кости камеры (CameraBone) того же клипа: её поворот/смещение относительно ПЕРВОГО кадра клипа
 	// добавляется поверх обычной камеры (FirstPersonController.AnimatedCamera...). Клип для этого всегда проигрывается
@@ -45,8 +48,6 @@ namespace Player
 		[SerializeField] private float highClimbMinHeight = 2f;
 		[Tooltip("Имя Animation Event в клипе высокого подъёма: ладони легли на край")]
 		[SerializeField] private string grabEvent = "MantleGrab";
-		[Tooltip("Trigger-параметр в слое Mantle Layer Name контроллера оружия, запускающий клип высокого подъёма. Нет — руки оружия не анимируются")]
-		[SerializeField] private string highClimbTrigger = "MantleHigh";
 		[Tooltip("Имя корневой кости рига рук (её движение в клипе — движение тела игрока)")]
 		[SerializeField] private string rootBoneName = "root";
 		[Tooltip("Кости ладоней: в кадре захвата (Grab Event) они лежат на крае уступа — по ним край из клипа совмещается " +
@@ -113,6 +114,8 @@ namespace Player
 
 		// что сейчас анимируется: слой Animator оружия и/или клип на риге пустых рук (видимом или нет)
 		private WeaponController _animatingWeapons;
+		// оружие убрано на время высокого подъёма (наш запрос в WeaponController)
+		private bool _holsteringWeapons;
 		private bool _rigPlaying;
 		private bool _drivingCamera;
 
@@ -148,6 +151,7 @@ namespace Player
 
 		private void OnDisable()
 		{
+			ReleaseWeapons();
 			StopRig();
 			StopSampler();
 			ResetCamera();
@@ -200,8 +204,14 @@ namespace Player
 				EdgeForwardAtGrab = edgeForward,
 			};
 
-			// руки и камера — тот же клип; у рук оружия — свой слой (если есть). Движение тела работает и без них
-			BeginVisuals(highClimbClip, () => _weapons.BeginMantleLayer(mantleLayerName, highClimbTrigger, layerBlendIn));
+			// оружие убирается сразу, без Hide (подъём не ждёт), — клип целиком играют пустые руки. Предмет в руках
+			// (аптечка) этим же запросом прерывается. Движение тела работает и без рук
+			if (_weapons != null)
+			{
+				_weapons.AddHolsterRequest(this);
+				_holsteringWeapons = true;
+			}
+			BeginVisuals(highClimbClip, null);
 			return true;
 		}
 
@@ -225,6 +235,7 @@ namespace Player
 		}
 
 		// руки (слой оружия или пустые руки) и камера из клипа. beginWeaponLayer — как запустить клип на руках оружия
+		// (null — оружие на этот подъём убрано, см. TryBeginClimbMotion)
 		private bool BeginVisuals(AnimationClip clip, System.Func<bool> beginWeaponLayer)
 		{
 			// в руках физический предмет или предмет действия (аптечка доигрывает свой клип — у неё нет слоя подъёма)
@@ -233,14 +244,16 @@ namespace Player
 
 			// руки оружия — слой Mantle в его контроллере (если есть)
 			bool weaponArms = false;
-			if (hasWeapon && !holdingItem)
+			if (hasWeapon && !holdingItem && beginWeaponLayer != null)
 			{
 				weaponArms = beginWeaponLayer();
 				if (weaponArms) _animatingWeapons = _weapons;
 			}
 
-			// риг пустых рук: видим, если рук больше нет (ни оружия, ни предмета), и нужен невидимым как источник камеры
-			bool showEmptyHands = _hands != null && !hasWeapon && !holdingItem && _weapons != null && !_weapons.HasWeaponInHands;
+			// риг пустых рук: видим, если рук больше нет (ни оружия, ни предмета) или оружие убрано на этот подъём,
+			// и нужен невидимым как источник камеры. Оружие, убранное кем-то другим (терминал), руки не освобождает
+			bool weaponGone = _weapons != null && (!_weapons.HasWeaponInHands || _holsteringWeapons);
+			bool showEmptyHands = _hands != null && !hasWeapon && !holdingItem && weaponGone;
 			_drivingCamera = animateCamera && _hands != null && _handsCameraBone != null;
 			if (showEmptyHands || _drivingCamera) PlayRig(clip, showEmptyHands);
 
@@ -255,6 +268,7 @@ namespace Player
 				_animatingWeapons = null;
 			}
 
+			ReleaseWeapons();
 			StopRig();
 			StopSampler();
 
@@ -266,6 +280,14 @@ namespace Player
 				_fadeProgress = 0f;
 				_drivingCamera = false;
 			}
+		}
+
+		// снимаем свой запрос — если оружие больше никто не держит убранным, оно достаётся с Draw
+		private void ReleaseWeapons()
+		{
+			if (!_holsteringWeapons) return;
+			_holsteringWeapons = false;
+			if (_weapons != null) _weapons.RemoveHolsterRequest(this);
 		}
 
 		private void LateUpdate()

@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 551e0cc9c29fb7a4898e441b7314c4c1, type: 3}
-  m_Name: MedkitItemData
+  m_Name: MedkitOne
   m_EditorClassIdentifier: 
-  id: 9
+  id: 1
   itemName:
     m_TableReference:
       m_TableCollectionName: GUID:633dbd3df6e6cd9499c42ae7786f76e2
@@ -22,10 +22,10 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 160db91a155fb2f47b0243d050a65ff4, type: 3}
   type: 2
-  worldPrefab: {fileID: 6662143721343058744, guid: ae0c737e477cbe7408112a7f94597868, type: 3}
-  maxStack: 1
+  worldPrefab: {fileID: 6662143721343058744, guid: 673d0efcbcfa05549a2b46c0eb5170d5, type: 3}
+  maxStack: 10
   gridSize: {x: 1, y: 1}
   healAmount: 10
   inHandPrefab: {fileID: 4030566846764498208, guid: a125e50379a993548b62a1a46d55c010, type: 3}

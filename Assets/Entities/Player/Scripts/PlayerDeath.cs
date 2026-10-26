@@ -184,7 +184,7 @@ namespace Player
 			_movement.enabled = false;
 			if (_interactor != null) _interactor.enabled = false;
 			foreach (WeaponController weapons in _weapons)
-				if (weapons != null) weapons.SetHolstered(true);
+				if (weapons != null) weapons.AddHolsterRequest(this);
 
 			InventoryUI inventory = FindFirstObjectByType<InventoryUI>();
 			if (inventory != null && inventory.IsOpen) inventory.Close();

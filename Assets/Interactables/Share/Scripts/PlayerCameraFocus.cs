@@ -24,7 +24,7 @@ namespace Interactables
 	// (единственное место, которое пишет в Transform камеры) перестают выполняться, так что двигать камеру
 	// здесь можно напрямую, ни с кем не конкурируя. Cinemachine просто следует за CinemachineCameraTarget.
 	//
-	// В обоих режимах на всё время фокуса оружие убирается из рук (WeaponController.SetHolstered — скрыто,
+	// В обоих режимах на всё время фокуса оружие убирается из рук (запрос WeaponController.AddHolsterRequest — скрыто,
 	// стрельба/прицел/перезарядка/смена/выброс заблокированы), а инвентарь закрывается и не открывается
 	// (Inventory.InventoryUI слушает FocusStarted и проверяет IsBusy).
 	[RequireComponent(typeof(FirstPersonController))]
@@ -319,7 +319,7 @@ namespace Interactables
 			if (playerInteractor != null) playerInteractor.enabled = false;
 			foreach (WeaponController weapons in _weapons)
 			{
-				if (weapons != null) weapons.SetHolstered(true);
+				if (weapons != null) weapons.AddHolsterRequest(this);
 			}
 
 			if (_input != null)
@@ -350,10 +350,10 @@ namespace Interactables
 
 			_movement.enabled = true;
 			if (playerInteractor != null) playerInteractor.enabled = true;
-			// SetHolstered(false) заново достаёт текущее оружие — с Draw-анимацией
+			// снятый запрос (если других нет) заново достаёт текущее оружие — с Draw-анимацией
 			foreach (WeaponController weapons in _weapons)
 			{
-				if (weapons != null) weapons.SetHolstered(false);
+				if (weapons != null) weapons.RemoveHolsterRequest(this);
 			}
 		}
 
