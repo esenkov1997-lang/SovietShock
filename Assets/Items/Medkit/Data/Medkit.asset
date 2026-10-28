@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 551e0cc9c29fb7a4898e441b7314c4c1, type: 3}
-  m_Name: MedkitOne
+  m_Name: Medkit
   m_EditorClassIdentifier: 
   id: 1
   itemName:
@@ -27,11 +27,11 @@ MonoBehaviour:
   worldPrefab: {fileID: 6662143721343058744, guid: 673d0efcbcfa05549a2b46c0eb5170d5, type: 3}
   maxStack: 10
   gridSize: {x: 1, y: 1}
-  healAmount: 10
+  healAmount: 20
   inHandPrefab: {fileID: 4030566846764498208, guid: a125e50379a993548b62a1a46d55c010, type: 3}
   useTrigger: 
   alignArmsToCameraBone: 1
-  handPosition: {x: 0, y: 0, z: 0}
+  handPosition: {x: 0, y: 0, z: 0.02}
   handRotation: {x: 0, y: 0, z: 0}
   animationProfile: {fileID: 11400000, guid: 415c9b5371078b2418e7f71f75b03c62, type: 2}
   references:

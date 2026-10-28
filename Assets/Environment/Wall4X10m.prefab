@@ -14,6 +14,8 @@ GameObject:
   - component: {fileID: 8851502010349554310}
   - component: {fileID: 231834963332074126}
   - component: {fileID: 8585884504360639151}
+  - component: {fileID: 9130348872711944363}
+  - component: {fileID: 632707062591404218}
   m_Layer: 0
   m_Name: Wall4X10m
   m_TagString: Untagged
@@ -248,7 +250,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 29
+  m_VersionIndex: 35
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -352,3 +354,31 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
+--- !u!114 &9130348872711944363
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8743872883675500482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11dba105fe571c44081bb0d86e7fa87a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SoundSet: {fileID: 11400000, guid: ac2c8487aaf820443832842e66fec874, type: 2}
+--- !u!114 &632707062591404218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8743872883675500482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d00d537afc010cc46970e831ac03a634, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _intensityMultiplier: 1
+  _otherSurfaceVolume: 0.6
+  _cooldown: 0.1
