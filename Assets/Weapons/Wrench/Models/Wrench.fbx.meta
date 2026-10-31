@@ -13,7 +13,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: wrench_mat
-    second: {fileID: 2100000, guid: 75cf9d03729e36740874a455f2f83ce0, type: 2}
+    second: {fileID: 2100000, guid: e297337293ac77e4d9d8ab24ba6e561d, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

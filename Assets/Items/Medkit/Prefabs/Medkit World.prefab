@@ -100,7 +100,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   outlineMode: 1
   outlineColor: {r: 1, g: 1, b: 1, a: 1}
-  outlineWidth: 5
+  outlineWidth: 1
   precomputeOutline: 1
   bakeKeys:
   - {fileID: -5495902117074765545, guid: 5a896041227f637429723dd6b4485411, type: 3}
@@ -209,6 +209,15 @@ MonoBehaviour:
     m_TableEntryReference:
       m_KeyId: 11345578018807808
       m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  pickupAmountPrompt:
+    m_TableReference:
+      m_TableCollectionName: UI
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: prompt.pickup.amount
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
