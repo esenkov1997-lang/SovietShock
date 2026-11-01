@@ -254,8 +254,8 @@ MonoBehaviour:
   defaultEyeHeight: 0.6
   viewDistance: 20
   viewAngle: 175
-  maxLookUpAngle: 13
-  maxLookDownAngle: 13
+  maxLookUpAngle: 30
+  maxLookDownAngle: 23.8
   proximityRadius: 1.5
   sightBlockers:
     serializedVersion: 2
@@ -336,6 +336,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnDeath:
+    m_PersistentCalls:
+      m_Calls: []
+  OnHealed:
     m_PersistentCalls:
       m_Calls: []
 --- !u!114 &4464600586326970646
