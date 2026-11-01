@@ -237,6 +237,40 @@ MonoBehaviour:
   lookAroundAngle: 90
   lookAroundPause: {x: 1, y: 2}
   lookAroundTurnSpeed: 90
+  headLook: {fileID: 0}
+  lookAtNoise: 1
+  lookAtLastKnownPosition: 1
+  lookWeightBySpeed:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0.6
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  idleGlance:
+    enabled: 1
+    pause: {x: 3, y: 8}
+    hold: {x: 1, y: 2.5}
+    maxYaw: 60
+    pitch: {x: -15, y: 10}
+    minYaw: 20
   currentState: 0
 --- !u!114 &7258601106080583369
 MonoBehaviour:
@@ -357,6 +391,7 @@ MonoBehaviour:
   inheritVelocity: 1
   disableOnActivate:
   - {fileID: 4077867276222383338}
+  - {fileID: 2285324127031829403}
 --- !u!114 &5970496570883006764
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -807,6 +842,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3146788666710474435}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2285324127031829403}
     - targetCorrespondingSourceObject: {fileID: -7873460876281913477, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2652108907681228915}
@@ -2043,7 +2081,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpineAnimatorAmount: 0.60402685
-  _Editor_Category: 1
+  _Editor_Category: 3
   _Editor_PivotoffsetXYZ: 0
   ModelForwardAxis: {x: 0, y: 0, z: 1}
   ModelForwardAxisScaled: {x: 0, y: 0, z: 1}
@@ -2242,11 +2280,11 @@ MonoBehaviour:
   UseCorrections: 0
   MainPivotOffset: {x: 0, y: 0, z: 0}
   PivotOffsetOnStart: 1
-  PosSmoother: 0
-  RotSmoother: 0
+  PosSmoother: 0.312
+  RotSmoother: 0.321
   MaxStretching: 1
-  Slithery: 0.2
-  AngleLimit: 15
+  Slithery: 0.36
+  AngleLimit: 32.9
   LimitSmoother: 0.35
   StraightenSpeed: 10
   TurboStraighten: 0
@@ -2435,6 +2473,39 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85cb48a5808646f19e9e8097ed02ef66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2285324127031829403
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8923148285248460278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04577f4a1bfa359418aff1f073b60536, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bones:
+  - bone: {fileID: 1607310518129319057}
+    weight: 0.3
+  - bone: {fileID: 3418113918199796244}
+    weight: 1
+  - bone: {fileID: 8350477571510109831}
+    weight: 1
+  - bone: {fileID: 200607143267734036}
+    weight: 2
+  eyes: {fileID: 7841067341802657012}
+  body: {fileID: 4569854951308958990}
+  maxYaw: 70
+  maxPitchUp: 35
+  maxPitchDown: 40
+  releaseYaw: 120
+  followSmoothTime: 0.15
+  maxTurnSpeed: 360
+  blendInTime: 0.3
+  blendOutTime: 0.5
+  maxWeight: 1
+  debugTarget: {fileID: 0}
 --- !u!4 &9155283869154613078 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 583805401368166385, guid: 93499607aabd1b144a38caaf02ecaeca, type: 3}

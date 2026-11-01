@@ -137,6 +137,20 @@ namespace Enemies
 			"Повороты в бою (к игроку, перед укусом) берут быструю Turn In Place Speed из EnemyMovement")]
 		[SerializeField] private float lookAroundTurnSpeed = 90f;
 
+		[Header("Взгляд (голова)")]
+		[Tooltip("Поворот головы на модели. Если пусто — ищется среди дочерних объектов; нет совсем — голова не поворачивается")]
+		[SerializeField] private EnemyHeadLook headLook;
+		[Tooltip("Пока собака идёт проверять шум — смотрит в сторону, откуда он донёсся")]
+		[SerializeField] private bool lookAtNoise = true;
+		[Tooltip("В бою, потеряв игрока из виду, — смотрит туда, где видела его последний раз")]
+		[SerializeField] private bool lookAtLastKnownPosition = true;
+		[Tooltip("Сила взгляда от скорости. По X — скорость (0 = стоит, 1 = бег из EnemyMovement), по Y — сила 0..1. " +
+			"На бегу голова слабее держится за цель и сохраняет покачивание из клипа — иначе морда \"застывает\", как на стабилизаторе")]
+		[SerializeField] private AnimationCurve lookWeightBySpeed = new AnimationCurve(
+			new Keyframe(0f, 1f), new Keyframe(1f, 0.6f));
+		[Tooltip("Случайные взгляды по сторонам на посту и в патруле")]
+		[SerializeField] private IdleGlance idleGlance = new IdleGlance();
+
 		[Header("Отладка")]
 		[Tooltip("Текущее состояние — только для просмотра в Play Mode")]
 		[SerializeField] private State currentState = State.Idle;
@@ -229,6 +243,7 @@ namespace Enemies
 			_coverFinder = GetComponent<CoverFinder>(); // необязательный — без него отступает просто подальше от игрока
 			_syncedAttack = GetComponent<EnemySyncedAttack>(); // необязательный — без него только обычные укусы
 			_voice = GetComponent<EnemyVoice>(); // необязательный — без него собака молчит
+			if (headLook == null) headLook = GetComponentInChildren<EnemyHeadLook>(); // необязательный — стоит на модели
 
 			// тело остаётся лежать — уничтожение объекта сломало бы ragdoll
 			if (_health.DestroyOnDeath)
@@ -272,6 +287,7 @@ namespace Enemies
 				_attack.Cancel();
 				_movement.Stop();
 				if (_animator != null) _animator.SetSearching(false);
+				if (headLook != null) headLook.ClearLookTarget(); // вздрагивание играет целиком, без поворота головы
 				return;
 			}
 
@@ -289,6 +305,70 @@ namespace Enemies
 			}
 
 			if (_animator != null) _animator.SetSearching(_isLookingAround);
+			UpdateGaze();
+		}
+
+		// Куда смотрит голова — решается в одном месте после состояния (оно могло смениться в этом кадре),
+		// по приоритету: игрок на виду → где игрок был → источник шума → случайный взгляд в спокойствии →
+		// никуда (голову ведёт анимация)
+		private void UpdateGaze()
+		{
+			if (headLook == null) return;
+
+			bool hasPoint = TryGetGazePoint(out Vector3 point);
+
+			// оглядывается, только когда ничего важнее нет и не играет анимация осмотра (она сама вертит головой)
+			bool calm = (currentState == State.Idle || currentState == State.Patrol) && !_isLookingAround;
+			if (!hasPoint && calm) hasPoint = idleGlance.TryGetPoint(transform, _perception.EyePosition, out point);
+			else idleGlance.Reset();
+
+			if (!hasPoint)
+			{
+				headLook.ClearLookTarget();
+				return;
+			}
+
+			float runSpeed = _movement.RunSpeed;
+			float speed01 = runSpeed > 0f ? Mathf.Clamp01(_movement.CurrentSpeed / runSpeed) : 0f;
+			headLook.SetLookTarget(point, lookWeightBySpeed.Evaluate(speed01));
+		}
+
+		private bool TryGetGazePoint(out Vector3 point)
+		{
+			point = default;
+
+			// укус и захват — голову ведёт клип: захват синхронизирован с руками игрока, укус целится сам.
+			// Осмотр на месте (Search, конец Investigate) — тоже клип: собака обнюхивает и вертит головой
+			if (currentState == State.Attack || currentState == State.Grab || currentState == State.Search) return false;
+
+			Transform player = _perception.Player;
+			if (player != null && !_perception.IgnoresPlayer)
+			{
+				// видит и заметила (или подозревает) — смотрит в лицо. До порога подозрения "не замечает" и не косится
+				if (_perception.CanSeePlayer && _perception.IsSuspicious)
+				{
+					point = _perception.PlayerEyePosition;
+					return true;
+				}
+
+				// в бою потеряла из виду — смотрит туда, где видела последний раз, на высоте глаз игрока
+				bool combat = currentState == State.Chase || currentState == State.Retreat || currentState == State.Unreachable;
+				if (combat && lookAtLastKnownPosition && _perception.HasLastKnownPosition)
+				{
+					float eyeHeight = _perception.PlayerEyePosition.y - player.position.y;
+					point = _perception.LastKnownPlayerPosition + Vector3.up * eyeHeight;
+					return true;
+				}
+			}
+
+			// идёт на шум — смотрит в его сторону; дошла и осматривается — голову ведёт анимация осмотра
+			if (currentState == State.Investigate && lookAtNoise && _investigateTimer < 0f)
+			{
+				point = _investigatePoint;
+				return true;
+			}
+
+			return false;
 		}
 
 		// Общая реакция на зрение для всех не-боевых состояний. true — зрение "забрало управление" в этом кадре.
@@ -1009,6 +1089,7 @@ namespace Enemies
 			_movement.DisableAgent();
 			_perception.enabled = false;
 			if (_hitReaction != null) _hitReaction.enabled = false;
+			if (headLook != null) headLook.enabled = false; // крутил бы кости и боролся с ragdoll
 			if (_animator != null) _animator.enabled = false;
 
 			_ragdoll.Activate(velocity);
@@ -1052,6 +1133,7 @@ namespace Enemies
 		{
 			searchPointLookTime.y = Mathf.Max(searchPointLookTime.x, searchPointLookTime.y);
 			lookAroundPause.y = Mathf.Max(lookAroundPause.x, lookAroundPause.y);
+			idleGlance?.Validate();
 		}
 
 		// При выделенной собаке: зелёная стрелка — пост, жёлтая линия — куда идёт проверять,
