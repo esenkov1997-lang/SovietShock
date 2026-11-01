@@ -24,6 +24,12 @@ namespace Enemies
 		[SerializeField] private Transform eyes;
 		[Tooltip("Высота глаз над корнем (м), если Eyes не назначен")]
 		[SerializeField] private float defaultEyeHeight = 0.6f;
+		[Tooltip("Конус зрения поворачивается туда, куда враг смотрит головой (EnemyHeadLook): поднял морду на игрока " +
+			"на уступе — видит выше, оглянулся — видит сбоку, а за спиной — нет. Берётся рассчитанный угол взгляда, " +
+			"а не поза кости — покачивание головы в анимации зрение не трясёт. Выключено или нет EnemyHeadLook — конус по телу")]
+		[SerializeField] private bool sightFollowsHead = true;
+		[Tooltip("Поворот головы. Если пусто — ищется среди дочерних объектов")]
+		[SerializeField] private EnemyHeadLook headLook;
 
 		[Header("Зрение")]
 		[Tooltip("Дальность зрения (м)")]
@@ -31,8 +37,8 @@ namespace Enemies
 		[Tooltip("Полный угол конуса обзора (градусы). 120 — видит перед собой и немного по бокам")]
 		[Range(0f, 360f)]
 		[SerializeField] private float viewAngle = 120f;
-		[Tooltip("Насколько высоко (градусы от горизонта) враг видит. Игрок выше этого угла — например, на уступе прямо " +
-			"над собакой — не виден. Собаке хватит 30–40")]
+		[Tooltip("Насколько высоко (градусы) враг видит глазами, не поднимая головы. Игрок выше этого угла — например, на уступе прямо " +
+			"над собакой — не виден. Собаке хватит 30–40. С Sight Follows Head к нему прибавляется подъём головы")]
 		[Range(0f, 90f)]
 		[SerializeField] private float maxLookUpAngle = 35f;
 		[Tooltip("Насколько низко (градусы от горизонта) враг видит")]
@@ -116,9 +122,34 @@ namespace Enemies
 
 		public Vector3 EyePosition => eyes != null ? eyes.position : transform.position + Vector3.up * defaultEyeHeight;
 
+		private bool FollowsHead => sightFollowsHead && headLook != null && headLook.isActiveAndEnabled;
+		// поворот конуса относительно тела (градусы): + вправо / + вверх
+		private float ViewYaw => FollowsHead ? headLook.ViewYaw : 0f;
+		private float ViewPitch => FollowsHead ? headLook.ViewPitch : 0f;
+
+		// Самый крутой угол вверх (градусы от горизонта), под которым враг в принципе может увидеть цель — с поднятой
+		// головой, если зрение за ней следует. Мозг по нему выбирает, где встать, чтобы видеть игрока на высоте
+		public float MaxSightElevation => maxLookUpAngle + (sightFollowsHead && headLook != null ? headLook.MaxViewPitchUp : 0f);
+
+		// горизонтальное направление центра конуса — тело, повёрнутое на угол взгляда головы
+		private Vector3 ViewForward
+		{
+			get
+			{
+				Vector3 forward = transform.forward;
+				forward.y = 0f;
+				return Quaternion.AngleAxis(ViewYaw, Vector3.up) * forward.normalized;
+			}
+		}
+
 		// все активные враги — для индикаторов обнаружения в HUD и т.п. Мёртвый враг выключает perception и выпадает сам
 		private static readonly List<EnemyPerception> ActiveList = new List<EnemyPerception>();
 		public static IReadOnlyList<EnemyPerception> All => ActiveList;
+
+		private void Awake()
+		{
+			if (headLook == null) headLook = GetComponentInChildren<EnemyHeadLook>();
+		}
 
 		private void OnEnable()
 		{
@@ -216,9 +247,7 @@ namespace Enemies
 
 			if (distance > proximityRadius)
 			{
-				Vector3 forward = transform.forward;
-				forward.y = 0f;
-				if (Vector3.Angle(forward, toPlayer) > viewAngle * 0.5f) return false;
+				if (Vector3.Angle(ViewForward, toPlayer) > viewAngle * 0.5f) return false;
 			}
 
 			// две точки на игроке — грудь и голова: игрок, присевший за низким ящиком, не виден,
@@ -228,12 +257,13 @@ namespace Enemies
 		}
 
 		// точка на игроке видна: в пределах вертикального угла обзора (действует всегда, даже вплотную — игрок на уступе
-		// прямо над собакой не виден) и луч до неё не упирается в препятствие
+		// прямо над собакой не виден) и луч до неё не упирается в препятствие. Угол считается от наклона взгляда:
+		// подняла голову на 30° — видит до 30 + Max Look Up Angle от горизонта
 		private bool CanSeePoint(Vector3 eye, Vector3 point)
 		{
 			Vector3 toPoint = point - eye;
 			float horizontal = new Vector2(toPoint.x, toPoint.z).magnitude;
-			float elevation = Mathf.Atan2(toPoint.y, horizontal) * Mathf.Rad2Deg;
+			float elevation = Mathf.Atan2(toPoint.y, horizontal) * Mathf.Rad2Deg - ViewPitch;
 			if (elevation > maxLookUpAngle || elevation < -maxLookDownAngle) return false;
 
 			return IsPathClear(eye, point, _player);
@@ -314,10 +344,9 @@ namespace Enemies
 		// белый — спокоен, жёлтый — что-то подозревает, красный — заметил.
 		private void OnDrawGizmosSelected()
 		{
+			// в Play Mode конус повёрнут вслед за взглядом головы (если Sight Follows Head)
 			Vector3 eye = EyePosition;
-			Vector3 forward = transform.forward;
-			forward.y = 0f;
-			forward.Normalize();
+			Vector3 forward = ViewForward;
 
 			UnityEditor.Handles.color = new Color(0.3f, 0.8f, 1f, 0.8f);
 			Vector3 arcStart = Quaternion.Euler(0f, -viewAngle * 0.5f, 0f) * forward;
@@ -332,8 +361,8 @@ namespace Enemies
 
 			// вертикальные границы обзора — два луча вперёд (вверх и вниз от горизонта)
 			Vector3 right = Vector3.Cross(Vector3.up, forward);
-			Vector3 upRay = Quaternion.AngleAxis(-maxLookUpAngle, right) * forward;
-			Vector3 downRay = Quaternion.AngleAxis(maxLookDownAngle, right) * forward;
+			Vector3 upRay = Quaternion.AngleAxis(-(maxLookUpAngle + ViewPitch), right) * forward;
+			Vector3 downRay = Quaternion.AngleAxis(maxLookDownAngle - ViewPitch, right) * forward;
 			UnityEditor.Handles.DrawLine(eye, eye + upRay * viewDistance);
 			UnityEditor.Handles.DrawLine(eye, eye + downRay * viewDistance * 0.5f);
 

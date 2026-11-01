@@ -12,7 +12,8 @@ namespace Enemies
 	//   Patrol      — если назначен Patrol Route: ходит по точкам маршрута.
 	// Тревожные:
 	//   Investigate — услышала шум или мельком видела игрока: идёт к месту, осматривается, успокаивается.
-	//   Chase       — заметила игрока: бежит к нему. Потеряла из виду — бежит к последней известной позиции, оттуда Search.
+	//   Chase       — заметила игрока: бежит к нему. Потеряла из виду — бежит к последней известной позиции, стоит там
+	//                 и смотрит, не покажется ли (пауза ожидания), потом Search.
 	//   Search      — обыскивает местность вокруг места потери (первая точка — в сторону, куда бежал игрок),
 	//                 на каждой точке осматривается. Время вышло — возвращается к спокойному состоянию.
 	//   Attack      — игрок в зоне укуса: стоит, кусает (урон по Animation Event), после укуса — снова Chase.
@@ -69,6 +70,10 @@ namespace Enemies
 		[SerializeField] private float resumeChaseBuffer = 0.5f;
 		[Tooltip("Походка в погоне")]
 		[SerializeField] private EnemyGait chaseGait = EnemyGait.Run;
+		[Tooltip("Добежав до места, где игрок пропал из виду, собака не сразу начинает поиск, а столько секунд (сек) стоит " +
+			"и смотрит туда — \"ждёт\", что он покажется. За это время она успевает понять, что игрок забрался туда, " +
+			"куда не дойти (не меньше Unreachable Confirm Time), и перейти к кружению под ним. 0 — сразу поиск")]
+		[SerializeField] private float lostSightHoldTime = 2.5f;
 
 		[Header("Отступление (Retreat)")]
 		[Tooltip("Когда здоровье опускается до этой доли (0.3 = 30%), собака отбегает. 0 — никогда не отступает")]
@@ -100,8 +105,15 @@ namespace Enemies
 		[SerializeField] private float unreachableConfirmTime = 1f;
 		[Tooltip("Сколько секунд игрок должен быть снова достижим, чтобы собака бросилась в атаку")]
 		[SerializeField] private float reachableConfirmTime = 0.3f;
-		[Tooltip("Радиус (м), по которому собака кружит под недосягаемым игроком")]
+		[Tooltip("Радиус (м), по которому собака кружит под недосягаемым игроком. Если игрок так высоко, что с этого " +
+			"расстояния его не видно (круче вертикального угла зрения EnemyPerception), собака отходит дальше — см. Max Pace Radius")]
 		[SerializeField] private float paceRadius = 3.5f;
+		[Tooltip("Дальше этого (м) от игрока собака не отходит, даже если оттуда его всё ещё не видно — не убегает на другой конец комнаты")]
+		[SerializeField] private float maxPaceRadius = 8f;
+		[Tooltip("Запас (градусы) к вертикальному углу зрения при выборе, где встать: игрок должен быть не на самой границе обзора, " +
+			"иначе шаг по уступу — и он снова не виден")]
+		[Range(0f, 30f)]
+		[SerializeField] private float paceViewMargin = 10f;
 		[Tooltip("Насколько далеко (градусы) в сторону собака смещается по кругу за один переход")]
 		[SerializeField] private float paceArc = 70f;
 		[Tooltip("Сколько секунд стоять и смотреть на игрока между переходами: случайно между X и Y")]
@@ -192,6 +204,8 @@ namespace Enemies
 
 		// Chase
 		private bool _holdingPosition;
+		private float _lostHoldTimer = -1f;   // < 0 — не ждём, >= 0 — стоим там, где потеряли игрока, и смотрим на _lostHoldPoint
+		private Vector3 _lostHoldPoint;
 
 		// Retreat
 		private Vector3 _retreatPoint;
@@ -351,12 +365,14 @@ namespace Enemies
 					return true;
 				}
 
-				// в бою потеряла из виду — смотрит туда, где видела последний раз, на высоте глаз игрока
+				// в бою потеряла из виду — смотрит туда, где видела последний раз (а в паузе ожидания — туда, где
+				// ждёт: там может быть и свежий шум), на высоте глаз игрока
 				bool combat = currentState == State.Chase || currentState == State.Retreat || currentState == State.Unreachable;
 				if (combat && lookAtLastKnownPosition && _perception.HasLastKnownPosition)
 				{
+					bool waiting = currentState == State.Chase && _lostHoldTimer >= 0f;
 					float eyeHeight = _perception.PlayerEyePosition.y - player.position.y;
-					point = _perception.LastKnownPlayerPosition + Vector3.up * eyeHeight;
+					point = (waiting ? _lostHoldPoint : _perception.LastKnownPlayerPosition) + Vector3.up * eyeHeight;
 					return true;
 				}
 			}
@@ -609,6 +625,7 @@ namespace Enemies
 
 			currentState = State.Chase;
 			_holdingPosition = false;
+			_lostHoldTimer = -1f;
 			_wasSeeingPlayer = false;
 		}
 
@@ -622,6 +639,7 @@ namespace Enemies
 
 			if (_perception.CanSeePlayer)
 			{
+				_lostHoldTimer = -1f; // показался — ждать больше нечего
 				ChaseVisiblePlayer(_perception.Player.position);
 				return;
 			}
@@ -634,9 +652,39 @@ namespace Enemies
 				return;
 			}
 
+			if (_lostHoldTimer >= 0f)
+			{
+				UpdateLostSightHold();
+				return;
+			}
+
 			_movement.MoveTo(_perception.LastKnownPlayerPosition, chaseGait);
-			if (_movement.HasArrived)
+			if (!_movement.HasArrived) return;
+
+			if (lostSightHoldTime > 0f)
+			{
+				_lostHoldTimer = 0f;
+				_lostHoldPoint = _perception.LastKnownPlayerPosition;
+			}
+			else
+			{
 				EnterSearch(_perception.LastKnownPlayerPosition, _perception.LastKnownPlayerVelocity, goToCenterFirst: false);
+			}
+		}
+
+		// Добежала до места потери — стоит и смотрит туда (голова — на высоту глаз игрока, см. TryGetGazePoint).
+		// Состояние остаётся Chase: проверка досягаемости идёт дальше, и если игрок наверху — UpdateChase сам
+		// переведёт в Unreachable. Показался — погоня продолжается. Время вышло — значит, просто спрятался: поиск
+		private void UpdateLostSightHold()
+		{
+			_movement.Stop();
+			_movement.FaceTowards(_lostHoldPoint);
+
+			_lostHoldTimer += Time.deltaTime;
+			if (_lostHoldTimer < lostSightHoldTime) return;
+
+			_lostHoldTimer = -1f;
+			EnterSearch(_perception.LastKnownPlayerPosition, _perception.LastKnownPlayerVelocity, goToCenterFirst: false);
 		}
 
 		private void ChaseVisiblePlayer(Vector3 playerPosition)
@@ -909,13 +957,44 @@ namespace Enemies
 			fromCenter.y = 0f;
 			fromCenter = fromCenter.sqrMagnitude > 0.01f ? fromCenter.normalized : -transform.forward;
 
-			const int attempts = 6;
+			// встаём там, откуда игрока видно: чем он выше, тем дальше. Центр кружения может быть в стороне от игрока
+			// (край ящика), поэтому каждую точку проверяем по расстоянию до самого игрока
+			float minDistance = GetPaceDistanceToSee(playerPosition, center.y);
+			float radius = Mathf.Max(paceRadius, minDistance);
+
+			const int attempts = 8;
+			bool hasFallback = false;
+			Vector3 fallback = center;
 			for (int i = 0; i < attempts; i++)
 			{
 				Vector3 direction = Quaternion.Euler(0f, Random.Range(-paceArc, paceArc), 0f) * fromCenter;
-				if (_movement.TryGetReachablePointNear(center + direction * paceRadius, 1.5f, out _pacePoint)) return;
+				if (!_movement.TryGetReachablePointNear(center + direction * radius, 1.5f, out Vector3 point)) continue;
+				if (HorizontalDistance(point, playerPosition) >= minDistance)
+				{
+					_pacePoint = point;
+					return;
+				}
+
+				// ближе нужного — запасной вариант, если ничего лучше не найдётся (тесная комната)
+				if (!hasFallback || HorizontalDistance(point, playerPosition) > HorizontalDistance(fallback, playerPosition))
+					fallback = point;
+				hasFallback = true;
 			}
-			_pacePoint = center;
+			_pacePoint = fallback;
+		}
+
+		// На каком расстоянии (м по горизонтали) от игрока надо стоять, чтобы видеть его голову: высота над глазами
+		// собаки / tan(доступный угол вверх с запасом). floorY — пол, на котором собака будет стоять. Не больше Max Pace Radius
+		private float GetPaceDistanceToSee(Vector3 playerPosition, float floorY)
+		{
+			float playerEyeHeight = _perception.PlayerEyePosition.y - _perception.Player.position.y;
+			float dogEyeHeight = _perception.EyePosition.y - transform.position.y;
+			float height = playerPosition.y + playerEyeHeight - (floorY + dogEyeHeight);
+			if (height <= 0f) return 0f;
+
+			float angle = Mathf.Clamp(_perception.MaxSightElevation - paceViewMargin, 5f, 85f);
+			float distance = height / Mathf.Tan(angle * Mathf.Deg2Rad);
+			return Mathf.Min(distance, maxPaceRadius);
 		}
 
 		// Прячется от выстрелов сверху: в укрытие, а если его нет (с высоты игрок видит всю площадку) или нет
@@ -1116,7 +1195,18 @@ namespace Enemies
 					break;
 				case State.Chase:
 					// пока видим игрока, шум не важен; потеряли — свежий шум точнее старой позиции
-					if (!_perception.CanSeePlayer) EnterSearch(position, Vector3.zero, goToCenterFirst: true);
+					if (_perception.CanSeePlayer) break;
+
+					// ждём на месте потери, а шум оттуда, куда не дойти (игрок топчется на уступе), — не бежим искать,
+					// а смотрим на звук и ждём дальше: проверка досягаемости тем временем переведёт в Unreachable
+					if (_lostHoldTimer >= 0f && !_movement.CanReach(position, reachHorizontalTolerance, reachVerticalTolerance))
+					{
+						_lostHoldPoint = position;
+						_lostHoldTimer = 0f;
+						break;
+					}
+
+					EnterSearch(position, Vector3.zero, goToCenterFirst: true);
 					break;
 			}
 		}
@@ -1124,7 +1214,12 @@ namespace Enemies
 		// расстояние без учёта высоты: игрок на ступеньке выше не должен считаться "далеко"
 		private float HorizontalDistanceTo(Vector3 point)
 		{
-			Vector3 offset = point - transform.position;
+			return HorizontalDistance(transform.position, point);
+		}
+
+		private static float HorizontalDistance(Vector3 a, Vector3 b)
+		{
+			Vector3 offset = b - a;
 			offset.y = 0f;
 			return offset.magnitude;
 		}
@@ -1134,6 +1229,10 @@ namespace Enemies
 			searchPointLookTime.y = Mathf.Max(searchPointLookTime.x, searchPointLookTime.y);
 			lookAroundPause.y = Mathf.Max(lookAroundPause.x, lookAroundPause.y);
 			idleGlance?.Validate();
+			maxPaceRadius = Mathf.Max(paceRadius, maxPaceRadius);
+			// пауза ожидания короче подтверждения недосягаемости — поиск начнётся раньше, чем собака поймёт, что игрок наверху
+			if (lostSightHoldTime > 0f)
+				lostSightHoldTime = Mathf.Max(lostSightHoldTime, unreachableConfirmTime + reachCheckInterval);
 		}
 
 		// При выделенной собаке: зелёная стрелка — пост, жёлтая линия — куда идёт проверять,

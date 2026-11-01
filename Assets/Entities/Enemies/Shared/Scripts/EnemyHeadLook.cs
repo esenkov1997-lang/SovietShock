@@ -88,6 +88,13 @@ namespace Enemies
 		public bool HasTarget => _hasTarget || debugTarget != null;
 		// текущая сила эффекта 0..1 (с учётом плавного включения/выключения)
 		public float Weight => _weight;
+		// Насколько (градусы) взгляд сейчас повёрнут относительно тела: + вправо / + вверх, с учётом силы эффекта.
+		// Это рассчитанное, "намеренное" направление, а не поза кости — без покачиваний из анимации.
+		// По нему EnemyPerception поворачивает конус зрения
+		public float ViewYaw => _anglesInitialized ? _yaw * _weight : 0f;
+		public float ViewPitch => _anglesInitialized ? _pitch * _weight : 0f;
+		// насколько голова может подняться при полной силе — для расчёта, откуда враг вообще может видеть цель
+		public float MaxViewPitchUp => maxPitchUp * maxWeight;
 
 		private Transform Head => bones.Length > 0 ? bones[bones.Length - 1].bone : null;
 		private Transform Body => body != null ? body : transform;

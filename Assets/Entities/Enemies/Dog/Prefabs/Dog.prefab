@@ -2081,7 +2081,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpineAnimatorAmount: 0.60402685
-  _Editor_Category: 3
+  _Editor_Category: 1
   _Editor_PivotoffsetXYZ: 0
   ModelForwardAxis: {x: 0, y: 0, z: 1}
   ModelForwardAxisScaled: {x: 0, y: 0, z: 1}
