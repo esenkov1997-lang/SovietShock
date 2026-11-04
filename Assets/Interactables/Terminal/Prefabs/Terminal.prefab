@@ -913,10 +913,6 @@ PrefabInstance:
       propertyPath: cascadeWindows.Array.data[2].window
       value: 
       objectReference: {fileID: 9054652246231333750}
-    - target: {fileID: 3059468469617474934, guid: 35812ab74f053684c9957461fe390fab, type: 3}
-      propertyPath: m_fontSize
-      value: 22.1
-      objectReference: {fileID: 0}
     - target: {fileID: 3471857051207483889, guid: 35812ab74f053684c9957461fe390fab, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

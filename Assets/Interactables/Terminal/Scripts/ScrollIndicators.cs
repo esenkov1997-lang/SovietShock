@@ -18,7 +18,7 @@ namespace Interactables
 		[Tooltip("Включается, когда есть содержимое НИЖЕ видимой области (например, стрелка ▼ у нижнего края)")]
 		[SerializeField] private GameObject moreBelow;
 		[Tooltip("Сколько пикселей скрытого содержимого не считать (чтобы стрелка не мигала из-за долей пикселя у края)")]
-		[SerializeField] private float edgeTolerance = 4f;
+		[SerializeField] private float edgeTolerance = 2f;
 
 		[Header("Blink")]
 		[Tooltip("Индикаторы мигают — привлекают внимание, как курсор старого терминала")]

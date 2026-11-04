@@ -65,9 +65,9 @@ namespace Interactables
 
 		[Header("Chat Scrolling")]
 		[Tooltip("Скорость прокрутки переписки стрелками ↑/↓ (пока зажаты), в пикселях canvas в секунду")]
-		[SerializeField] private float arrowScrollSpeed = 700f;
+		[SerializeField] private float arrowScrollSpeed = 440f;
 		[Tooltip("На сколько пикселей canvas прокручивается переписка за один щелчок колеса мыши")]
-		[SerializeField] private float wheelScrollStep = 80f;
+		[SerializeField] private float wheelScrollStep = 48f;
 		[Tooltip("PageUp/PageDown прокручивают на эту долю видимой высоты (0.8 — чуть меньше экрана, " +
 			"чтобы последняя строка осталась видна для ориентира)")]
 		[Range(0.1f, 1f)]
