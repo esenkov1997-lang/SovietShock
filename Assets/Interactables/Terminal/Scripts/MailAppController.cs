@@ -11,7 +11,7 @@ namespace Interactables
 	//
 	// Открытие: заполняет LeftPanel_List строками Item_Tab и сразу выделяет первое письмо.
 	// При смене письма правая панель пересобирается из Message_Row_Left/Message_Row_Right и
-	// прокручивается к последнему сообщению.
+	// прокручивается к первому сообщению (или к последнему — см. openAtFirstMessage).
 	//
 	// Локализация: все тексты — LocalizedString из данных, привязываются к TMP_Text через
 	// LocalizedTextBinding и сами обновляются при смене языка. Если переписка была прокручена
@@ -72,6 +72,9 @@ namespace Interactables
 			"чтобы последняя строка осталась видна для ориентира)")]
 		[Range(0.1f, 1f)]
 		[SerializeField] private float pageScrollFraction = 0.8f;
+		[Tooltip("При выборе письма показывать переписку с первого сообщения (читать с начала). Выключено — " +
+			"с последнего, как в мессенджерах")]
+		[SerializeField] private bool openAtFirstMessage = true;
 
 		private readonly List<ItemTabUI> _tabs = new List<ItemTabUI>();
 		private readonly List<GameObject> _rows = new List<GameObject>();
@@ -188,12 +191,7 @@ namespace Interactables
 			if (Input.GetKeyDown(KeyCode.PageDown)) ScrollChatBy(-page);
 
 			// Home/End — в начало/конец переписки; ручная прокрутка отменяет незаконченный автоскролл вниз
-			if (Input.GetKeyDown(KeyCode.Home))
-			{
-				StopScrollRoutine();
-				_stickToBottom = false;
-				messagesScroll.verticalNormalizedPosition = 1f;
-			}
+			if (Input.GetKeyDown(KeyCode.Home)) ScrollToTop();
 			if (Input.GetKeyDown(KeyCode.End)) ScrollToBottom();
 		}
 
@@ -304,7 +302,8 @@ namespace Interactables
 				_rows.Add(row);
 			}
 
-			ScrollToBottom();
+			if (openAtFirstMessage) ScrollToTop();
+			else ScrollToBottom();
 		}
 
 		// тексты ищутся по имени объекта (Text_Header / Text_Body), а не "первый попавшийся TMP_Text" —
@@ -347,6 +346,19 @@ namespace Interactables
 			_layoutDirty = false;
 
 			if (_stickToBottom && messagesScroll != null) ApplyScrollToBottom();
+		}
+
+		// В начало переписки. "Прилипать" к верху не нужно: Content растёт вниз от верхнего края (pivot сверху),
+		// поэтому догрузившиеся переводы и пересчёт высот первое сообщение не сдвигают
+		private void ScrollToTop()
+		{
+			if (messagesScroll == null) return;
+
+			StopScrollRoutine();
+			_stickToBottom = false;
+			Canvas.ForceUpdateCanvases();
+			if (messagesContainer != null) LayoutRebuilder.ForceRebuildLayoutImmediate(messagesContainer);
+			messagesScroll.verticalNormalizedPosition = 1f; // 1 — самый верх
 		}
 
 		private void ScrollToBottom()
