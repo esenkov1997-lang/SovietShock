@@ -34,6 +34,15 @@ MonoBehaviour:
       is afraid that he will be fired for his frequent sick days lately"
     m_Metadata:
       m_Items: []
+  - m_Id: 14922834020474880
+    m_Localized: ATTENTION!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 14923058059223040
+    m_Localized: "System malfunctions! \nPlease remain in place and do not leave
+      the complex via the main elevator."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

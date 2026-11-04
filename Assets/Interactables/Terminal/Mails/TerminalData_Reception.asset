@@ -17,7 +17,7 @@ MonoBehaviour:
       m_TableReference:
         m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd
       m_TableEntryReference:
-        m_KeyId: 18432264577024
+        m_KeyId: 14922834020474880
         m_Key: 
       m_FallbackState: 0
       m_WaitForCompletion: 0
@@ -32,42 +32,22 @@ MonoBehaviour:
       m_WaitForCompletion: 0
       m_LocalVariables: []
     messages:
-    - isOutgoing: 1
-      author:
-        m_TableReference:
-          m_TableCollectionName: GUID:6b55c8acccb79b240bf56ede783a28ec
-        m_TableEntryReference:
-          m_KeyId: 1064842895360
-          m_Key: 
-        m_FallbackState: 0
-        m_WaitForCompletion: 0
-        m_LocalVariables: []
-      time: 09.11
-      body:
-        m_TableReference:
-          m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd
-        m_TableEntryReference:
-          m_KeyId: 19214212866048
-          m_Key: 
-        m_FallbackState: 0
-        m_WaitForCompletion: 0
-        m_LocalVariables: []
     - isOutgoing: 0
       author:
         m_TableReference:
           m_TableCollectionName: GUID:6b55c8acccb79b240bf56ede783a28ec
         m_TableEntryReference:
-          m_KeyId: 1399749681152
+          m_KeyId: 14882013258784768
           m_Key: 
         m_FallbackState: 0
         m_WaitForCompletion: 0
         m_LocalVariables: []
-      time: 09.11
+      time: 08.17
       body:
         m_TableReference:
           m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd
         m_TableEntryReference:
-          m_KeyId: 19644795920384
+          m_KeyId: 14923058059223040
           m_Key: 
         m_FallbackState: 0
         m_WaitForCompletion: 0
@@ -121,7 +101,7 @@ MonoBehaviour:
         m_FallbackState: 0
         m_WaitForCompletion: 0
         m_LocalVariables: []
-      time: 09.11
+      time: 09.23
       body:
         m_TableReference:
           m_TableCollectionName: GUID:682a414f4af00174e82f2a0a7e8d0afd

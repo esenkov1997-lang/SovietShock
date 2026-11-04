@@ -27,6 +27,10 @@ MonoBehaviour:
     m_Key: char.lubov
     m_Metadata:
       m_Items: []
+  - m_Id: 14882013258784768
+    m_Key: char.mom
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

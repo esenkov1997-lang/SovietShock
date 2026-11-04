@@ -27,6 +27,14 @@ MonoBehaviour:
     m_Key: mail.securitysystem.mInbox01
     m_Metadata:
       m_Items: []
+  - m_Id: 14922834020474880
+    m_Key: mail.attention.subject
+    m_Metadata:
+      m_Items: []
+  - m_Id: 14923058059223040
+    m_Key: mail.attention.mInbox01
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
