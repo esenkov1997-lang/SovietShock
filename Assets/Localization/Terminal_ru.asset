@@ -43,11 +43,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 8100000000001
-    m_Localized: "Камера {0:00}"
+    m_Localized: "\u041A\u0430\u043C\u0435\u0440\u0430 {0:00}"
     m_Metadata:
       m_Items: []
   - m_Id: 8100000000002
-    m_Localized: "Камера Холл"
+    m_Localized: "\u041A\u0430\u043C\u0435\u0440\u0430 \u0425\u043E\u043B\u043B"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 14987603150708736
+    m_Localized: "\u0414\u0423\u0413\u0410-\u041E\u0421"
     m_Metadata:
       m_Items: []
   references:

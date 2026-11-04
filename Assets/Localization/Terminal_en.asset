@@ -43,11 +43,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 8100000000001
-    m_Localized: "Camera {0:00}"
+    m_Localized: Camera {0:00}
     m_Metadata:
       m_Items: []
   - m_Id: 8100000000002
-    m_Localized: "Camera: Hall"
+    m_Localized: 'Camera: Hall'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 14987603150708736
+    m_Localized: "\u0414\u0423\u0413\u0410-OS"
     m_Metadata:
       m_Items: []
   references:

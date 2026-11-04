@@ -47,6 +47,10 @@ MonoBehaviour:
     m_Key: camera.hall
     m_Metadata:
       m_Items: []
+  - m_Id: 14987603150708736
+    m_Key: ui.terminalname
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
