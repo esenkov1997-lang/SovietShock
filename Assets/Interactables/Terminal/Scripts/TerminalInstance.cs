@@ -38,6 +38,12 @@ namespace Interactables
 		[Tooltip("Множитель разрешения относительно размера TerminalCanvas (1024×768 → 1 = 1024×768)")]
 		[Range(0.25f, 2f)]
 		[SerializeField] private float resolutionScale = 1f;
+		[Tooltip("Как картинка UI растягивается на модель экрана. Point — чёткие квадратные пиксели (ретро, пиксельные " +
+			"шрифты не размываются, когда камера близко). Bilinear — сглаживание, мягче, но \"мылит\" мелкий текст")]
+		[SerializeField] private FilterMode screenFilterMode = FilterMode.Point;
+		[Tooltip("Мип-карты экрана: убирают рябь и мерцание мелкого текста, когда терминал виден издалека или под углом. " +
+			"Вблизи (за терминалом) не влияют. Немного памяти и время на генерацию каждый кадр рендера экрана")]
+		[SerializeField] private bool screenMipMaps = true;
 		[Tooltip("Рисовать UI только пока экран виден какой-либо камере (экономия на терминалах вне поля зрения)")]
 		[SerializeField] private bool renderOnlyWhenVisible = true;
 		[Tooltip("Индекс рендерера для UICamera в Renderer List пайплайна (Ultra_PipelineAsset) — рендерер БЕЗ " +
@@ -173,6 +179,10 @@ namespace Interactables
 			{
 				name = $"RT_{name}",
 				antiAliasing = 1,
+				filterMode = screenFilterMode,
+				// мип-карты обновляются сами после каждого рендера UICamera
+				useMipMap = screenMipMaps,
+				autoGenerateMips = screenMipMaps,
 			};
 			_renderTexture.Create();
 

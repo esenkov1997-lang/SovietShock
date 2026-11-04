@@ -181,6 +181,8 @@ MonoBehaviour:
   - _BaseMap
   - _MainTex
   resolutionScale: 1
+  screenFilterMode: 0
+  screenMipMaps: 1
   renderOnlyWhenVisible: 1
   screenRendererIndex: 1
   terminalCanvas: {fileID: 3620377877786962411}
@@ -357,7 +359,7 @@ Transform:
   m_GameObject: {fileID: 5706528140459984594}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0.287}
+  m_LocalPosition: {x: 0, y: 0, z: 0.2234}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
