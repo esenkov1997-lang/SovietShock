@@ -137,18 +137,18 @@ namespace Interactables
 
 			// ← / → — переключение колонки; в этом кадре больше ничего не делаем, чтобы одно нажатие
 			// не успело и сменить фокус, и сработать уже в новой колонке
-			if (TerminalMainController.LeftPressed() && _focus != Column.List) { SetFocus(Column.List); PlayNavigate(); return; }
-			if (TerminalMainController.RightPressed() && _focus != Column.Chat) { SetFocus(Column.Chat); PlayNavigate(); return; }
+			if (Controls.LeftPressed && _focus != Column.List) { SetFocus(Column.List); PlayNavigate(); return; }
+			if (Controls.RightPressed && _focus != Column.Chat) { SetFocus(Column.Chat); PlayNavigate(); return; }
 
 			if (_focus == Column.List)
 			{
-				if (TerminalMainController.UpPressed()) Step(-1);
-				else if (TerminalMainController.DownPressed()) Step(+1);
+				if (Controls.UpPressed) Step(-1);
+				else if (Controls.DownPressed) Step(+1);
 			}
 			else
 			{
 				// плавно, пока зажато: вверх — к старым сообщениям
-				float direction = (TerminalMainController.UpHeld() ? 1f : 0f) - (TerminalMainController.DownHeld() ? 1f : 0f);
+				float direction = (Controls.UpHeld ? 1f : 0f) - (Controls.DownHeld ? 1f : 0f);
 				if (direction != 0f) ScrollChatBy(direction * arrowScrollSpeed * Time.deltaTime);
 			}
 
@@ -177,22 +177,22 @@ namespace Interactables
 		}
 
 		// Прокрутка переписки, работает при любом фокусе. Своя, а не встроенная в ScrollRect: курсор зажат,
-		// а экран терминала — RenderTexture, поэтому события мыши до ScrollRect не доходят. Колесо читаем
-		// напрямую — Input.mouseScrollDelta работает и при зажатом курсоре
+		// а экран терминала — RenderTexture, поэтому события мыши до ScrollRect не доходят. Колесо, страницы и
+		// начало/конец — действия Interface/Scroll, PageUp/PageDown, ScrollTop/ScrollBottom (работают и при зажатом курсоре)
 		private void HandleChatScroll()
 		{
 			if (messagesScroll == null) return;
 
-			float wheel = Input.mouseScrollDelta.y;
+			float wheel = Controls.ScrollDelta;
 			if (wheel != 0f) ScrollChatBy(wheel * wheelScrollStep);
 
 			float page = messagesScroll.viewport != null ? messagesScroll.viewport.rect.height * pageScrollFraction : 0f;
-			if (Input.GetKeyDown(KeyCode.PageUp)) ScrollChatBy(page);
-			if (Input.GetKeyDown(KeyCode.PageDown)) ScrollChatBy(-page);
+			if (Controls.PageUpPressed) ScrollChatBy(page);
+			if (Controls.PageDownPressed) ScrollChatBy(-page);
 
-			// Home/End — в начало/конец переписки; ручная прокрутка отменяет незаконченный автоскролл вниз
-			if (Input.GetKeyDown(KeyCode.Home)) ScrollToTop();
-			if (Input.GetKeyDown(KeyCode.End)) ScrollToBottom();
+			// в начало/конец переписки; ручная прокрутка отменяет незаконченный автоскролл вниз
+			if (Controls.ScrollTopPressed) ScrollToTop();
+			if (Controls.ScrollBottomPressed) ScrollToBottom();
 		}
 
 		// pixels > 0 — вверх (к старым сообщениям), < 0 — вниз

@@ -4,7 +4,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Localization;
-using Player;
 using Weapons;
 
 namespace Interactables
@@ -21,13 +20,18 @@ namespace Interactables
 		public abstract void Open();
 		// спрятать свою панель и подчистить заспавненное
 		public abstract void Close();
-		// вызывается каждый кадр, пока модуль открыт. Escape сюда не доходит — его обрабатывает главный контроллер
+		// вызывается каждый кадр, пока модуль открыт. "Назад" сюда не доходит — его обрабатывает главный контроллер.
+		// Ввод читается через Controls (карта Interface из Input Actions), клавиш в коде модулей нет
 		public virtual void HandleInput() { }
-		// Escape внутри модуля: true — модуль обработал его сам (например, вернул фокус из переписки в список),
+		// "Назад" внутри модуля: true — модуль обработал его сам (например, вернул фокус из переписки в список),
 		// false — модуль закрывается и терминал возвращается в каскадное меню
 		public virtual bool HandleBack() => false;
 		// число на окне каскада (Number): писем, камер, файлов. -1 — не показывать
 		public virtual int ItemCount => -1;
+
+		// управление терминалом; выдаёт TerminalMainController перед Open, пока модуль открыт — не null
+		protected TerminalControls Controls { get; private set; }
+		public void AttachControls(TerminalControls controls) => Controls = controls;
 
 		// звуки интерфейса этого терминала (TerminalAudio на корне префаба). Может быть null — тогда без звука
 		private TerminalAudio _audio;
@@ -48,12 +52,13 @@ namespace Interactables
 
 	// Главный менеджер терминала. Вешается на TerminalCanvas (объект, который всегда активен).
 	// Связь с системой фокусировки (InteractableFocusObject + PlayerCameraFocus) — сама, через события:
-	// OnInteractionStart → OpenTerminal(), OnInteractionEnd → CloseTerminal(). Выход из терминала по Escape
+	// OnInteractionStart → OpenTerminal(), OnInteractionEnd → CloseTerminal(). Выход из терминала по "Назад"
 	// тоже делает этот скрипт (см. HandlesExitKeyExternally) — PlayerCameraFocus в это не вмешивается.
 	//
-	//   Password    — ввод пароля. Enter — проверка, Escape — выход из терминала
-	//   CascadeMenu — 3 каскадных окна. W/S, ↑/↓ — выбор, Enter или клавиша взаимодействия — открыть модуль, Escape — выход
-	//   FullScreen  — открытый модуль. Escape — сначала модулю (TerminalApp.HandleBack), если тот не
+	// Клавиши — только в Input Actions, карта Interface (см. TerminalControls): Up/Down/Left/Right, Submit, Back...
+	//   Password    — ввод пароля. Submit — проверка, Back — выход из терминала (Backspace в поле стирает символ)
+	//   CascadeMenu — 3 каскадных окна. Up/Down — выбор, Submit или клавиша взаимодействия — открыть модуль, Back — выход
+	//   FullScreen  — открытый модуль. Back — сначала модулю (TerminalApp.HandleBack), если тот не
 	//                 обработал — назад в CascadeMenu. Остальной ввод — модулю
 	public class TerminalMainController : MonoBehaviour
 	{
@@ -115,6 +120,7 @@ namespace Interactables
 		private TerminalAudio _audio; // необязателен — без него терминал просто беззвучный
 		private int _openedFrame = -1;
 		private Health _playerHealth; // здоровье игрока, который сейчас работает с терминалом (для exitOnDamage)
+		private TerminalControls _controls; // управление игрока, который работает с терминалом
 
 		private bool NeedsPassword => requirePassword && !(rememberUnlock && _unlocked);
 
@@ -189,6 +195,16 @@ namespace Interactables
 		public void OpenTerminal()
 		{
 			if (IsOpen) return;
+
+			// без управления из терминала нельзя было бы даже выйти — сразу отпускаем игрока (причина — в консоли)
+			// заново при каждом входе: игрок мог смениться (возрождение)
+			_controls = TerminalControls.FromPlayer(focusObject != null ? focusObject.ActiveFocus : null, this);
+			if (_controls == null)
+			{
+				if (focusObject != null) focusObject.ExitInteraction();
+				return;
+			}
+
 			IsOpen = true;
 			_openedFrame = Time.frameCount;
 			if (_audio != null) _audio.PlayEnter();
@@ -287,26 +303,28 @@ namespace Interactables
 
 		private void UpdatePassword()
 		{
-			if (Input.GetKeyDown(KeyCode.Escape))
+			// пока печатают в поле, Backspace стирает символ, а не выходит (Escape — выходит)
+			bool typing = passwordInput != null && passwordInput.isFocused;
+			if (_controls.BackPressed(textFieldFocused: typing))
 			{
 				ExitTerminal();
 				return;
 			}
 
-			if (EnterKeyPressed()) CheckPassword();
+			if (_controls.SubmitPressed) CheckPassword();
 		}
 
 		private void UpdateCascade()
 		{
-			if (Input.GetKeyDown(KeyCode.Escape))
+			if (_controls.BackPressed())
 			{
 				ExitTerminal();
 				return;
 			}
 
-			if (UpPressed()) NavigateWindow(-1);
-			else if (DownPressed()) NavigateWindow(+1);
-			else if (SubmitPressed()) EnterFullScreen();
+			if (_controls.UpPressed) NavigateWindow(-1);
+			else if (_controls.DownPressed) NavigateWindow(+1);
+			else if (_controls.SelectPressed) EnterFullScreen();
 		}
 
 		private void NavigateWindow(int direction)
@@ -319,7 +337,7 @@ namespace Interactables
 
 		private void UpdateFullScreen()
 		{
-			if (Input.GetKeyDown(KeyCode.Escape))
+			if (_controls.BackPressed())
 			{
 				// сначала даём модулю шанс обработать "назад" самому — выходим в меню, только если ему некуда
 				if (_activeApp != null && _activeApp.HandleBack()) return;
@@ -332,19 +350,6 @@ namespace Interactables
 
 			if (_activeApp != null) _activeApp.HandleInput();
 		}
-
-		// общие хелперы клавиш — модули используют их же, чтобы навигация везде была одинаковой
-		public static bool UpPressed() => Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W);
-		public static bool DownPressed() => Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S);
-		public static bool LeftPressed() => Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A);
-		public static bool RightPressed() => Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D);
-		// "зажато" — для плавных действий (прокрутка), в отличие от "нажато в этом кадре" выше
-		public static bool UpHeld() => Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W);
-		public static bool DownHeld() => Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S);
-		public static bool EnterKeyPressed() => Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
-		// "выбрать": Enter или клавиша взаимодействия (та же, что открывает терминал, см. Player.InteractKey).
-		// Не для поля пароля — там клавиша взаимодействия может оказаться обычной буквой пароля
-		public static bool SubmitPressed() => EnterKeyPressed() || InteractKey.WasPressedThisFrame;
 
 		// ---------- Password ----------
 
@@ -488,6 +493,7 @@ namespace Interactables
 			// сначала включаем окно, потом модуль: модулю для корутин (прокрутка чата) нужен активный объект
 			SetState(TerminalState.FullScreen);
 			_activeApp = entry.app;
+			_activeApp.AttachControls(_controls);
 			_activeApp.Open();
 		}
 

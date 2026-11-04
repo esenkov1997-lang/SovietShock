@@ -2,6 +2,7 @@ using System.Collections;
 using Player;
 using StarterAssets;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Weapons;
 
 namespace Interactables
@@ -12,7 +13,7 @@ namespace Interactables
 	//
 	//  StaticLook   — капсула стоит на месте, камера (CinemachineCameraTarget) плавно перелетает в
 	//                 cameraTarget объекта. Курсор остаётся зажатым и скрытым — UI терминала управляется с
-	//                 клавиатуры. Выход — exitKey (Escape) или ExitInteraction(): камера летит обратно
+	//                 клавиатуры. Выход — exitAction (Interface/Back) или ExitInteraction(): камера летит обратно
 	//                 в голову, управление возвращается. С включённым
 	//                 InteractableFocusObject.RepositionOnStaticLook капсула на входе незаметно переставляется
 	//                 в playerRepositionPoint — и после выхода игрок стоит уже там.
@@ -38,8 +39,9 @@ namespace Interactables
 		[SerializeField] private AnimationCurve transitionCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
 		[Header("StaticLook")]
-		[Tooltip("Кнопка выхода из режима StaticLook")]
-		[SerializeField] private KeyCode exitKey = KeyCode.Escape;
+		[Tooltip("Действие выхода из режима StaticLook (StarterAssets → Interface/Back, по умолчанию Escape / Backspace). " +
+			"Терминал выход обрабатывает сам (HandlesExitKeyExternally) — это для остальных объектов фокуса")]
+		[SerializeField] private InputActionReference exitAction;
 
 		[Header("References (необязательно — ищутся автоматически)")]
 		[Tooltip("Объект, за которым следует Cinemachine-камера. Если не задано — FirstPersonController.CinemachineCameraTarget")]
@@ -85,14 +87,20 @@ namespace Interactables
 				cameraRoot = _movement.CinemachineCameraTarget.transform;
 			if (playerInteractor == null) playerInteractor = GetComponentInChildren<PlayerInteractor>(true);
 			_weapons = GetComponentsInChildren<WeaponController>(true);
+
+			// карта Interface не включается PlayerInput автоматически — включаем действие сами. Не выключаем:
+			// карта общая с терминалом (см. TerminalControls)
+			if (exitAction != null) exitAction.action.Enable();
+			else Debug.LogError($"{nameof(PlayerCameraFocus)}: не назначен Exit Action (StarterAssets → Interface/Back)", this);
 		}
 
 		private void Update()
 		{
-			// Escape прерывает и уже установившийся фокус, и ещё идущий перелёт к объекту
-			// ...если только объект не обрабатывает Escape сам (см. InteractableFocusObject.HandlesExitKeyExternally)
+			// "Назад" прерывает и уже установившийся фокус, и ещё идущий перелёт к объекту
+			// ...если только объект не обрабатывает выход сам (см. InteractableFocusObject.HandlesExitKeyExternally)
 			bool objectHandlesExit = _current != null && _current.HandlesExitKeyExternally;
-			if ((_state == State.InStatic || _state == State.EnteringStatic) && !objectHandlesExit && Input.GetKeyDown(exitKey))
+			if ((_state == State.InStatic || _state == State.EnteringStatic) && !objectHandlesExit &&
+				exitAction != null && exitAction.action.WasPressedThisFrame())
 			{
 				ExitInteraction();
 			}
@@ -148,7 +156,7 @@ namespace Interactables
 			return true;
 		}
 
-		// Выход из StaticLook: вызывается по exitKey или извне (например, кнопкой "Закрыть" в UI терминала
+		// Выход из StaticLook: вызывается по exitAction или извне (например, кнопкой "Закрыть" в UI терминала
 		// через InteractableFocusObject.ExitInteraction). В PhysicalMove выходить не из чего — игнорируется.
 		public void ExitInteraction()
 		{
@@ -160,7 +168,7 @@ namespace Interactables
 			LockCursor();
 		}
 
-		// В редакторе Escape (наш exitKey по умолчанию) сам по себе отпускает курсор в Game view — и он висит
+		// В редакторе Escape (одна из клавиш exitAction) сам по себе отпускает курсор в Game view — и он висит
 		// видимым, пока не кликнешь в окно. Поэтому зажимаем явно: сразу при выходе и ещё раз в UnlockPlayer —
 		// на случай, если редактор обработал Escape позже нашего Update в этом же кадре. В билде это no-op
 		private static void LockCursor()

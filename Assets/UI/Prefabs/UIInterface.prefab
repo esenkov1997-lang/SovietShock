@@ -1128,7 +1128,7 @@ MonoBehaviour:
   slotPrefab: {fileID: 3210079876083858569, guid: dea283b21b2aa964996c332d7891e9b2, type: 3}
   backgroundCellPrefab: {fileID: 0}
   panel: {fileID: 4635507100838804885}
-  toggleKey: 9
+  toggleAction: {fileID: 5602554367899780425, guid: 4419d82f33d36e848b3ed5af4c8da37e, type: 3}
   input: {fileID: 0}
 --- !u!114 &6914651841126134675
 MonoBehaviour:
@@ -1164,7 +1164,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74926517a019416e82827dd1f310a165, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  toggleKey: 94
+  toggleAction: {fileID: 6230671791285639104, guid: 4419d82f33d36e848b3ed5af4c8da37e, type: 3}
   onlyInDevBuilds: 1
 --- !u!114 &3840721799482834283
 MonoBehaviour:

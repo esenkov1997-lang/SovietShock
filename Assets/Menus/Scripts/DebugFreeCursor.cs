@@ -7,7 +7,7 @@ using UnityEngine.InputSystem;
 
 namespace Menus
 {
-	// Отладочный "свободный курсор": по клавише (F1) курсор появляется, а игра продолжает идти — можно кликать
+	// Отладочный "свободный курсор": по действию Menu/DebugCursor (F1) курсор появляется, а игра продолжает идти — можно кликать
 	// по объектам в Scene view и Hierarchy, смотреть инспектор и гизмо врагов в движении. Камера в это время
 	// не крутится от мыши, ЛКМ/ПКМ не стреляют, а WASD работает — можно ходить и наблюдать одновременно.
 	// Вешается на объект, который всегда активен (например, корень UIInterface, рядом с PauseMenu).
@@ -17,8 +17,9 @@ namespace Menus
 	// возвращается игре, только если поверх не открыт другой UI — тот сам вернёт всё при своём закрытии.
 	public class DebugFreeCursor : MonoBehaviour
 	{
-		[Tooltip("Клавиша включения/выключения свободного курсора")]
-		[SerializeField] private Key toggleKey = Key.F1;
+		[Tooltip("Действие включения/выключения свободного курсора (StarterAssets → Menu/DebugCursor, по умолчанию F1). " +
+			"В карте Menu, а не Player — чтобы работало и на паузе, когда карта Player выключена")]
+		[SerializeField] private InputActionReference toggleAction;
 		[Tooltip("Работает только в редакторе и Development Build — в релизной сборке клавиша ничего не делает")]
 		[SerializeField] private bool onlyInDevBuilds = true;
 
@@ -42,11 +43,16 @@ namespace Menus
 		{
 			PlayerStart.PlayerSpawned += HandlePlayerSpawned;
 			if (_input == null) Bind(FindFirstObjectByType<StarterAssetsInputs>());
+
+			// карту Menu PlayerInput сам не включает (см. PauseMenu) — включаем действие сами
+			if (toggleAction != null) toggleAction.action.Enable();
+			else Debug.LogError("DebugFreeCursor: не назначен Toggle Action (StarterAssets → Menu/DebugCursor)", this);
 		}
 
 		private void OnDisable()
 		{
 			PlayerStart.PlayerSpawned -= HandlePlayerSpawned;
+			if (toggleAction != null) toggleAction.action.Disable();
 			if (_active) SetActive(false);
 		}
 
@@ -63,8 +69,7 @@ namespace Menus
 
 		private void Update()
 		{
-			Keyboard keyboard = Keyboard.current;
-			if (keyboard != null && keyboard[toggleKey].wasPressedThisFrame) SetActive(!_active);
+			if (toggleAction != null && toggleAction.action.WasPressedThisFrame()) SetActive(!_active);
 		}
 
 		// после Update других систем: если пауза/инвентарь при закрытии снова захватили курсор — отпускаем обратно

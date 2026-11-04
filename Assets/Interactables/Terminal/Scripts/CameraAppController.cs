@@ -117,9 +117,9 @@ namespace Interactables
 				return;
 			}
 
-			if (TerminalMainController.UpPressed()) Step(-1);
-			else if (TerminalMainController.DownPressed()) Step(+1);
-			else if (TerminalMainController.SubmitPressed()) EnterView();
+			if (Controls.UpPressed) Step(-1);
+			else if (Controls.DownPressed) Step(+1);
+			else if (Controls.SelectPressed) EnterView();
 		}
 
 		// Escape при просмотре — назад к списку камер, а не выход из модуля
@@ -240,8 +240,8 @@ namespace Interactables
 		private void UpdateView()
 		{
 			// ←/→ — соседняя камера; в этом кадре мышь уже не крутит, чтобы рывок не достался новой камере
-			if (TerminalMainController.LeftPressed()) { SwitchCamera(-1); return; }
-			if (TerminalMainController.RightPressed()) { SwitchCamera(+1); return; }
+			if (Controls.LeftPressed) { SwitchCamera(-1); return; }
+			if (Controls.RightPressed) { SwitchCamera(+1); return; }
 
 			SecurityCamera active = SecurityCamera.Active;
 			if (active == null) return;

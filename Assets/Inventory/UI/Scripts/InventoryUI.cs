@@ -4,12 +4,13 @@ using Menus;
 using Player;
 using StarterAssets;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Inventory
 {
 	// Вешается на объект InventoryUI (панель на Canvas). Держит панель в актуальном состоянии по событию
-	// InventoryHolder.OnInventoryChanged и переключает её видимость по кнопке (см. toggleKey) — вместе
+	// InventoryHolder.OnInventoryChanged и переключает её видимость по кнопке (см. toggleAction) — вместе
 	// с курсором мыши, ровно как это уже делает StarterAssetsInputs при потере фокуса окна.
 	//
 	// Сетка "тетрис"-стиля: contentParent (Grid Layout Group) задаёт размер/отступы ОДНОЙ ячейки и
@@ -34,7 +35,8 @@ namespace Inventory
 		[SerializeField] private GameObject panel;
 
 		[Header("Toggle")]
-		[SerializeField] private KeyCode toggleKey = KeyCode.Tab;
+		[Tooltip("Действие открытия/закрытия инвентаря (StarterAssets → Player/Inventory, по умолчанию Tab / Select на геймпаде)")]
+		[SerializeField] private InputActionReference toggleAction;
 		[Tooltip("Не обязательно — если задано, при открытом инвентаре камера перестаёт вращаться от мыши")]
 		[SerializeField] private StarterAssetsInputs input;
 
@@ -145,7 +147,8 @@ namespace Inventory
 		{
 			if (_focus != null && _focus.IsBusy) return;
 			if (PauseMenu.IsPaused) return;
-			if (Input.GetKeyDown(toggleKey)) SetOpen(!_isOpen);
+			// карту Player включает PlayerInput игрока (на паузе выключает) — сами действие не включаем
+			if (toggleAction != null && toggleAction.action.WasPressedThisFrame()) SetOpen(!_isOpen);
 		}
 
 		// Menus.PauseMenu закрывает инвентарь по Escape вместо открытия паузы

@@ -63,7 +63,7 @@ namespace Interactables
 		// игрок, который сейчас взаимодействует с объектом (null — никто)
 		public PlayerCameraFocus ActiveFocus => _activeFocus;
 
-		// true — выход по exitKey (Escape) в StaticLook обрабатывает сам объект, а не PlayerCameraFocus.
+		// true — выход по "Назад" (PlayerCameraFocus.exitAction) в StaticLook обрабатывает сам объект, а не PlayerCameraFocus.
 		// Нужно, когда у объекта своя навигация по Escape (например, TerminalMainController: в полноэкранном
 		// окне Escape — "назад в меню", а не выход). Объект тогда сам вызывает ExitInteraction(), когда нужно.
 		// Выставляется из кода таким компонентом (не в инспекторе) — так его нельзя забыть включить

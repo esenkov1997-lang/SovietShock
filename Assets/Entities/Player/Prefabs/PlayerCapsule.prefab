@@ -549,7 +549,6 @@ MonoBehaviour:
   highClimbClip: {fileID: -1805994397365421099, guid: 993a3a9d7838cdb41a64e8396bf7187a, type: 3}
   highClimbMinHeight: 2
   grabEvent: MantleGrab
-  highClimbTrigger: MantleHigh
   rootBoneName: root
   leftPalmBoneName: middle_02_l
   rightPalmBoneName: middle_02_r
@@ -899,7 +898,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  exitKey: 27
+  exitAction: {fileID: -4437564015138881425, guid: 4419d82f33d36e848b3ed5af4c8da37e, type: 3}
   cameraRoot: {fileID: 0}
   playerInteractor: {fileID: 0}
 --- !u!114 &3535324135311420366
