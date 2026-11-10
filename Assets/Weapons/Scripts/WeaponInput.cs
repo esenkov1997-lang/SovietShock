@@ -31,9 +31,9 @@ namespace Weapons
 			{
 				_aimToggled = false;
 				_aimButtonLatch = input.aim;
-				input.dropWeapon = false;
 				input.reload = false;
 				input.weaponScroll = 0f;
+				input.weaponSlot = -1;
 				return;
 			}
 
@@ -49,11 +49,11 @@ namespace Weapons
 			TickWeaponScroll();
 
 			// а эти флаги — одноразовые срабатывания: считали и сразу сбросили,
-			// чтобы не выбрасывать оружие на каждом кадре, пока клавиша зажата
-			if (input.dropWeapon)
+			// чтобы не срабатывать на каждом кадре, пока клавиша зажата
+			if (input.weaponSlot >= 0)
 			{
-				_weapons.DropCurrentWeapon();
-				input.dropWeapon = false;
+				_weapons.SelectSlot(input.weaponSlot);
+				input.weaponSlot = -1;
 			}
 
 			if (input.reload)

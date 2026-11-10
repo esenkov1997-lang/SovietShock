@@ -1,22 +1,18 @@
-using System.Collections.Generic;
 using Interactables;
 using Menus;
 using Player;
 using StarterAssets;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 
 namespace Inventory
 {
-	// Вешается на объект InventoryUI (панель на Canvas). Держит панель в актуальном состоянии по событию
-	// InventoryHolder.OnInventoryChanged и переключает её видимость по кнопке (см. toggleAction) — вместе
-	// с курсором мыши, ровно как это уже делает StarterAssetsInputs при потере фокуса окна.
+	// Экран инвентаря: открывает/закрывает его по кнопке (см. toggleAction) вместе с курсором мыши и блокировкой
+	// обзора/стрельбы, и связывает виды с данными игрока. Сам ничего не рисует: сетку показывает ItemGridView
+	// (позже — ещё колесо оружия, вкладка улик, окно ящика).
 	//
-	// Сетка "тетрис"-стиля: contentParent (Grid Layout Group) задаёт размер/отступы ОДНОЙ ячейки и
-	// рисует фон gridWidth x gridHeight — этот фон статичен, перерисовывается один раз при получении
-	// инвентаря. Сами предметы — отдельные объекты (slotPrefab), которые Grid Layout Group не трогает
-	// (LayoutElement.ignoreLayout), а RedrawUI вручную ставит им размер/позицию под ItemData.GridSize.
+	// Вешается на объект, который всегда активен (например, на канвас инвентаря), а panel — дочерний объект со всем
+	// содержимым экрана, который включается/выключается. Кнопка-крестик в окне: On Click → InventoryUI.Close
 	public class InventoryUI : MonoBehaviour
 	{
 		[Header("Data Source")]
@@ -25,14 +21,10 @@ namespace Inventory
 		[SerializeField] private InventoryHolder targetInventory;
 
 		[Header("UI References")]
-		[Tooltip("Объект с Grid Layout Group — задаёт размер и отступы одной ячейки. Сюда спавнятся и фон, и сами предметы")]
-		[SerializeField] private RectTransform contentParent;
-		[Tooltip("Предмет (InventorySlotPrefab)")]
-		[SerializeField] private GameObject slotPrefab;
-		[Tooltip("Необязательно — фоновая клетка 1x1. Если не задано, клетка рисуется простым полупрозрачным квадратом в коде")]
-		[SerializeField] private GameObject backgroundCellPrefab;
 		[Tooltip("Корневая панель инвентаря — включается/выключается целиком")]
 		[SerializeField] private GameObject panel;
+		[Tooltip("Сетка инвентаря игрока (ItemGridView)")]
+		[SerializeField] private ItemGridView gridView;
 
 		[Header("Toggle")]
 		[Tooltip("Действие открытия/закрытия инвентаря (StarterAssets → Player/Inventory, по умолчанию Tab / Select на геймпаде)")]
@@ -41,12 +33,9 @@ namespace Inventory
 		[SerializeField] private StarterAssetsInputs input;
 
 		private bool _isOpen;
-		private bool _backgroundBuilt;
-		private GridLayoutGroup _grid;
 		// фокус на терминале/рычаге (см. Interactables.PlayerCameraFocus): пока он идёт, инвентарь закрыт
 		// и не открывается. Необязателен — у игрока без этого компонента инвентарь работает как раньше
 		private PlayerCameraFocus _focus;
-		private readonly List<GameObject> _itemViews = new List<GameObject>();
 
 		public bool IsOpen => _isOpen;
 
@@ -71,11 +60,7 @@ namespace Inventory
 				return;
 			}
 
-			_grid = contentParent != null ? contentParent.GetComponent<GridLayoutGroup>() : null;
-			if (_grid == null)
-			{
-				Debug.LogError("InventoryUI: на contentParent нет Grid Layout Group", this);
-			}
+			if (gridView == null) Debug.LogError("InventoryUI: не назначен Grid View", this);
 
 			SetOpen(false);
 		}
@@ -100,8 +85,6 @@ namespace Inventory
 		private void OnDisable()
 		{
 			PlayerStart.PlayerSpawned -= HandlePlayerSpawned;
-
-			if (targetInventory != null) targetInventory.OnInventoryChanged -= RedrawUI;
 			SetFocus(null);
 		}
 
@@ -116,10 +99,10 @@ namespace Inventory
 		// публичный — пригодится и для ручного вызова, если игрока где-то спавнит не PlayerStart
 		public void SetTarget(InventoryHolder inventory)
 		{
-			if (targetInventory != null) targetInventory.OnInventoryChanged -= RedrawUI;
 			targetInventory = inventory;
 			if (targetInventory == null)
 			{
+				if (gridView != null) gridView.Bind(null);
 				SetFocus(null);
 				return;
 			}
@@ -134,13 +117,8 @@ namespace Inventory
 			// инвентарь мог быть уже открыт к моменту появления игрока — переприменяем блокировку ввода
 			ApplyInputLock();
 
-			Subscribe(targetInventory);
-		}
-
-		private void Subscribe(InventoryHolder inventory)
-		{
-			inventory.OnInventoryChanged += RedrawUI;
-			RedrawUI(); // чтобы панель не была пустой при первом же открытии
+			// вид сам следит за изменениями сетки — панель актуальна при первом же открытии
+			if (gridView != null) gridView.Bind(targetInventory.Grid);
 		}
 
 		private void Update()
@@ -177,9 +155,9 @@ namespace Inventory
 			_isOpen = open;
 			panel.SetActive(open);
 
-			// деактивация панели гасит OnDisable у предметов (см. InventorySlotUI), который сам подчищает
+			// деактивация панели гасит OnDisable у предметов (см. GridItemView), который сам подчищает
 			// свой призрак, если тащил именно он — это на случай, если по какой-то причине не сработало
-			if (!open) InventorySlotUI.DestroyActiveGhost();
+			if (!open) GridItemView.DestroyActiveGhost();
 
 			Cursor.lockState = open ? CursorLockMode.None : CursorLockMode.Locked;
 			Cursor.visible = open;
@@ -202,85 +180,6 @@ namespace Inventory
 			// перестаёт записывать новые значения, а FirstPersonController продолжает крутить камеру
 			// на последнем ненулевом look — иначе открытие инвентаря "в движении мышью" уводит камеру
 			if (_isOpen) input.look = Vector2.zero;
-		}
-
-		// фон рисуется один раз на весь размер сетки (gridWidth x gridHeight) и никогда не перерисовывается —
-		// это просто разметка, она не зависит от того, что лежит в инвентаре
-		private void EnsureBackground()
-		{
-			if (_backgroundBuilt || targetInventory == null || _grid == null) return;
-			_backgroundBuilt = true;
-
-			int total = targetInventory.GridWidth * targetInventory.GridHeight;
-			for (int i = 0; i < total; i++)
-			{
-				if (backgroundCellPrefab != null) Instantiate(backgroundCellPrefab, contentParent);
-				else CreatePlainBackgroundCell();
-			}
-
-			// единая точка приёма OnDrop на весь Content, включая пустые клетки без своего IDropHandler
-			if (contentParent.GetComponent<InventoryGridDropZone>() == null)
-			{
-				contentParent.gameObject.AddComponent<InventoryGridDropZone>();
-			}
-		}
-
-		private void CreatePlainBackgroundCell()
-		{
-			GameObject cell = new GameObject("BackgroundCell", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-			cell.transform.SetParent(contentParent, false);
-
-			Image image = cell.GetComponent<Image>();
-			image.color = new Color(1f, 1f, 1f, 0.06f); // едва заметная клетка — просто разметка сетки
-			image.raycastTarget = false; // клики по фону не нужны — сброс ловит InventoryGridDropZone на Content
-		}
-
-		// сносим старые виды предметов и спавним по одному на каждый ItemStack — простая полная
-		// перерисовка вместо точечного апдейта: инвентарь не настолько большой, чтобы это было проблемой.
-		// Фон (см. EnsureBackground) в этой перерисовке не участвует — он статичен
-		private void RedrawUI()
-		{
-			if (_grid == null) return;
-
-			EnsureBackground();
-
-			foreach (GameObject view in _itemViews) Destroy(view);
-			_itemViews.Clear();
-
-			IReadOnlyList<ItemStack> stacks = targetInventory.Items;
-			for (int i = 0; i < stacks.Count; i++)
-			{
-				ItemStack stack = stacks[i];
-				_itemViews.Add(CreateItemView(stack, i));
-			}
-		}
-
-		private GameObject CreateItemView(ItemStack stack, int index)
-		{
-			GameObject view = Instantiate(slotPrefab, contentParent);
-
-			// иначе Grid Layout Group тут же вернёт объект на свою обычную 1x1 позицию по порядку —
-			// ему разрешено определять только размер/отступы ячейки, а не расставлять предметы самому
-			if (!view.TryGetComponent(out LayoutElement layoutElement)) layoutElement = view.AddComponent<LayoutElement>();
-			layoutElement.ignoreLayout = true;
-
-			RectTransform rect = (RectTransform)view.transform;
-			rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
-			rect.pivot = new Vector2(0f, 1f);
-
-			Vector2Int size = stack.item.GridSize;
-			float cellStepX = _grid.cellSize.x + _grid.spacing.x;
-			float cellStepY = _grid.cellSize.y + _grid.spacing.y;
-
-			rect.sizeDelta = new Vector2(
-				size.x * _grid.cellSize.x + (size.x - 1) * _grid.spacing.x,
-				size.y * _grid.cellSize.y + (size.y - 1) * _grid.spacing.y);
-			rect.anchoredPosition = new Vector2(
-				_grid.padding.left + stack.x * cellStepX,
-				-(_grid.padding.top + stack.y * cellStepY));
-
-			view.GetComponent<InventorySlotUI>().SetupSlot(stack.item, stack.count, index, targetInventory);
-			return view;
 		}
 	}
 }

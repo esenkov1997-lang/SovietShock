@@ -231,8 +231,8 @@ namespace Menus
 				_input.sprint = false;
 				_input.interact = false;
 				_input.reload = false;
-				_input.dropWeapon = false;
 				_input.weaponScroll = 0f;
+				_input.weaponSlot = -1;
 				_input.GameplayInputEnabled = false; // заодно сбрасывает зажатые fire/aim
 				if (_playerInput != null) _playerInput.DeactivateInput();
 			}

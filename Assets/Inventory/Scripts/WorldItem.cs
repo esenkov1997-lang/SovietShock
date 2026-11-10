@@ -66,7 +66,7 @@ namespace Inventory
 			UpdatePromptVariables();
 		}
 
-		// выброшенное оружие помнит, сколько патронов в нём оставалось (см. InventoryWeaponEquipHandler)
+		// выброшенное оружие помнит, сколько патронов в нём оставалось — при повторном подборе магазин будет тем же
 		public void SetLoadedAmmo(int ammo)
 		{
 			loadedAmmo = ammo;
@@ -94,7 +94,7 @@ namespace Inventory
 			if (_pickedUp || item == null) return;
 
 			InventoryHolder inventory = interactor.GetComponentInParent<InventoryHolder>();
-			if (inventory == null || !inventory.AddItem(item, amount, loadedAmmo)) return;
+			if (inventory == null || !inventory.TryPickup(item, amount, loadedAmmo)) return;
 
 			_pickedUp = true;
 			Destroy(gameObject);

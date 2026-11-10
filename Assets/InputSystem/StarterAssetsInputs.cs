@@ -18,7 +18,9 @@ namespace StarterAssets
 		public bool fire;
 		// прокрутка колеса мыши: >0 — следующее оружие, <0 — предыдущее (см. WeaponInput.TickWeaponScroll)
 		public float weaponScroll;
-		public bool dropWeapon;
+		// выбор слота колеса оружия клавишами (действия Weapon1..Weapon4): номер слота с 0, -1 — не нажато.
+		// Одноразовое срабатывание — читает и сбрасывает Weapons.WeaponInput
+		public int weaponSlot = -1;
 		public bool interact;
 		public bool reload;
 		public bool aim;
@@ -91,9 +93,16 @@ namespace StarterAssets
 			weaponScroll = value.Get<Vector2>().y;
 		}
 
-		public void OnDropWeapon(InputValue value)
+		// по действию на каждый слот (а не одно действие с номером в значении) — так в настройках управления
+		// у каждой клавиши будет своя понятная строка "Оружие 1", "Оружие 2"...
+		public void OnWeapon1(InputValue value) => SelectWeaponSlot(value, 0);
+		public void OnWeapon2(InputValue value) => SelectWeaponSlot(value, 1);
+		public void OnWeapon3(InputValue value) => SelectWeaponSlot(value, 2);
+		public void OnWeapon4(InputValue value) => SelectWeaponSlot(value, 3);
+
+		private void SelectWeaponSlot(InputValue value, int slot)
 		{
-			dropWeapon = value.isPressed;
+			if (value.isPressed) weaponSlot = slot;
 		}
 
 		public void OnInteract(InputValue value)

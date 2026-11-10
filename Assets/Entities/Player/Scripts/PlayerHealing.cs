@@ -82,11 +82,8 @@ namespace Player
 		// первая аптечка в инвентаре. Разные виды лечения (малая/большая) — пока без выбора, берётся первая попавшаяся
 		private HealingItemData FindHealingItem()
 		{
-			foreach (ItemStack stack in _inventory.Items)
-			{
-				if (stack.item is HealingItemData healing && stack.count > 0) return healing;
-			}
-			return null;
+			ItemInstance found = _inventory.Grid.Find(item => item.Data is HealingItemData && item.Count > 0);
+			return found != null ? (HealingItemData)found.Data : null;
 		}
 
 		private void TickHealing()

@@ -332,7 +332,7 @@ MonoBehaviour:
   crouch: 0
   fire: 0
   weaponScroll: 0
-  dropWeapon: 0
+  weaponSlot: -1
   interact: 0
   reload: 0
   aim: 0
@@ -713,9 +713,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd930cdce0433b34c8b05d09841f37ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridWidth: 6
-  gridHeight: 4
-  items: []
+  gridWidth: 9
+  gridHeight: 12
+  startingItems: []
 --- !u!114 &8614122012661009152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -744,6 +744,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   weaponController: {fileID: 0}
+  slotCount: 4
+  startingWeapons: []
 --- !u!82 &-200789017432963245
 AudioSource:
   m_ObjectHideFlags: 0

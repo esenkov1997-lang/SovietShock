@@ -22,11 +22,11 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
-  icon: {fileID: 21300000, guid: 418f9da8d11a6e246a03266be628445e, type: 3}
+  icon: {fileID: 770817605, guid: 49be54e3bf45d7648b6466b5c94cac96, type: 3}
   type: 0
   worldPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}
   maxStack: 1
-  gridSize: {x: 1, y: 2}
+  gridSize: {x: 2, y: 1}
   weaponData: {fileID: 11400000, guid: 3b1241eb04c1bed4a82671fef79a3af4, type: 2}
   references:
     version: 2
