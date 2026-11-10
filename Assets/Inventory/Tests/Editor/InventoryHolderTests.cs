@@ -207,6 +207,48 @@ namespace Inventory.Tests
 			Assert.AreEqual(1, player.FirstEmptySlot());
 		}
 
+		// ---------- Улики ----------
+
+		[Test]
+		public void PickupClue_GoesToClues_NotGrid_EvenWhenGridFull()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			player.Grid.TryAdd(new ItemInstance(_utils.Item("Box")));
+			ItemData key = _utils.Clue("Key");
+			ItemData note = _utils.Clue("Note", ItemType.Document);
+
+			Assert.IsTrue(player.TryPickup(key, 1));
+			Assert.IsTrue(player.TryPickup(note, 1));
+			Assert.AreEqual(2, player.Clues.Items.Count);
+			Assert.AreEqual(1, player.Grid.Items.Count, "улики не занимают место в сетке");
+		}
+
+		[Test]
+		public void SameClues_StackBeyondMaxStack()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			ItemData key = _utils.Clue("Key"); // maxStack = 1 в ассете
+
+			Assert.IsTrue(player.TryPickup(key, 1));
+			Assert.IsTrue(player.TryPickup(key, 1));
+			Assert.AreEqual(1, player.Clues.Items.Count);
+			Assert.AreEqual(2, player.GetTotalCount(key), "у улик нет предела стопки");
+		}
+
+		[Test]
+		public void KeyForDoor_CountedAndConsumedFromClues()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			ItemData key = _utils.Clue("Key");
+			player.TryPickup(key, 1);
+
+			Assert.IsTrue(player.HasItem(key, 1));
+			Assert.IsFalse(player.HasItem(key, 2));
+			Assert.IsFalse(player.RemoveItem(key, 2), "не хватает — ничего не списывается");
+			Assert.IsTrue(player.RemoveItem(key, 1));
+			Assert.AreEqual(0, player.Clues.Items.Count);
+		}
+
 		// ---------- Выброс ----------
 
 		[Test]

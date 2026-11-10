@@ -33,6 +33,12 @@ namespace Inventory
 		[Tooltip("Колесо избранного оружия (WeaponWheelView). Лежит ВНЕ Panel: его же показывает быстрый выбор по Q " +
 			"(WeaponWheelQuickSelect), а экран инвентаря включает его вместе с собой")]
 		[SerializeField] private WeaponWheelView wheel;
+		[Tooltip("Вкладки окна инвентаря: 0 — Предметы (сетка), 1 — Улики (список)")]
+		[SerializeField] private TabGroup tabs;
+		[Tooltip("Список улик (ClueListView) — страница вкладки \"Улики\"")]
+		[SerializeField] private ClueListView clueList;
+		[Tooltip("Окно чтения документа (DocumentReaderView) — внутри Panel, в центре, изначально выключено")]
+		[SerializeField] private DocumentReaderView documentReader;
 
 		[Header("Context Menu Labels")]
 		[SerializeField] private LocalizedString useLabel = new LocalizedString("UI", "inventory.action.use");
@@ -42,6 +48,11 @@ namespace Inventory
 		[Tooltip("{0} — номер сектора колеса")]
 		[SerializeField] private LocalizedString replaceFavoriteLabel = new LocalizedString("UI", "inventory.action.replaceFavorite");
 		[SerializeField] private LocalizedString fromFavoritesLabel = new LocalizedString("UI", "inventory.action.fromFavorites");
+		[SerializeField] private LocalizedString readLabel = new LocalizedString("UI", "inventory.action.read");
+
+		// номера вкладок в TabGroup
+		public const int ItemsTab = 0;
+		public const int CluesTab = 1;
 
 		[Header("Toggle")]
 		[Tooltip("Действие открытия/закрытия инвентаря (StarterAssets → Player/Inventory, по умолчанию Tab / Select на геймпаде)")]
@@ -95,6 +106,13 @@ namespace Inventory
 				wheel.AcceptDrop = AcceptToSlot;
 			}
 
+			if (clueList != null)
+			{
+				clueList.EntryClicked += HandleClueClick;
+				clueList.EntryRightClicked += HandleClueRightClick;
+			}
+			if (documentReader != null) documentReader.OpenChanged += HandleReaderOpenChanged;
+
 			SetOpen(false);
 		}
 
@@ -111,6 +129,47 @@ namespace Inventory
 				wheel.SlotRightClicked -= HandleSlotRightClick;
 				wheel.SlotDroppedOutside -= HandleSlotDroppedOutside;
 			}
+			if (clueList != null)
+			{
+				clueList.EntryClicked -= HandleClueClick;
+				clueList.EntryRightClicked -= HandleClueRightClick;
+			}
+			if (documentReader != null) documentReader.OpenChanged -= HandleReaderOpenChanged;
+		}
+
+		// ---------- Улики ----------
+
+		// клик по улике: документ — открыть в окне чтения; ключ — пока ничего (описание — в подсказке, этап полировки)
+		private void HandleClueClick(ItemInstance item, PointerEventData eventData)
+		{
+			if (item?.Data is DocumentItemData document && documentReader != null) documentReader.Open(document);
+		}
+
+		private void HandleClueRightClick(ItemInstance item, PointerEventData eventData)
+		{
+			if (contextMenu == null || !(item?.Data is DocumentItemData document) || documentReader == null) return;
+
+			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>
+			{
+				new ItemContextMenu.Entry(readLabel, () => documentReader.Open(document))
+			};
+			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
+		}
+
+		// документ стоит в центре, на месте колеса — пока он открыт, колесо спрятано
+		private void HandleReaderOpenChanged(bool open) => UpdateWheelVisibility();
+
+		private void UpdateWheelVisibility()
+		{
+			if (wheel == null) return;
+			bool reading = documentReader != null && documentReader.IsOpen;
+			wheel.gameObject.SetActive(_isOpen && !reading);
+		}
+
+		// переключить вкладку (например, при переносе улики из ящика — на "Улики")
+		public void ShowTab(int index)
+		{
+			if (tabs != null) tabs.Select(index);
 		}
 
 		// ---------- Перенос между сеткой и колесом ----------
@@ -274,6 +333,7 @@ namespace Inventory
 			{
 				if (gridView != null) gridView.Bind(null);
 				if (wheel != null) wheel.Bind(null);
+				if (clueList != null) clueList.Bind(null);
 				SetFocus(null);
 				return;
 			}
@@ -291,6 +351,7 @@ namespace Inventory
 			// вид сам следит за изменениями сетки — панель актуальна при первом же открытии
 			if (gridView != null) gridView.Bind(targetInventory.Grid);
 			if (wheel != null) wheel.Bind(targetInventory.Loadout);
+			if (clueList != null) clueList.Bind(targetInventory.Clues);
 		}
 
 		private void Update()
@@ -328,14 +389,14 @@ namespace Inventory
 		{
 			_isOpen = open;
 			panel.SetActive(open);
-			if (wheel != null) wheel.gameObject.SetActive(open);
-
-			// закрыли посреди перетаскивания — бросок отменяется, предмет остаётся на месте
+			// закрыли посреди перетаскивания — бросок отменяется, предмет остаётся на месте; документ закрывается
 			if (!open)
 			{
 				ItemDrag.Cancel();
 				if (contextMenu != null) contextMenu.Close();
+				if (documentReader != null) documentReader.Close();
 			}
+			UpdateWheelVisibility();
 
 			Cursor.lockState = open ? CursorLockMode.None : CursorLockMode.Locked;
 			Cursor.visible = open;

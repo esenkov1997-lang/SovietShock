@@ -115,6 +115,18 @@ MonoBehaviour:
     m_Key: inventory.wheel.hotkey
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000009
+    m_Key: inventory.tab.items
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000010
+    m_Key: inventory.tab.clues
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000011
+    m_Key: inventory.action.read
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

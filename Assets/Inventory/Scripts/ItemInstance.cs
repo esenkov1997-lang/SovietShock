@@ -29,8 +29,16 @@ namespace Inventory
 
 		// у предмета есть собственное состояние — такие не складываются в стопку
 		public bool HasState => Weapon != null;
-		// maxStack <= 0 в ассете — без ограничения
-		public int MaxStack => HasState ? 1 : (Data != null && Data.maxStack > 0 ? Data.maxStack : int.MaxValue);
+		// maxStack <= 0 в ассете — без ограничения. Улики (ключи, документы) места не занимают — тоже без ограничения
+		public int MaxStack
+		{
+			get
+			{
+				if (HasState) return 1;
+				if (Data == null || Data.IsClue || Data.maxStack <= 0) return int.MaxValue;
+				return Data.maxStack;
+			}
+		}
 		public bool IsStackable => MaxStack > 1;
 		public int SpaceLeft => MaxStack - Count;
 		public Vector2Int GridSize => Data != null ? Data.GridSize : Vector2Int.one;

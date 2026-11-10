@@ -35,5 +35,9 @@ namespace Inventory
 		// и заводить ещё один в базовом классе означало бы полагаться на то, что подкласс не забудет
 		// вызвать base.OnValidate() (Unity это не проверяет и не гарантирует)
 		public Vector2Int GridSize => new Vector2Int(Mathf.Max(1, gridSize.x), Mathf.Max(1, gridSize.y));
+
+		// "Улика" — ключи, ключ-карты (Quest) и документы: лежат не в сетке, а во вкладке "Улики" — место не занимают
+		// и не выбрасываются
+		public bool IsClue => type == ItemType.Quest || type == ItemType.Document;
 	}
 }

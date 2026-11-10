@@ -121,6 +121,18 @@ MonoBehaviour:
     m_Localized: "hotkey \xAB{0}\xBB"
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000009
+    m_Localized: Items
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000010
+    m_Localized: Clues
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000011
+    m_Localized: Read
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

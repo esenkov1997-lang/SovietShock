@@ -21,6 +21,18 @@ namespace Inventory.Tests
 			return data;
 		}
 
+		// улика: ключ (Quest) или документ
+		public ItemData Clue(string name, ItemType type = ItemType.Quest)
+		{
+			ItemData data = type == ItemType.Document
+				? Track(ScriptableObject.CreateInstance<DocumentItemData>())
+				: Track(ScriptableObject.CreateInstance<ItemData>());
+			data.name = name;
+			data.type = type;
+			data.maxStack = 1;
+			return data;
+		}
+
 		// оружие с магазином на magazine патронов (для проверки, что состояние экземпляра сохраняется)
 		public WeaponItemData Weapon(string name, int width = 2, int height = 1, int magazine = 30)
 		{

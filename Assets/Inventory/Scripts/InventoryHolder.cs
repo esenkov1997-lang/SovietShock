@@ -5,24 +5,27 @@ using UnityEngine.Serialization;
 
 namespace Inventory
 {
-	// Инвентарь игрока. Вешается на корень игрока (PlayerCapsule). Состоит из двух мест хранения:
-	//   - сетка (ItemGrid) — "тетрис" для всего, кроме избранного оружия;
-	//   - колесо избранного оружия (WeaponLoadout на том же объекте, необязательно) — оружие в нём не занимает сетку.
+	// Инвентарь игрока. Вешается на корень игрока (PlayerCapsule). Состоит из трёх мест хранения:
+	//   - сетка (ItemGrid) — "тетрис" для всего, кроме избранного оружия и улик;
+	//   - колесо избранного оружия (WeaponLoadout на том же объекте, необязательно) — оружие в нём не занимает сетку;
+	//   - улики (ClueCollection) — ключи и документы (ItemData.IsClue): список без места, не выбрасываются.
 	//
-	// Подбор с пола (TryPickup): оружие — в первый свободный слот колеса и сразу в руки; колесо полное — в сетку;
-	// не влезает и туда — предмет не подбирается. Остальное — в сетку (стопки доливаются).
+	// Подбор с пола (TryPickup): улика — в улики; оружие — в первый свободный слот колеса и сразу в руки; колесо
+	// полное — в сетку; не влезает и туда — предмет не подбирается. Остальное — в сетку (стопки доливаются).
 	//
-	// Счёт и списание (патроны, ключи, аптечки — HasItem/RemoveItem/GetTotalCount) идут по сетке.
+	// Счёт и списание (патроны, ключи, аптечки — HasItem/RemoveItem/GetTotalCount): улики — по уликам, остальное —
+	// по сетке.
 	public class InventoryHolder : MonoBehaviour
 	{
 		[SerializeField] private int gridWidth = 6;
 		[SerializeField] private int gridHeight = 4;
-		[Tooltip("Что лежит в сетке при старте и в каких клетках (x, y — верхний левый угол предмета). " +
-			"Не помещается в указанную клетку — кладётся в первое свободное место")]
+		[Tooltip("Что лежит у игрока при старте. Обычные предметы — в сетке, в указанной клетке (x, y — верхний левый " +
+			"угол; не помещается — в первое свободное место). Улики (ключи, документы) — во вкладке улик, клетка не важна")]
 		[FormerlySerializedAs("items")]
 		[SerializeField] private List<ItemStack> startingItems = new List<ItemStack>();
 
 		private ItemGrid _grid;
+		private ClueCollection _clues;
 		private WeaponLoadout _loadout;
 
 		// сетка создаётся при первом обращении: UI может подписаться раньше, чем у этого компонента прошёл Awake
@@ -32,6 +35,15 @@ namespace Inventory
 			{
 				EnsureInitialized();
 				return _grid;
+			}
+		}
+
+		public ClueCollection Clues
+		{
+			get
+			{
+				EnsureInitialized();
+				return _clues;
 			}
 		}
 
@@ -45,7 +57,7 @@ namespace Inventory
 			}
 		}
 
-		// изменилось хоть что-то — сетка или колесо (для UI: перерисовать целиком)
+		// изменилось хоть что-то — сетка, колесо или улики (для UI: перерисовать целиком)
 		public event Action OnInventoryChanged;
 
 		private void Awake()
@@ -56,6 +68,7 @@ namespace Inventory
 		private void OnDestroy()
 		{
 			if (_grid != null) _grid.Changed -= RaiseChanged;
+			if (_clues != null) _clues.Changed -= RaiseChanged;
 			if (_loadout != null) _loadout.SlotsChanged -= RaiseChanged;
 		}
 
@@ -64,9 +77,16 @@ namespace Inventory
 			if (_grid != null) return;
 
 			_grid = new ItemGrid(gridWidth, gridHeight);
+			_clues = new ClueCollection();
 			foreach (ItemStack stack in startingItems)
 			{
 				if (stack.item == null || stack.count <= 0) continue;
+
+				if (stack.item.IsClue)
+				{
+					_clues.TryAdd(stack.item, stack.count);
+					continue;
+				}
 
 				ItemInstance instance = new ItemInstance(stack.item, stack.count);
 				if (_grid.TryPlace(instance, new Vector2Int(stack.x, stack.y)) || _grid.TryAdd(stack.item, stack.count)) continue;
@@ -75,6 +95,7 @@ namespace Inventory
 					"не поместился в сетку", this);
 			}
 			_grid.Changed += RaiseChanged;
+			_clues.Changed += RaiseChanged;
 
 			_loadout = GetComponent<WeaponLoadout>();
 			if (_loadout != null) _loadout.SlotsChanged += RaiseChanged;
@@ -90,6 +111,8 @@ namespace Inventory
 		{
 			if (data == null || amount <= 0) return false;
 			EnsureInitialized();
+
+			if (data.IsClue) return _clues.TryAdd(data, amount);
 
 			ItemInstance probe = new ItemInstance(data, 1, loadedAmmo);
 			if (!probe.HasState) return _grid.TryAdd(data, amount);
@@ -110,6 +133,7 @@ namespace Inventory
 			if (item == null || item.Data == null) return false;
 			EnsureInitialized();
 
+			if (item.Data.IsClue) return _clues.TryAdd(item);
 			if (WeaponLoadout.CanHold(item) && _loadout != null && _loadout.TryAddFromPickup(item)) return true;
 			return _grid.TryAdd(item);
 		}
@@ -245,7 +269,8 @@ namespace Inventory
 			return dropper.Drop(taken);
 		}
 
-		// ---------- Счёт и списание (по сетке) ----------
+		// ---------- Счёт и списание ----------
+		// улики (ключ для двери) — по уликам, остальное (патроны, аптечки) — по сетке
 
 		public bool HasItem(ItemData item, int amount)
 		{
@@ -254,12 +279,14 @@ namespace Inventory
 
 		public bool RemoveItem(ItemData item, int amount)
 		{
-			return Grid.TryRemove(item, amount);
+			if (item == null) return false;
+			return item.IsClue ? Clues.TryRemove(item, amount) : Grid.TryRemove(item, amount);
 		}
 
 		public int GetTotalCount(ItemData item)
 		{
-			return item != null ? Grid.CountOf(item) : 0;
+			if (item == null) return 0;
+			return item.IsClue ? Clues.CountOf(item) : Grid.CountOf(item);
 		}
 	}
 }
