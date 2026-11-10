@@ -30,11 +30,18 @@ namespace Inventory
 		[SerializeField] private ItemGridView gridView;
 		[Tooltip("Меню действий по ПКМ (ItemContextMenu) — последним ребёнком Panel, поверх окон")]
 		[SerializeField] private ItemContextMenu contextMenu;
+		[Tooltip("Колесо избранного оружия (WeaponWheelView). Лежит ВНЕ Panel: его же показывает быстрый выбор по Q " +
+			"(WeaponWheelQuickSelect), а экран инвентаря включает его вместе с собой")]
+		[SerializeField] private WeaponWheelView wheel;
 
 		[Header("Context Menu Labels")]
 		[SerializeField] private LocalizedString useLabel = new LocalizedString("UI", "inventory.action.use");
 		[SerializeField] private LocalizedString dropLabel = new LocalizedString("UI", "inventory.action.drop");
 		[SerializeField] private LocalizedString dropAllLabel = new LocalizedString("UI", "inventory.action.dropAll");
+		[SerializeField] private LocalizedString toFavoritesLabel = new LocalizedString("UI", "inventory.action.toFavorites");
+		[Tooltip("{0} — номер сектора колеса")]
+		[SerializeField] private LocalizedString replaceFavoriteLabel = new LocalizedString("UI", "inventory.action.replaceFavorite");
+		[SerializeField] private LocalizedString fromFavoritesLabel = new LocalizedString("UI", "inventory.action.fromFavorites");
 
 		[Header("Toggle")]
 		[Tooltip("Действие открытия/закрытия инвентаря (StarterAssets → Player/Inventory, по умолчанию Tab / Select на геймпаде)")]
@@ -76,6 +83,16 @@ namespace Inventory
 				gridView.ItemDoubleClicked += HandleDoubleClick;
 				gridView.ItemRightClicked += HandleRightClick;
 				gridView.ItemDroppedOutside += HandleDroppedOutside;
+				gridView.CanAcceptExternal = CanAcceptToGrid;
+				gridView.AcceptExternal = AcceptToGrid;
+			}
+
+			if (wheel != null)
+			{
+				wheel.SlotRightClicked += HandleSlotRightClick;
+				wheel.SlotDroppedOutside += HandleSlotDroppedOutside;
+				wheel.CanAcceptDrop = CanAcceptToSlot;
+				wheel.AcceptDrop = AcceptToSlot;
 			}
 
 			SetOpen(false);
@@ -83,10 +100,100 @@ namespace Inventory
 
 		private void OnDestroy()
 		{
-			if (gridView == null) return;
-			gridView.ItemDoubleClicked -= HandleDoubleClick;
-			gridView.ItemRightClicked -= HandleRightClick;
-			gridView.ItemDroppedOutside -= HandleDroppedOutside;
+			if (gridView != null)
+			{
+				gridView.ItemDoubleClicked -= HandleDoubleClick;
+				gridView.ItemRightClicked -= HandleRightClick;
+				gridView.ItemDroppedOutside -= HandleDroppedOutside;
+			}
+			if (wheel != null)
+			{
+				wheel.SlotRightClicked -= HandleSlotRightClick;
+				wheel.SlotDroppedOutside -= HandleSlotDroppedOutside;
+			}
+		}
+
+		// ---------- Перенос между сеткой и колесом ----------
+
+		// в сетку бросили что-то не из неё самой — пока это может быть только оружие из колеса
+		private bool CanAcceptToGrid(ItemGridView view, Vector2Int cell)
+		{
+			return targetInventory != null && ItemDrag.IsFromSlot &&
+				targetInventory.CanMoveFromSlot(ItemDrag.SourceSlot, view.Grid, cell);
+		}
+
+		private bool AcceptToGrid(ItemGridView view, Vector2Int cell)
+		{
+			return CanAcceptToGrid(view, cell) && targetInventory.TryMoveFromSlot(ItemDrag.SourceSlot, view.Grid, cell);
+		}
+
+		// в сектор колеса: из другого сектора — обмен местами; из сетки — положить (занят — обмен, прежнее — в сетку)
+		private bool CanAcceptToSlot(int slot)
+		{
+			if (targetInventory == null || !ItemDrag.IsActive) return false;
+			if (ItemDrag.IsFromSlot) return ItemDrag.SourceSlot != slot;
+			return ItemDrag.SourceGrid != null && targetInventory.CanMoveToSlot(ItemDrag.SourceGrid.Grid, ItemDrag.Item, slot);
+		}
+
+		private bool AcceptToSlot(int slot)
+		{
+			if (!CanAcceptToSlot(slot)) return false;
+			if (ItemDrag.IsFromSlot) return targetInventory.TrySwapSlots(ItemDrag.SourceSlot, slot);
+			return targetInventory.TryMoveToSlot(ItemDrag.SourceGrid.Grid, ItemDrag.Item, slot);
+		}
+
+		// ПКМ по сектору с оружием: убрать в сетку, выбросить
+		private void HandleSlotRightClick(int slot, PointerEventData eventData)
+		{
+			if (targetInventory == null || contextMenu == null || targetInventory.Loadout?.GetItem(slot) == null) return;
+
+			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
+			ItemGrid grid = targetInventory.Grid;
+			if (targetInventory.CanMoveFromSlot(slot, grid, null))
+			{
+				entries.Add(new ItemContextMenu.Entry(fromFavoritesLabel, () => targetInventory.TryMoveFromSlot(slot, grid, null)));
+			}
+			if (targetInventory.CanDropFromSlot(slot))
+			{
+				entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDropFromSlot(slot)));
+			}
+
+			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
+		}
+
+		private void HandleSlotDroppedOutside(int slot)
+		{
+			if (targetInventory != null) targetInventory.TryDropFromSlot(slot);
+		}
+
+		// "В избранное" для оружия в сетке: в первый пустой сектор; колесо полное — "Заменить N" для каждого сектора
+		private void AddFavoriteEntries(ItemGrid grid, ItemInstance item, List<ItemContextMenu.Entry> entries)
+		{
+			if (!WeaponLoadout.CanHold(item) || targetInventory.Loadout == null) return;
+
+			int empty = targetInventory.FirstEmptySlot();
+			if (empty >= 0)
+			{
+				entries.Add(new ItemContextMenu.Entry(toFavoritesLabel, () => targetInventory.TryMoveToSlot(grid, item, empty)));
+				return;
+			}
+
+			for (int i = 0; i < targetInventory.Loadout.SlotCount; i++)
+			{
+				int slot = i;
+				if (!targetInventory.CanMoveToSlot(grid, item, slot)) continue;
+
+				string number = (slot + 1).ToString();
+				entries.Add(new ItemContextMenu.Entry(replaceFavoriteLabel,
+					() => targetInventory.TryMoveToSlot(grid, item, slot),
+					format => SafeFormat(format, number)));
+			}
+		}
+
+		private static string SafeFormat(string format, string value)
+		{
+			try { return string.Format(format, value); }
+			catch (System.FormatException) { return format; }
 		}
 
 		// ---------- Действия с предметами ----------
@@ -111,6 +218,7 @@ namespace Inventory
 			{
 				entries.Add(new ItemContextMenu.Entry(useLabel, () => targetInventory.TryUse(item)));
 			}
+			AddFavoriteEntries(view.Owner.Grid, item, entries);
 			if (targetInventory.CanDrop(item))
 			{
 				entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDrop(item, 1)));
@@ -165,6 +273,7 @@ namespace Inventory
 			if (targetInventory == null)
 			{
 				if (gridView != null) gridView.Bind(null);
+				if (wheel != null) wheel.Bind(null);
 				SetFocus(null);
 				return;
 			}
@@ -181,12 +290,15 @@ namespace Inventory
 
 			// вид сам следит за изменениями сетки — панель актуальна при первом же открытии
 			if (gridView != null) gridView.Bind(targetInventory.Grid);
+			if (wheel != null) wheel.Bind(targetInventory.Loadout);
 		}
 
 		private void Update()
 		{
 			if (_focus != null && _focus.IsBusy) return;
 			if (PauseMenu.IsPaused) return;
+			// открыто быстрое колесо (зажата Q) — инвентарь поверх не открываем, они делят ввод и само колесо
+			if (WeaponWheelQuickSelect.IsActive) return;
 			// карту Player включает PlayerInput игрока (на паузе выключает) — сами действие не включаем
 			if (toggleAction != null && toggleAction.action.WasPressedThisFrame()) SetOpen(!_isOpen);
 		}
@@ -216,12 +328,12 @@ namespace Inventory
 		{
 			_isOpen = open;
 			panel.SetActive(open);
+			if (wheel != null) wheel.gameObject.SetActive(open);
 
-			// деактивация панели гасит OnDisable у предметов (см. GridItemView), который сам подчищает
-			// свой призрак, если тащил именно он — это на случай, если по какой-то причине не сработало
+			// закрыли посреди перетаскивания — бросок отменяется, предмет остаётся на месте
 			if (!open)
 			{
-				GridItemView.DestroyActiveGhost();
+				ItemDrag.Cancel();
 				if (contextMenu != null) contextMenu.Close();
 			}
 

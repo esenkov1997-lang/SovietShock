@@ -164,22 +164,28 @@ namespace Inventory
 
 		// ---------- Перетаскивание ----------
 
-		// Предмет бросили над этой сеткой. Пока — только перекладывание внутри неё же (перенос между сетками,
-		// колесом и миром — этап "взаимодействие"). Клетка, куда встанет верхний левый угол предмета, — та, что под
-		// курсором, минус клетка предмета, за которую его взяли: предмет ложится ровно туда, где его видно
+		// Предмет "снаружи" (из колеса, позже — из ящика): можно ли положить его верхним левым углом в клетку и
+		// положить. Правила переноса знает экран инвентаря — он их сюда и подставляет. Не задано — не принимаем
+		public System.Func<ItemGridView, Vector2Int, bool> CanAcceptExternal;
+		public System.Func<ItemGridView, Vector2Int, bool> AcceptExternal;
+
+		// Предмет бросили над этой сеткой. Клетка, куда встанет верхний левый угол предмета, — та, что под курсором,
+		// минус клетка предмета, за которую его держат: предмет ложится ровно туда, где его видно.
+		// Свой предмет — перекладывание внутри сетки (перенос, обмен, долив стопки); чужой — по правилам экрана
 		public void OnDrop(PointerEventData eventData)
 		{
-			if (_grid == null || eventData.pointerDrag == null) return;
-			if (!eventData.pointerDrag.TryGetComponent(out GridItemView dragged) || dragged.Owner != this) return;
+			if (_grid == null || !ItemDrag.IsActive) return;
 
 			// бросили над сеткой — это точно не выброс в мир, даже если положить сюда нельзя
-			dragged.MarkDropHandled();
+			ItemDrag.MarkHandled();
 			if (!ScreenToCell(eventData.position, eventData.pressEventCamera, out Vector2Int cell)) return;
 
-			_grid.TryMove(dragged.Item, cell - dragged.GrabCell);
+			Vector2Int target = cell - ItemDrag.GrabCell;
+			if (ItemDrag.SourceGrid == this) _grid.TryMove(ItemDrag.Item, target);
+			else AcceptExternal?.Invoke(this, target);
 		}
 
-		// подсветка места под перетаскиваемым предметом: те же правила, что и у самого броска (ItemGrid.EvaluateMove)
+		// подсветка места под перетаскиваемым предметом: те же правила, что и у самого броска
 		private void LateUpdate()
 		{
 			if (dropHighlight == null) return;
@@ -201,22 +207,31 @@ namespace Inventory
 			area = default;
 			valid = false;
 
-			GridItemView dragged = GridItemView.Dragging;
-			if (_grid == null || dragged == null || dragged.Owner != this) return false;
-			if (!ScreenToCell(GridItemView.DragPosition, GridItemView.DragCamera, out Vector2Int cell)) return false;
+			if (_grid == null || !ItemDrag.IsActive) return false;
+			if (!ScreenToCell(ItemDrag.Position, ItemDrag.EventCamera, out Vector2Int cell)) return false;
 
-			Vector2Int target = cell - dragged.GrabCell;
-			ItemGrid.MoveKind kind = _grid.EvaluateMove(dragged.Item, target, out ItemInstance other);
-			valid = kind != ItemGrid.MoveKind.Invalid;
+			ItemInstance item = ItemDrag.Item;
+			Vector2Int target = cell - ItemDrag.GrabCell;
 
-			// долив в стопку — подсвечиваем саму стопку, иначе — клетки, которые займёт предмет (обрезанные краем сетки)
-			if (kind == ItemGrid.MoveKind.Merge && _grid.TryGetPosition(other, out Vector2Int stackPosition))
+			if (ItemDrag.SourceGrid == this)
 			{
-				area = new RectInt(stackPosition, other.GridSize);
-				return true;
+				ItemGrid.MoveKind kind = _grid.EvaluateMove(item, target, out ItemInstance other);
+				valid = kind != ItemGrid.MoveKind.Invalid;
+
+				// долив в стопку — подсвечиваем саму стопку
+				if (kind == ItemGrid.MoveKind.Merge && _grid.TryGetPosition(other, out Vector2Int stackPosition))
+				{
+					area = new RectInt(stackPosition, other.GridSize);
+					return true;
+				}
+			}
+			else
+			{
+				valid = CanAcceptExternal != null && CanAcceptExternal(this, target);
 			}
 
-			RectInt footprint = new RectInt(target, dragged.Item.GridSize);
+			// клетки, которые займёт предмет, обрезанные краем сетки
+			RectInt footprint = new RectInt(target, item.GridSize);
 			int xMin = Mathf.Max(0, footprint.xMin);
 			int yMin = Mathf.Max(0, footprint.yMin);
 			int xMax = Mathf.Min(_grid.Width, footprint.xMax);
@@ -226,6 +241,7 @@ namespace Inventory
 			area = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
 			return true;
 		}
+
 
 #if UNITY_EDITOR
 		// предпросмотр размера при вёрстке: меняешь Preview Size или Cell Size — сетка в сцене сразу меняется.

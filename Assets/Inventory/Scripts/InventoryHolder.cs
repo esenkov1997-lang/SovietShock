@@ -114,6 +114,96 @@ namespace Inventory
 			return _grid.TryAdd(item);
 		}
 
+		// ---------- Колесо избранного ----------
+		//
+		// Правила переноса между сеткой (своей или ящика — source) и колесом. Can* — проверка без изменений
+		// (подсветка при перетаскивании, пункты меню), Try* — сам перенос; оба по одним и тем же правилам.
+
+		// Положить оружие из сетки source в слот. Слот занят — обмен: прежнее оружие уходит в source — на место
+		// нового, если влезает, иначе в любое свободное место. Места нет — отказ, ничего не меняется
+		public bool CanMoveToSlot(ItemGrid source, ItemInstance item, int slot)
+		{
+			return PlanMoveToSlot(source, item, slot, out _, out _);
+		}
+
+		public bool TryMoveToSlot(ItemGrid source, ItemInstance item, int slot)
+		{
+			if (!PlanMoveToSlot(source, item, slot, out ItemInstance previous, out Vector2Int previousPosition)) return false;
+
+			source.Remove(item);
+			_loadout.TryPut(slot, item, out _);
+			if (previous != null) source.TryPlace(previous, previousPosition);
+			return true;
+		}
+
+		private bool PlanMoveToSlot(ItemGrid source, ItemInstance item, int slot, out ItemInstance previous,
+			out Vector2Int previousPosition)
+		{
+			previous = null;
+			previousPosition = default;
+			if (Loadout == null || source == null || !source.Contains(item) || !WeaponLoadout.CanHold(item)) return false;
+			if (slot < 0 || slot >= _loadout.SlotCount) return false;
+
+			previous = _loadout.GetItem(slot);
+			if (previous == null) return true;
+
+			// прежнему оружию — сначала место нового (оно освободится), иначе первое свободное
+			source.TryGetPosition(item, out Vector2Int freed);
+			RectInt atFreed = new RectInt(freed, previous.GridSize);
+			if (source.IsInside(atFreed) && source.IsFree(atFreed, item))
+			{
+				previousPosition = freed;
+				return true;
+			}
+			return source.TryFindFreePosition(previous.GridSize, out previousPosition, item);
+		}
+
+		// "В избранное" из меню: первый пустой слот по часовой стрелке. -1 — колесо полное (тогда — "Заменить N")
+		public int FirstEmptySlot() => Loadout != null ? _loadout.FirstEmptySlot() : -1;
+
+		// Убрать оружие из слота в сетку target: в клетку cell (null — в первое свободное место). Нет места — отказ
+		public bool CanMoveFromSlot(int slot, ItemGrid target, Vector2Int? cell)
+		{
+			return PlanMoveFromSlot(slot, target, cell, out _);
+		}
+
+		public bool TryMoveFromSlot(int slot, ItemGrid target, Vector2Int? cell)
+		{
+			if (!PlanMoveFromSlot(slot, target, cell, out Vector2Int position)) return false;
+
+			ItemInstance item = _loadout.Take(slot);
+			return target.TryPlace(item, position);
+		}
+
+		private bool PlanMoveFromSlot(int slot, ItemGrid target, Vector2Int? cell, out Vector2Int position)
+		{
+			position = default;
+			ItemInstance item = Loadout != null ? _loadout.GetItem(slot) : null;
+			if (item == null || target == null) return false;
+
+			if (cell.HasValue)
+			{
+				position = cell.Value;
+				return target.CanPlace(item, position);
+			}
+			return target.TryFindFreePosition(item.GridSize, out position);
+		}
+
+		// Поменять два слота колеса местами (перетаскивание внутри колеса)
+		public bool TrySwapSlots(int a, int b) => Loadout != null && _loadout.Swap(a, b);
+
+		// Выбросить оружие из слота в мир
+		public bool CanDropFromSlot(int slot)
+		{
+			return Loadout != null && GetComponent<ItemDropper>() != null && ItemDropper.CanDrop(_loadout.GetItem(slot));
+		}
+
+		public bool TryDropFromSlot(int slot)
+		{
+			if (!CanDropFromSlot(slot)) return false;
+			return GetComponent<ItemDropper>().Drop(_loadout.Take(slot));
+		}
+
 		// ---------- Использование и выброс ----------
 
 		// можно ли предмет использовать (есть ли на игроке, кто его применяет) — для пункта меню "Использовать"

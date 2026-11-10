@@ -101,6 +101,26 @@ MonoBehaviour:
     m_Localized: Drop all
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000004
+    m_Localized: To favorites
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000005
+    m_Localized: Replace {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000006
+    m_Localized: Remove from favorites
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000007
+    m_Localized: Empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000008
+    m_Localized: "hotkey \xAB{0}\xBB"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

@@ -24,11 +24,14 @@ namespace Inventory
 		{
 			public readonly LocalizedString Label;
 			public readonly Action Action;
+			// необязательно: собрать подпись из перевода, например "Заменить {0}" → "Заменить 2"
+			public readonly Func<string, string> Format;
 
-			public Entry(LocalizedString label, Action action)
+			public Entry(LocalizedString label, Action action, Func<string, string> format = null)
 			{
 				Label = label;
 				Action = action;
+				Format = format;
 			}
 		}
 
@@ -56,7 +59,7 @@ namespace Inventory
 			{
 				Button button = Instantiate(buttonPrefab, panel);
 				TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
-				if (label != null) LocalizedTextBinding.Bind(label, entry.Label);
+				if (label != null) LocalizedTextBinding.Bind(label, entry.Label, entry.Format);
 
 				Action action = entry.Action;
 				button.onClick.AddListener(() =>

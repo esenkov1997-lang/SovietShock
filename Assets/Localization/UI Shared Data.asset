@@ -95,6 +95,26 @@ MonoBehaviour:
     m_Key: inventory.action.dropAll
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000004
+    m_Key: inventory.action.toFavorites
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000005
+    m_Key: inventory.action.replaceFavorite
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000006
+    m_Key: inventory.action.fromFavorites
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000007
+    m_Key: inventory.wheel.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000008
+    m_Key: inventory.wheel.hotkey
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
