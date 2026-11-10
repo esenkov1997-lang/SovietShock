@@ -162,6 +162,7 @@ GameObject:
   - component: {fileID: -7104160960494513842}
   - component: {fileID: 5487982537949972152}
   - component: {fileID: 1055818204457968310}
+  - component: {fileID: 5173049059380444019}
   - component: {fileID: 8614122012661009152}
   - component: {fileID: 5827758843865065779}
   - component: {fileID: -200789017432963245}
@@ -716,6 +717,21 @@ MonoBehaviour:
   gridWidth: 9
   gridHeight: 12
   startingItems: []
+--- !u!114 &5173049059380444019
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616685848737228372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d3ed12e16a71a047b85f4aeb544c401, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dropPoint: {fileID: 7458044633278248104}
+  forwardOffset: 0.5
+  force: 3
 --- !u!114 &8614122012661009152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1126,5 +1142,10 @@ PrefabInstance:
 --- !u!4 &1422877502142922238 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 18321773445574748, guid: c3ea43fa00ac8234fbd53c098bacdac9, type: 3}
+  m_PrefabInstance: {fileID: 1440593341333851554}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &7458044633278248104 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8394226017919678730, guid: c3ea43fa00ac8234fbd53c098bacdac9, type: 3}
   m_PrefabInstance: {fileID: 1440593341333851554}
   m_PrefabAsset: {fileID: 0}

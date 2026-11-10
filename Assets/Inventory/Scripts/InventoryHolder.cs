@@ -101,8 +101,58 @@ namespace Inventory
 					$"стопкой ×{amount} — подбирается одна штука. Поставь Amount = 1 в WorldItem", data);
 			}
 
-			if (_loadout != null && _loadout.TryAddFromPickup(probe)) return true;
-			return _grid.TryAdd(probe);
+			return TryPickup(probe);
+		}
+
+		// Подобрать уже существующий экземпляр (выброшенный ранее из инвентаря — со своим состоянием)
+		public bool TryPickup(ItemInstance item)
+		{
+			if (item == null || item.Data == null) return false;
+			EnsureInitialized();
+
+			if (WeaponLoadout.CanHold(item) && _loadout != null && _loadout.TryAddFromPickup(item)) return true;
+			return _grid.TryAdd(item);
+		}
+
+		// ---------- Использование и выброс ----------
+
+		// можно ли предмет использовать (есть ли на игроке, кто его применяет) — для пункта меню "Использовать"
+		public bool CanUse(ItemInstance item)
+		{
+			if (item == null) return false;
+			foreach (IItemUseHandler handler in GetComponentsInChildren<IItemUseHandler>())
+			{
+				if (handler.CanUse(item)) return true;
+			}
+			return false;
+		}
+
+		// использовать (аптечку — вколоть и т.п.). Списывает предмет сам обработчик — когда действие реально случилось
+		public bool TryUse(ItemInstance item)
+		{
+			if (item == null || !Grid.Contains(item)) return false;
+			foreach (IItemUseHandler handler in GetComponentsInChildren<IItemUseHandler>())
+			{
+				if (handler.CanUse(item)) return handler.TryUse(item);
+			}
+			return false;
+		}
+
+		// можно ли выбросить предмет из сетки в мир (есть ItemDropper на игроке и World Prefab у предмета)
+		public bool CanDrop(ItemInstance item)
+		{
+			return item != null && Grid.Contains(item) && GetComponent<ItemDropper>() != null && ItemDropper.CanDrop(item);
+		}
+
+		// Выбросить amount штук из стопки в мир (всю стопку — сам экземпляр со своим состоянием).
+		// Сначала проверяется, что выбросить получится, — предмет не может пропасть из инвентаря "в никуда"
+		public bool TryDrop(ItemInstance item, int amount)
+		{
+			if (!CanDrop(item) || amount <= 0) return false;
+
+			ItemDropper dropper = GetComponent<ItemDropper>();
+			if (!Grid.TryTake(item, amount, out ItemInstance taken)) return false;
+			return dropper.Drop(taken);
 		}
 
 		// ---------- Счёт и списание (по сетке) ----------

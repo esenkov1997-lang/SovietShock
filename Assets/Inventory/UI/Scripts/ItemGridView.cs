@@ -35,8 +35,27 @@ namespace Inventory
 		[Tooltip("Префаб предмета (с компонентом GridItemView)")]
 		[SerializeField] private GridItemView itemViewPrefab;
 
+		[Header("Drop Highlight")]
+		[Tooltip("Подсветка места при перетаскивании: Image последним ребёнком сетки (поверх предметов), Raycast Target ✘. " +
+			"Размер и позицию задаёт код — показывает клетки, куда ляжет предмет. Можно со спрайтом (Tiled) или просто цветом")]
+		[SerializeField] private Image dropHighlight;
+		[Tooltip("Цвет, если предмет туда ляжет (перенос, обмен местами, долив в стопку)")]
+		[SerializeField] private Color validColor = new Color(0.3f, 1f, 0.3f, 0.35f);
+		[Tooltip("Цвет, если положить нельзя (занято, выходит за край)")]
+		[SerializeField] private Color invalidColor = new Color(1f, 0.25f, 0.25f, 0.35f);
+
 		private ItemGrid _grid;
 		private readonly List<GridItemView> _views = new List<GridItemView>();
+
+		// что сделали с предметом в этой сетке — решает экран инвентаря (использовать, меню, выбросить)
+		public event System.Action<GridItemView> ItemDoubleClicked;
+		public event System.Action<GridItemView, PointerEventData> ItemRightClicked;
+		// предмет бросили мимо всех окон
+		public event System.Action<GridItemView> ItemDroppedOutside;
+
+		internal void NotifyDoubleClick(GridItemView view) => ItemDoubleClicked?.Invoke(view);
+		internal void NotifyRightClick(GridItemView view, PointerEventData eventData) => ItemRightClicked?.Invoke(view, eventData);
+		internal void NotifyDroppedOutside(GridItemView view) => ItemDroppedOutside?.Invoke(view);
 
 		public ItemGrid Grid => _grid;
 		public int CellSize => cellSize;
@@ -152,9 +171,60 @@ namespace Inventory
 		{
 			if (_grid == null || eventData.pointerDrag == null) return;
 			if (!eventData.pointerDrag.TryGetComponent(out GridItemView dragged) || dragged.Owner != this) return;
+
+			// бросили над сеткой — это точно не выброс в мир, даже если положить сюда нельзя
+			dragged.MarkDropHandled();
 			if (!ScreenToCell(eventData.position, eventData.pressEventCamera, out Vector2Int cell)) return;
 
 			_grid.TryMove(dragged.Item, cell - dragged.GrabCell);
+		}
+
+		// подсветка места под перетаскиваемым предметом: те же правила, что и у самого броска (ItemGrid.EvaluateMove)
+		private void LateUpdate()
+		{
+			if (dropHighlight == null) return;
+
+			bool show = TryGetDropArea(out RectInt area, out bool valid);
+			if (dropHighlight.gameObject.activeSelf != show) dropHighlight.gameObject.SetActive(show);
+			if (!show) return;
+
+			RectTransform rect = dropHighlight.rectTransform;
+			rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+			rect.pivot = new Vector2(0f, 1f);
+			rect.anchoredPosition = CellToLocal(area.position);
+			rect.sizeDelta = new Vector2(area.width * cellSize, area.height * cellSize);
+			dropHighlight.color = valid ? validColor : invalidColor;
+		}
+
+		private bool TryGetDropArea(out RectInt area, out bool valid)
+		{
+			area = default;
+			valid = false;
+
+			GridItemView dragged = GridItemView.Dragging;
+			if (_grid == null || dragged == null || dragged.Owner != this) return false;
+			if (!ScreenToCell(GridItemView.DragPosition, GridItemView.DragCamera, out Vector2Int cell)) return false;
+
+			Vector2Int target = cell - dragged.GrabCell;
+			ItemGrid.MoveKind kind = _grid.EvaluateMove(dragged.Item, target, out ItemInstance other);
+			valid = kind != ItemGrid.MoveKind.Invalid;
+
+			// долив в стопку — подсвечиваем саму стопку, иначе — клетки, которые займёт предмет (обрезанные краем сетки)
+			if (kind == ItemGrid.MoveKind.Merge && _grid.TryGetPosition(other, out Vector2Int stackPosition))
+			{
+				area = new RectInt(stackPosition, other.GridSize);
+				return true;
+			}
+
+			RectInt footprint = new RectInt(target, dragged.Item.GridSize);
+			int xMin = Mathf.Max(0, footprint.xMin);
+			int yMin = Mathf.Max(0, footprint.yMin);
+			int xMax = Mathf.Min(_grid.Width, footprint.xMax);
+			int yMax = Mathf.Min(_grid.Height, footprint.yMax);
+			if (xMax <= xMin || yMax <= yMin) return false;
+
+			area = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
+			return true;
 		}
 
 #if UNITY_EDITOR

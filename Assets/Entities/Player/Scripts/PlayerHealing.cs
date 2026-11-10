@@ -15,7 +15,7 @@ namespace Player
 	// Прерывание (руки убраны — терминал, захват, смерть): лечение останавливается, набранное остаётся, аптечка
 	// после ItemApplied уже потрачена. Пока предмет в руках, бегать нельзя (ходить можно)
 	[RequireComponent(typeof(Health), typeof(InventoryHolder))]
-	public class PlayerHealing : MonoBehaviour, IItemActionHandler
+	public class PlayerHealing : MonoBehaviour, IItemActionHandler, IItemUseHandler
 	{
 		[Tooltip("Если не задано — берётся StarterAssetsInputs с этого объекта или родителей")]
 		[SerializeField] private StarterAssetsInputs input;
@@ -58,33 +58,36 @@ namespace Player
 			if (input != null && input.heal)
 			{
 				input.heal = false; // одноразовое срабатывание, как reload
-				TryStartHealing();
+				TryStartHealing(FindHealingItem());
 			}
 
 			if (_healing) TickHealing();
 		}
 
-		private void TryStartHealing()
+		// item — какой именно лечащий предмет вколоть (кнопка Heal — первый в инвентаре, "Использовать" — выбранный)
+		private bool TryStartHealing(HealingItemData item)
 		{
 			// полное здоровье не мешает: аптечку можно вколоть и так — она потратится впустую, решает игрок
-			if (IsHealing || weapons == null || _health.IsDead) return;
-			if (_mantle != null && _mantle.IsClimbing) return;
+			if (item == null || IsHealing || weapons == null || _health.IsDead) return false;
+			if (_mantle != null && _mantle.IsClimbing) return false;
 
-			HealingItemData item = FindHealingItem();
-			if (item == null) return;
-
-			if (!weapons.BeginItemAction(item, item.useTrigger, this)) return;
+			if (!weapons.BeginItemAction(item, item.useTrigger, this)) return false;
 
 			_item = item;
 			if (_movement != null) _movement.SprintBlocked = true;
+			return true;
 		}
 
-		// первая аптечка в инвентаре. Разные виды лечения (малая/большая) — пока без выбора, берётся первая попавшаяся
+		// первая аптечка в инвентаре. Разные виды лечения (малая/большая) — по кнопке без выбора, берётся первая попавшаяся
 		private HealingItemData FindHealingItem()
 		{
 			ItemInstance found = _inventory.Grid.Find(item => item.Data is HealingItemData && item.Count > 0);
 			return found != null ? (HealingItemData)found.Data : null;
 		}
+
+		// "Использовать" из инвентаря (двойной клик, меню) — вколоть именно эту аптечку
+		bool IItemUseHandler.CanUse(ItemInstance item) => item?.Data is HealingItemData;
+		bool IItemUseHandler.TryUse(ItemInstance item) => item?.Data is HealingItemData healing && TryStartHealing(healing);
 
 		private void TickHealing()
 		{

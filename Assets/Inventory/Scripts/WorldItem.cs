@@ -32,8 +32,11 @@ namespace Inventory
 		private const string ItemVariable = "item";
 		private const string AmountVariable = "amount";
 
-		// количество — переменная шаблона: при смене Amount (SetData) подсказка обновится сама
+		// количество — переменная шаблона: при смене Amount (SetInstance) подсказка обновится сама
 		private readonly IntVariable _amountVariable = new IntVariable();
+
+		// экземпляр, выброшенный из инвентаря (SetInstance); null — предмет расставлен на уровне и создаётся при подборе
+		private ItemInstance _instance;
 
 		// защита от двойного подбора в один кадр: Destroy() откладывается до конца кадра, за это время
 		// объект физически ещё существует и может быть подобран повторно (например, и по E, и по триггеру)
@@ -58,18 +61,17 @@ namespace Inventory
 			UpdatePromptVariables();
 		}
 
-		// используется при выбрасывании предмета из инвентаря, чтобы привязать данные к заспавненному объекту
-		public void SetData(ItemData data, int stackAmount)
+		// Выброшенный из инвентаря предмет (см. ItemDropper): лежит в мире тот же экземпляр — при повторном подборе
+		// вернётся он сам, со своим состоянием (магазин оружия), а не новый "с завода"
+		public void SetInstance(ItemInstance instance)
 		{
-			item = data;
-			amount = stackAmount;
-			UpdatePromptVariables();
-		}
+			_instance = instance;
+			if (instance == null) return;
 
-		// выброшенное оружие помнит, сколько патронов в нём оставалось — при повторном подборе магазин будет тем же
-		public void SetLoadedAmmo(int ammo)
-		{
-			loadedAmmo = ammo;
+			item = instance.Data;
+			amount = instance.Count;
+			if (instance.Weapon != null) loadedAmmo = instance.Weapon.CurrentAmmo;
+			UpdatePromptVariables();
 		}
 
 		// Название предмета — вложенная LocalizedString внутри шаблона: Localization сам переведёт её и
@@ -94,7 +96,10 @@ namespace Inventory
 			if (_pickedUp || item == null) return;
 
 			InventoryHolder inventory = interactor.GetComponentInParent<InventoryHolder>();
-			if (inventory == null || !inventory.TryPickup(item, amount, loadedAmmo)) return;
+			if (inventory == null) return;
+
+			bool picked = _instance != null ? inventory.TryPickup(_instance) : inventory.TryPickup(item, amount, loadedAmmo);
+			if (!picked) return;
 
 			_pickedUp = true;
 			Destroy(gameObject);

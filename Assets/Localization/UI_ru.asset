@@ -89,6 +89,18 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 2100897889538802054
+  - m_Id: 8200000000001
+    m_Localized: "Использовать"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000002
+    m_Localized: "Выбросить"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000003
+    m_Localized: "Выбросить все"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

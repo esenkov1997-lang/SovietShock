@@ -238,42 +238,85 @@ namespace Inventory
 
 		// ---------- Перемещение ----------
 
-		// Переложить лежащий в сетке предмет на новую клетку. Место свободно — просто перенос; его целиком
-		// перекрывает ровно один другой предмет, и тот помещается на освобождающееся место — обмен местами;
-		// иначе (задето больше одного предмета, выход за край) — отказ без изменений
-		public bool TryMove(ItemInstance instance, Vector2Int position)
+		public enum MoveKind { Invalid, Move, Swap, Merge }
+
+		// Что произойдёт, если положить лежащий в сетке предмет верхним левым углом в клетку position (ничего не
+		// меняя) — для подсветки места при перетаскивании. other — второй участник (Swap/Merge), иначе null:
+		//   Move  — место свободно, просто перенос;
+		//   Merge — предмет бросили на такую же стопку, в которой есть место: доливается в неё;
+		//   Swap  — место целиком занимает ровно один другой предмет, и он помещается на освобождающееся место;
+		//   Invalid — задето больше одного предмета, выход за край или обмен не помещается
+		public MoveKind EvaluateMove(ItemInstance instance, Vector2Int position, out ItemInstance other)
 		{
+			other = null;
 			int index = IndexOf(instance);
-			if (index < 0) return false;
+			if (index < 0) return MoveKind.Invalid;
 
 			RectInt target = new RectInt(position, instance.GridSize);
-			if (!IsInside(target)) return false;
-
 			List<int> overlapping = FindOverlapping(target, instance, null);
-			if (overlapping.Count == 0)
+
+			// стопку бросили на такую же стопку — доливаем (даже если предмет торчит за край: важна цель, а не форма)
+			if (overlapping.Count == 1)
 			{
-				_items[index] = new GridItem(instance, position);
-				Changed?.Invoke();
-				return true;
+				ItemInstance stack = _items[overlapping[0]].Instance;
+				if (stack.CanStackWith(instance) && stack.SpaceLeft > 0)
+				{
+					other = stack;
+					return MoveKind.Merge;
+				}
 			}
 
-			if (overlapping.Count != 1) return false;
+			if (!IsInside(target)) return MoveKind.Invalid;
+			if (overlapping.Count == 0) return MoveKind.Move;
+			if (overlapping.Count != 1) return MoveKind.Invalid;
 
-			int otherIndex = overlapping[0];
-			GridItem other = _items[otherIndex];
-			Vector2Int otherPosition = _items[index].Position;
-			RectInt otherTarget = new RectInt(otherPosition, other.Size);
+			GridItem neighbour = _items[overlapping[0]];
+			RectInt neighbourTarget = new RectInt(_items[index].Position, neighbour.Size);
 
-			// сосед должен сам поместиться на освобождающееся место — с учётом того, что оба предмета сейчас "сняты с доски"
-			// и что переносимый уже будет лежать на новом месте
-			if (!IsInside(otherTarget) || otherTarget.Overlaps(target) ||
-				FindOverlapping(otherTarget, instance, other.Instance).Count > 0)
+			// сосед должен сам поместиться на освобождающееся место — с учётом того, что оба предмета сейчас
+			// "сняты с доски" и что переносимый уже будет лежать на новом месте
+			if (!IsInside(neighbourTarget) || neighbourTarget.Overlaps(target) ||
+				FindOverlapping(neighbourTarget, instance, neighbour.Instance).Count > 0)
 			{
-				return false;
+				return MoveKind.Invalid;
 			}
 
-			_items[index] = new GridItem(instance, position);
-			_items[otherIndex] = new GridItem(other.Instance, otherPosition);
+			other = neighbour.Instance;
+			return MoveKind.Swap;
+		}
+
+		// Переложить лежащий в сетке предмет (см. EvaluateMove — перенос, обмен местами или долив в стопку).
+		// Invalid — отказ без изменений
+		public bool TryMove(ItemInstance instance, Vector2Int position)
+		{
+			MoveKind kind = EvaluateMove(instance, position, out ItemInstance other);
+			int index = IndexOf(instance);
+
+			switch (kind)
+			{
+				case MoveKind.Move:
+					_items[index] = new GridItem(instance, position);
+					break;
+
+				case MoveKind.Swap:
+					int otherIndex = IndexOf(other);
+					Vector2Int freed = _items[index].Position;
+					_items[index] = new GridItem(instance, position);
+					_items[otherIndex] = new GridItem(other, freed);
+					break;
+
+				case MoveKind.Merge:
+					// доливаем сколько влезет, остаток остаётся лежать на старом месте
+					int moved = Mathf.Min(other.SpaceLeft, instance.Count);
+					other.SetCount(other.Count + moved);
+					instance.SetCount(instance.Count - moved);
+					if (instance.Count <= 0) _items.RemoveAt(index);
+					break;
+
+				default:
+					return false;
+			}
+
 			Changed?.Invoke();
 			return true;
 		}
@@ -286,6 +329,29 @@ namespace Inventory
 			if (index < 0) return false;
 
 			_items.RemoveAt(index);
+			Changed?.Invoke();
+			return true;
+		}
+
+		// Забрать из конкретной стопки amount штук (выбросить одну, перенести в ящик). Берётся вся стопка — уходит
+		// сам экземпляр (со своим состоянием); часть — стопка уменьшается, а taken — новый экземпляр с этой частью
+		public bool TryTake(ItemInstance instance, int amount, out ItemInstance taken)
+		{
+			taken = null;
+			int index = IndexOf(instance);
+			if (index < 0 || amount <= 0) return false;
+
+			if (amount >= instance.Count)
+			{
+				_items.RemoveAt(index);
+				taken = instance;
+			}
+			else
+			{
+				instance.SetCount(instance.Count - amount);
+				taken = new ItemInstance(instance.Data, amount);
+			}
+
 			Changed?.Invoke();
 			return true;
 		}

@@ -19,8 +19,11 @@ namespace Inventory
 	//
 	// Перетаскивание: за курсором летит "призрак" иконки, сам предмет остаётся на месте до решения сетки, куда его
 	// положить (ItemGridView.OnDrop). Иконку держат за ту клетку, за которую взяли (GrabCell).
+	//
+	// Клики (ЛКМ дважды — "быстрое действие", ПКМ — контекстное меню) и бросок за пределы окон предмет передаёт своей
+	// сетке (ItemGridView), а что они значат — решает экран инвентаря.
 	[RequireComponent(typeof(RectTransform))]
-	public class GridItemView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+	public class GridItemView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 	{
 		public enum IconFit { NativeSize, FitInside }
 
@@ -41,6 +44,16 @@ namespace Inventory
 		public ItemGridView Owner { get; private set; }
 		// клетка предмета (от его верхнего левого угла), за которую его взяли мышью
 		public Vector2Int GrabCell { get; private set; }
+
+		// Предмет, который сейчас перетаскивают (null — никакой), и где курсор: сетки по этому подсвечивают место,
+		// куда он ляжет. Одновременно перетаскивать можно только один предмет
+		public static GridItemView Dragging { get; private set; }
+		public static Vector2 DragPosition { get; private set; }
+		public static Camera DragCamera { get; private set; }
+
+		// кто-то принял бросок (сетка, позже — колесо, ящик); не принял никто и курсор не над окном — выброс в мир
+		private bool _dropHandled;
+		public void MarkDropHandled() => _dropHandled = true;
 
 		private RectTransform Rect => (RectTransform)transform;
 
@@ -107,15 +120,31 @@ namespace Inventory
 			// объект выключили или уничтожили посреди перетаскивания (перерисовка, закрытие окна) — OnEndDrag в таком
 			// случае не придёт, подчищаем здесь
 			DestroyOwnGhost();
+			if (Dragging == this) Dragging = null;
+		}
+
+		public void OnPointerClick(PointerEventData eventData)
+		{
+			if (Owner == null || eventData.dragging) return;
+
+			if (eventData.button == PointerEventData.InputButton.Right) Owner.NotifyRightClick(this, eventData);
+			else if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount == 2) Owner.NotifyDoubleClick(this);
 		}
 
 		public void OnBeginDrag(PointerEventData eventData)
 		{
-			if (s_activeGhost != null) Destroy(s_activeGhost); // подстраховка от утёкшего с прошлого раза
+			// перетаскивают только левой кнопкой — правая открывает меню
+			if (eventData.button != PointerEventData.InputButton.Left)
+			{
+				eventData.pointerDrag = null;
+				return;
+			}
 
-			Canvas canvas = GetComponentInParent<Canvas>();
-			if (canvas == null || icon == null || icon.sprite == null) return;
-			canvas = canvas.rootCanvas;
+			if (s_activeGhost != null) Destroy(s_activeGhost); // подстраховка от утёкшего с прошлого раза
+			_dropHandled = false;
+			Dragging = this;
+			DragPosition = eventData.position;
+			DragCamera = eventData.pressEventCamera;
 
 			// за какую клетку взяли: от верхнего левого угла предмета
 			RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, eventData.position, eventData.pressEventCamera, out Vector2 local);
@@ -125,6 +154,10 @@ namespace Inventory
 			GrabCell = new Vector2Int(
 				Mathf.Clamp(Mathf.FloorToInt(fromTopLeft.x / cell), 0, Item.GridSize.x - 1),
 				Mathf.Clamp(Mathf.FloorToInt(fromTopLeft.y / cell), 0, Item.GridSize.y - 1));
+
+			Canvas canvas = GetComponentInParent<Canvas>();
+			if (canvas == null || icon == null || icon.sprite == null) return;
+			canvas = canvas.rootCanvas;
 
 			// призрак — копия иконки прямо на корневом канвасе (поверх всего, без обрезки масками окон)
 			GameObject ghost = Instantiate(icon.gameObject, canvas.transform);
@@ -149,12 +182,21 @@ namespace Inventory
 
 		public void OnDrag(PointerEventData eventData)
 		{
+			DragPosition = eventData.position;
 			if (_dragGhost != null) _dragGhost.position = eventData.position;
 		}
 
+		// OnDrop у целей приходит раньше OnEndDrag — к этому моменту уже известно, принял ли кто-то предмет
 		public void OnEndDrag(PointerEventData eventData)
 		{
 			DestroyOwnGhost();
+			if (Dragging == this) Dragging = null;
+
+			// бросили мимо всех окон (под курсором нет ни одного элемента UI) — выбросить в мир
+			if (!_dropHandled && eventData.pointerCurrentRaycast.gameObject == null && Owner != null)
+			{
+				Owner.NotifyDroppedOutside(this);
+			}
 		}
 
 		private void DestroyOwnGhost()

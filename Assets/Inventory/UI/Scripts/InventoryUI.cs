@@ -1,9 +1,12 @@
+using System.Collections.Generic;
 using Interactables;
 using Menus;
 using Player;
 using StarterAssets;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.Localization;
 
 namespace Inventory
 {
@@ -25,6 +28,13 @@ namespace Inventory
 		[SerializeField] private GameObject panel;
 		[Tooltip("Сетка инвентаря игрока (ItemGridView)")]
 		[SerializeField] private ItemGridView gridView;
+		[Tooltip("Меню действий по ПКМ (ItemContextMenu) — последним ребёнком Panel, поверх окон")]
+		[SerializeField] private ItemContextMenu contextMenu;
+
+		[Header("Context Menu Labels")]
+		[SerializeField] private LocalizedString useLabel = new LocalizedString("UI", "inventory.action.use");
+		[SerializeField] private LocalizedString dropLabel = new LocalizedString("UI", "inventory.action.drop");
+		[SerializeField] private LocalizedString dropAllLabel = new LocalizedString("UI", "inventory.action.dropAll");
 
 		[Header("Toggle")]
 		[Tooltip("Действие открытия/закрытия инвентаря (StarterAssets → Player/Inventory, по умолчанию Tab / Select на геймпаде)")]
@@ -61,8 +71,60 @@ namespace Inventory
 			}
 
 			if (gridView == null) Debug.LogError("InventoryUI: не назначен Grid View", this);
+			else
+			{
+				gridView.ItemDoubleClicked += HandleDoubleClick;
+				gridView.ItemRightClicked += HandleRightClick;
+				gridView.ItemDroppedOutside += HandleDroppedOutside;
+			}
 
 			SetOpen(false);
+		}
+
+		private void OnDestroy()
+		{
+			if (gridView == null) return;
+			gridView.ItemDoubleClicked -= HandleDoubleClick;
+			gridView.ItemRightClicked -= HandleRightClick;
+			gridView.ItemDroppedOutside -= HandleDroppedOutside;
+		}
+
+		// ---------- Действия с предметами ----------
+
+		// Двойной клик — быстрое действие. Своё окно без ящика: использовать (аптечка, еда); у предмета без
+		// быстрого действия — ничего. (С открытым ящиком двойной клик будет переносить предмет между окнами)
+		private void HandleDoubleClick(GridItemView view)
+		{
+			if (targetInventory == null || view.Item == null) return;
+			if (targetInventory.CanUse(view.Item)) targetInventory.TryUse(view.Item);
+		}
+
+		// ПКМ — меню под курсором с тем, что можно сделать с этим предметом
+		private void HandleRightClick(GridItemView view, PointerEventData eventData)
+		{
+			if (targetInventory == null || contextMenu == null || view.Item == null) return;
+
+			ItemInstance item = view.Item;
+			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
+
+			if (targetInventory.CanUse(item))
+			{
+				entries.Add(new ItemContextMenu.Entry(useLabel, () => targetInventory.TryUse(item)));
+			}
+			if (targetInventory.CanDrop(item))
+			{
+				entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDrop(item, 1)));
+				if (item.Count > 1) entries.Add(new ItemContextMenu.Entry(dropAllLabel, () => targetInventory.TryDrop(item, item.Count)));
+			}
+
+			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
+		}
+
+		// бросили мимо окон — выбросить всю стопку
+		private void HandleDroppedOutside(GridItemView view)
+		{
+			if (targetInventory == null || view.Item == null) return;
+			targetInventory.TryDrop(view.Item, view.Item.Count);
 		}
 
 		private void OnEnable()
@@ -157,7 +219,11 @@ namespace Inventory
 
 			// деактивация панели гасит OnDisable у предметов (см. GridItemView), который сам подчищает
 			// свой призрак, если тащил именно он — это на случай, если по какой-то причине не сработало
-			if (!open) GridItemView.DestroyActiveGhost();
+			if (!open)
+			{
+				GridItemView.DestroyActiveGhost();
+				if (contextMenu != null) contextMenu.Close();
+			}
 
 			Cursor.lockState = open ? CursorLockMode.None : CursorLockMode.Locked;
 			Cursor.visible = open;
