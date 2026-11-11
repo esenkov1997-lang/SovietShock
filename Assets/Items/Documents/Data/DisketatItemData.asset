@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 849c81402583c43488661bc98a53738d, type: 3}
+  m_Name: DisketatItemData
+  m_EditorClassIdentifier: 
+  id: 1
+  itemName:
+    m_TableReference:
+      m_TableCollectionName: GUID:15fe8ebf9d988e64aa9c697e19769e40
+    m_TableEntryReference:
+      m_KeyId: 110257053696
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  icon: {fileID: 1065672599, guid: a6fc9a4882767d4498bfabf3b2161bd9, type: 3}
+  type: 5
+  worldPrefab: {fileID: 9197215065682362231, guid: 0ba2cda49ec868546a10a314e1f87316, type: 3}
+  dropStackAsOneObject: 0
+  maxStack: 1
+  gridSize: {x: 1, y: 1}
+  body:
+    m_TableReference:
+      m_TableCollectionName: GUID:15fe8ebf9d988e64aa9c697e19769e40
+    m_TableEntryReference:
+      m_KeyId: 299520827392
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  references:
+    version: 2
+    RefIds: []

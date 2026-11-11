@@ -126,7 +126,9 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 8200000000010
-    m_Localized: Clues
+    m_Localized: 'Keys/Documents
+
+'
     m_Metadata:
       m_Items: []
   - m_Id: 8200000000011
