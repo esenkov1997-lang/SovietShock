@@ -9,6 +9,7 @@ namespace Inventory
 	//   - сетка (ItemGrid) — "тетрис" для всего, кроме избранного оружия и улик;
 	//   - колесо избранного оружия (WeaponLoadout на том же объекте, необязательно) — оружие в нём не занимает сетку;
 	//   - улики (ClueCollection) — ключи и документы (ItemData.IsClue): список без места, не выбрасываются.
+	// Плюс правила обмена с открытым контейнером (LootContainer) — раздел "Лут".
 	//
 	// Подбор с пола (TryPickup): улика — в улики; оружие — в первый свободный слот колеса и сразу в руки; колесо
 	// полное — в сетку; не влезает и туда — предмет не подбирается. Остальное — в сетку (стопки доливаются).
@@ -227,6 +228,77 @@ namespace Inventory
 			if (!CanDropFromSlot(slot)) return false;
 			return GetComponent<ItemDropper>().Drop(_loadout.Take(slot));
 		}
+
+		// ---------- Лут: ящик ↔ инвентарь ----------
+		//
+		// loot — сетка открытого контейнера (LootContainer). Без клетки — "куда получится" (двойной клик, пункт меню,
+		// "Взять все"): предмет переходит только целиком, стопки доливаются. С клеткой — перетаскивание: в свободное
+		// место или долив в такую же стопку (что не влезло — остаётся, где было).
+		// Улики из ящика уходят во вкладку улик; обратно в ящик они не кладутся (их нет в сетке игрока).
+		// Оружие из ящика — в сетку, не в колесо (в колесо — перетаскиванием на сектор или "В избранное").
+
+		public bool CanTakeFrom(ItemGrid loot, ItemInstance item)
+		{
+			if (!IsLoot(loot) || item?.Data == null || !loot.Contains(item)) return false;
+			return item.Data.IsClue || Grid.CanAdd(item);
+		}
+
+		public bool TryTakeFrom(ItemGrid loot, ItemInstance item)
+		{
+			if (!CanTakeFrom(loot, item)) return false;
+
+			if (!item.Data.IsClue) return Grid.TryTransferAll(loot, item);
+			loot.Remove(item);
+			return Clues.TryAdd(item);
+		}
+
+		// перетаскивание в клетку своей сетки (улику в сетку не положить — она идёт в улики, см. TryTakeFrom)
+		public bool CanTakeFrom(ItemGrid loot, ItemInstance item, Vector2Int cell)
+		{
+			return IsLoot(loot) && item?.Data != null && !item.Data.IsClue &&
+				Grid.EvaluateTransfer(loot, item, cell, out _) != ItemGrid.MoveKind.Invalid;
+		}
+
+		public bool TryTakeFrom(ItemGrid loot, ItemInstance item, Vector2Int cell)
+		{
+			return CanTakeFrom(loot, item, cell) && Grid.TryTransfer(loot, item, cell);
+		}
+
+		// "Взять все": забрать всё, что влезает, по одному предмету в порядке раскладки. true — ящик опустел
+		public bool TakeAll(ItemGrid loot)
+		{
+			if (!IsLoot(loot)) return false;
+
+			List<ItemInstance> items = new List<ItemInstance>(loot.Items.Count);
+			foreach (GridItem item in loot.Items) items.Add(item.Instance);
+			foreach (ItemInstance item in items) TryTakeFrom(loot, item);
+
+			return loot.Items.Count == 0;
+		}
+
+		// Положить предмет из своей сетки в ящик целиком, куда получится
+		public bool CanPutTo(ItemGrid loot, ItemInstance item)
+		{
+			return IsLoot(loot) && Grid.Contains(item) && loot.CanAdd(item);
+		}
+
+		public bool TryPutTo(ItemGrid loot, ItemInstance item)
+		{
+			return CanPutTo(loot, item) && loot.TryTransferAll(Grid, item);
+		}
+
+		// перетаскивание из своей сетки в клетку ящика
+		public bool CanPutTo(ItemGrid loot, ItemInstance item, Vector2Int cell)
+		{
+			return IsLoot(loot) && loot.EvaluateTransfer(Grid, item, cell, out _) != ItemGrid.MoveKind.Invalid;
+		}
+
+		public bool TryPutTo(ItemGrid loot, ItemInstance item, Vector2Int cell)
+		{
+			return CanPutTo(loot, item, cell) && loot.TryTransfer(Grid, item, cell);
+		}
+
+		private bool IsLoot(ItemGrid loot) => loot != null && loot != Grid;
 
 		// ---------- Использование и выброс ----------
 

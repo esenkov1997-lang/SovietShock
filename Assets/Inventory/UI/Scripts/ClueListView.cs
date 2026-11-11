@@ -12,7 +12,10 @@ namespace Inventory
 	//
 	// Вёрстка: этот объект (страница) → ScrollRect → Viewport (маска) → Content (Vertical Layout Group +
 	// Content Size Fitter: Vertical = Preferred). Строки спавнятся в Content.
-	public class ClueListView : MonoBehaviour, ILayoutElement
+	//
+	// Сюда можно бросить улику, перетащенную из ящика (OnDrop) — для этого на этом объекте нужен Image с
+	// Raycast Target на всю страницу (например, тот же фон, что у сетки), иначе пустое место не ловит бросок.
+	public class ClueListView : MonoBehaviour, ILayoutElement, IDropHandler
 	{
 		[Tooltip("Content списка: Vertical Layout Group + Content Size Fitter (Vertical Fit = Preferred Size)")]
 		[SerializeField] private RectTransform content;
@@ -30,6 +33,18 @@ namespace Inventory
 
 		public event Action<ItemInstance, PointerEventData> EntryClicked;
 		public event Action<ItemInstance, PointerEventData> EntryRightClicked;
+
+		// Бросили перетаскиваемый предмет (улику из ящика) — правила знает экран инвентаря, он их сюда и подставляет
+		public Func<bool> AcceptDrop;
+
+		public void OnDrop(PointerEventData eventData)
+		{
+			if (!ItemDrag.IsActive) return;
+
+			// бросили над списком — это не выброс в мир, даже если принять нельзя
+			ItemDrag.MarkHandled();
+			AcceptDrop?.Invoke();
+		}
 
 		internal void NotifyClick(ClueEntryView entry, PointerEventData eventData) => EntryClicked?.Invoke(entry.Item, eventData);
 		internal void NotifyRightClick(ClueEntryView entry, PointerEventData eventData) => EntryRightClicked?.Invoke(entry.Item, eventData);

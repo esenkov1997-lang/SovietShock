@@ -135,6 +135,30 @@ MonoBehaviour:
     m_Localized: Read
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000012
+    m_Localized: Take
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000013
+    m_Localized: Put
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000014
+    m_Localized: Take all
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000015
+    m_Localized: Container
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000016
+    m_Localized: Open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000017
+    m_Localized: Search
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

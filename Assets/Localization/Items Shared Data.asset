@@ -23,6 +23,10 @@ MonoBehaviour:
     m_Key: item.medkit
     m_Metadata:
       m_Items: []
+  - m_Id: 17486297829810176
+    m_Key: item.loot.test
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

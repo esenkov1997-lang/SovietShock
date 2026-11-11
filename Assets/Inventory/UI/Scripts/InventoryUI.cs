@@ -11,8 +11,12 @@ using UnityEngine.Localization;
 namespace Inventory
 {
 	// Экран инвентаря: открывает/закрывает его по кнопке (см. toggleAction) вместе с курсором мыши и блокировкой
-	// обзора/стрельбы, и связывает виды с данными игрока. Сам ничего не рисует: сетку показывает ItemGridView
-	// (позже — ещё колесо оружия, вкладка улик, окно ящика).
+	// обзора/стрельбы, и связывает виды с данными игрока. Сам ничего не рисует: сетку показывает ItemGridView,
+	// колесо — WeaponWheelView, улики — ClueListView, содержимое контейнера — LootWindowView. Здесь — какие действия
+	// что значат (двойной клик, меню, перетаскивание между окнами); сами правила переноса — в InventoryHolder.
+	//
+	// Контейнер (LootContainer) открывает этот же экран с окном лута; Tab или любой крестик закрывает всё сразу,
+	// отошёл от контейнера — закрывается только окно лута.
 	//
 	// Вешается на объект, который всегда активен (например, на канвас инвентаря), а panel — дочерний объект со всем
 	// содержимым экрана, который включается/выключается. Кнопка-крестик в окне: On Click → InventoryUI.Close
@@ -40,7 +44,22 @@ namespace Inventory
 		[Tooltip("Окно чтения документа (DocumentReaderView) — внутри Panel, в центре, изначально выключено")]
 		[SerializeField] private DocumentReaderView documentReader;
 
+		[Header("Loot")]
+		[Tooltip("Окно лута (LootWindowView) — внутри Panel, слева от окна инвентаря, изначально выключено")]
+		[SerializeField] private LootWindowView lootWindow;
+		[Tooltip("Окно инвентаря (InventoryWindow): пока над ним тащат предмет, вкладка переключается сама — " +
+			"улика → \"Улики\", остальное → \"Предметы\"")]
+		[SerializeField] private RectTransform inventoryWindow;
+		[Tooltip("Размер сетки у всех контейнеров (ящики, трупы), в клетках")]
+		[SerializeField] private Vector2Int lootGridSize = new Vector2Int(6, 4);
+		[Tooltip("Окно лута закрывается, когда игрок отошёл от контейнера дальше этого (метры, от игрока до ближайшего " +
+			"коллайдера контейнера). Должно быть больше дальности взаимодействия, иначе окно закроется сразу")]
+		[Min(0.5f)]
+		[SerializeField] private float lootCloseDistance = 4f;
+
 		[Header("Context Menu Labels")]
+		[SerializeField] private LocalizedString takeLabel = new LocalizedString("UI", "inventory.action.take");
+		[SerializeField] private LocalizedString putLabel = new LocalizedString("UI", "inventory.action.put");
 		[SerializeField] private LocalizedString useLabel = new LocalizedString("UI", "inventory.action.use");
 		[SerializeField] private LocalizedString dropLabel = new LocalizedString("UI", "inventory.action.drop");
 		[SerializeField] private LocalizedString dropAllLabel = new LocalizedString("UI", "inventory.action.dropAll");
@@ -61,6 +80,10 @@ namespace Inventory
 		[SerializeField] private StarterAssetsInputs input;
 
 		private bool _isOpen;
+		// открытый контейнер и его сетка; null — окно лута закрыто (контейнер мог быть уничтожен — тогда _loot
+		// "равен null" по правилам Unity, а _lootGrid — нет: по ней и проверяем, открыт ли лут)
+		private LootContainer _loot;
+		private ItemGrid _lootGrid;
 		// фокус на терминале/рычаге (см. Interactables.PlayerCameraFocus): пока он идёт, инвентарь закрыт
 		// и не открывается. Необязателен — у игрока без этого компонента инвентарь работает как раньше
 		private PlayerCameraFocus _focus;
@@ -110,8 +133,26 @@ namespace Inventory
 			{
 				clueList.EntryClicked += HandleClueClick;
 				clueList.EntryRightClicked += HandleClueRightClick;
+				clueList.AcceptDrop = AcceptToClues;
 			}
 			if (documentReader != null) documentReader.OpenChanged += HandleReaderOpenChanged;
+
+			if (lootWindow != null)
+			{
+				lootWindow.TakeAllClicked += HandleTakeAll;
+				lootWindow.CloseClicked += Close;
+
+				ItemGridView lootGrid = lootWindow.GridView;
+				if (lootGrid != null)
+				{
+					lootGrid.ItemDoubleClicked += HandleLootDoubleClick;
+					lootGrid.ItemRightClicked += HandleLootRightClick;
+					// из ящика в мир не выбрасываем: бросок мимо окон просто возвращает предмет на место
+					lootGrid.CanAcceptExternal = CanAcceptToLoot;
+					lootGrid.AcceptExternal = AcceptToLoot;
+				}
+				lootWindow.Hide();
+			}
 
 			SetOpen(false);
 		}
@@ -135,6 +176,146 @@ namespace Inventory
 				clueList.EntryRightClicked -= HandleClueRightClick;
 			}
 			if (documentReader != null) documentReader.OpenChanged -= HandleReaderOpenChanged;
+			if (lootWindow != null)
+			{
+				lootWindow.TakeAllClicked -= HandleTakeAll;
+				lootWindow.CloseClicked -= Close;
+				if (lootWindow.GridView != null)
+				{
+					lootWindow.GridView.ItemDoubleClicked -= HandleLootDoubleClick;
+					lootWindow.GridView.ItemRightClicked -= HandleLootRightClick;
+				}
+			}
+		}
+
+		// ---------- Лут ----------
+
+		private bool IsLootOpen => _lootGrid != null;
+		private ItemGridView LootGridView => lootWindow != null ? lootWindow.GridView : null;
+
+		// игрок нажал взаимодействие на контейнере (LootContainer.OpenRequested)
+		private void HandleLootRequested(LootContainer container, GameObject interactor)
+		{
+			if (targetInventory == null || container == null || interactor == null) return;
+			// контейнер открывает другой игрок (или не игрок) — не наш экран
+			if (interactor.GetComponentInParent<InventoryHolder>() != targetInventory) return;
+			if ((_focus != null && _focus.IsBusy) || PauseMenu.IsPaused || WeaponWheelQuickSelect.IsActive) return;
+
+			OpenLoot(container);
+		}
+
+		// Открыть экран инвентаря с окном лута этого контейнера (уже открыт другой — сменится)
+		public void OpenLoot(LootContainer container)
+		{
+			if (container == null) return;
+			if (lootWindow == null)
+			{
+				Debug.LogError("InventoryUI: не назначен Loot Window — контейнер не открыть", this);
+				return;
+			}
+			if (_loot == container && IsLootOpen && _isOpen) return;
+
+			CloseLoot();
+			_loot = container;
+			_lootGrid = container.GetOrCreateGrid(lootGridSize);
+			lootWindow.Show(container, _lootGrid);
+			container.NotifyOpened();
+
+			if (!_isOpen) SetOpen(true);
+		}
+
+		// закрыть только окно лута (отошли от ящика); экран инвентаря остаётся
+		private void CloseLoot()
+		{
+			if (!IsLootOpen) return;
+
+			// тащили предмет из ящика — бросок отменяется
+			if (ItemDrag.IsActive && ItemDrag.SourceGrid != null && ItemDrag.SourceGrid == LootGridView) ItemDrag.Cancel();
+			if (contextMenu != null) contextMenu.Close();
+
+			LootContainer container = _loot;
+			_loot = null;
+			_lootGrid = null;
+			if (lootWindow != null) lootWindow.Hide();
+			if (container != null) container.NotifyClosed();
+		}
+
+		// контейнер уничтожили, выключили (труп убрали) или игрок отошёл — окно лута закрывается
+		private void UpdateLootReach()
+		{
+			if (!IsLootOpen) return;
+
+			bool reachable = _loot != null && _loot.IsAvailable && targetInventory != null &&
+				_loot.DistanceTo(targetInventory.transform.position) <= lootCloseDistance;
+			if (!reachable) CloseLoot();
+		}
+
+		private void HandleTakeAll()
+		{
+			if (targetInventory != null && IsLootOpen) targetInventory.TakeAll(_lootGrid);
+		}
+
+		// двойной клик в ящике — забрать (улику — в улики, остальное — в сетку)
+		private void HandleLootDoubleClick(GridItemView view)
+		{
+			if (targetInventory != null && IsLootOpen && view.Item != null) targetInventory.TryTakeFrom(_lootGrid, view.Item);
+		}
+
+		// ПКМ в ящике: взять, прочитать (документ), в избранное (оружие)
+		private void HandleLootRightClick(GridItemView view, PointerEventData eventData)
+		{
+			if (targetInventory == null || contextMenu == null || !IsLootOpen || view.Item == null) return;
+
+			ItemInstance item = view.Item;
+			ItemGrid loot = _lootGrid;
+			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
+
+			if (targetInventory.CanTakeFrom(loot, item))
+			{
+				entries.Add(new ItemContextMenu.Entry(takeLabel, () => targetInventory.TryTakeFrom(loot, item)));
+			}
+			if (item.Data is DocumentItemData document && documentReader != null)
+			{
+				entries.Add(new ItemContextMenu.Entry(readLabel, () => documentReader.Open(document)));
+			}
+			AddFavoriteEntries(loot, item, entries);
+
+			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
+		}
+
+		// в сетку ящика: из своей сетки — в клетку (или долить в стопку), из колеса — оружие в клетку
+		private bool CanAcceptToLoot(ItemGridView view, Vector2Int cell)
+		{
+			if (targetInventory == null || !IsLootOpen || !ItemDrag.IsActive) return false;
+			if (ItemDrag.IsFromSlot) return targetInventory.CanMoveFromSlot(ItemDrag.SourceSlot, _lootGrid, cell);
+			return ItemDrag.SourceGrid == gridView && targetInventory.CanPutTo(_lootGrid, ItemDrag.Item, cell);
+		}
+
+		private bool AcceptToLoot(ItemGridView view, Vector2Int cell)
+		{
+			if (!CanAcceptToLoot(view, cell)) return false;
+			if (ItemDrag.IsFromSlot) return targetInventory.TryMoveFromSlot(ItemDrag.SourceSlot, _lootGrid, cell);
+			return targetInventory.TryPutTo(_lootGrid, ItemDrag.Item, cell);
+		}
+
+		// улику из ящика бросили на вкладку "Улики"
+		private bool AcceptToClues()
+		{
+			if (targetInventory == null || !IsLootOpen || !ItemDrag.IsActive) return false;
+			if (ItemDrag.SourceGrid == null || ItemDrag.SourceGrid != LootGridView) return false;
+
+			ItemInstance item = ItemDrag.Item;
+			return item.Data != null && item.Data.IsClue && targetInventory.TryTakeFrom(_lootGrid, item);
+		}
+
+		// тащат предмет над окном инвентаря — показываем вкладку, куда он ляжет
+		private void UpdateDragTab()
+		{
+			if (tabs == null || inventoryWindow == null || !ItemDrag.IsActive || ItemDrag.Item.Data == null) return;
+			if (!RectTransformUtility.RectangleContainsScreenPoint(inventoryWindow, ItemDrag.Position, ItemDrag.EventCamera)) return;
+
+			int tab = ItemDrag.Item.Data.IsClue ? CluesTab : ItemsTab;
+			if (tabs.Selected != tab) ShowTab(tab);
 		}
 
 		// ---------- Улики ----------
@@ -174,16 +355,19 @@ namespace Inventory
 
 		// ---------- Перенос между сеткой и колесом ----------
 
-		// в сетку бросили что-то не из неё самой — пока это может быть только оружие из колеса
+		// в свою сетку бросили что-то не из неё самой: оружие из колеса или предмет из ящика
 		private bool CanAcceptToGrid(ItemGridView view, Vector2Int cell)
 		{
-			return targetInventory != null && ItemDrag.IsFromSlot &&
-				targetInventory.CanMoveFromSlot(ItemDrag.SourceSlot, view.Grid, cell);
+			if (targetInventory == null || !ItemDrag.IsActive) return false;
+			if (ItemDrag.IsFromSlot) return targetInventory.CanMoveFromSlot(ItemDrag.SourceSlot, view.Grid, cell);
+			return IsLootOpen && ItemDrag.SourceGrid == LootGridView && targetInventory.CanTakeFrom(_lootGrid, ItemDrag.Item, cell);
 		}
 
 		private bool AcceptToGrid(ItemGridView view, Vector2Int cell)
 		{
-			return CanAcceptToGrid(view, cell) && targetInventory.TryMoveFromSlot(ItemDrag.SourceSlot, view.Grid, cell);
+			if (!CanAcceptToGrid(view, cell)) return false;
+			if (ItemDrag.IsFromSlot) return targetInventory.TryMoveFromSlot(ItemDrag.SourceSlot, view.Grid, cell);
+			return targetInventory.TryTakeFrom(_lootGrid, ItemDrag.Item, cell);
 		}
 
 		// в сектор колеса: из другого сектора — обмен местами; из сетки — положить (занят — обмен, прежнее — в сетку)
@@ -208,6 +392,11 @@ namespace Inventory
 
 			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
 			ItemGrid grid = targetInventory.Grid;
+			ItemGrid loot = _lootGrid;
+			if (loot != null && targetInventory.CanMoveFromSlot(slot, loot, null))
+			{
+				entries.Add(new ItemContextMenu.Entry(putLabel, () => targetInventory.TryMoveFromSlot(slot, loot, null)));
+			}
 			if (targetInventory.CanMoveFromSlot(slot, grid, null))
 			{
 				entries.Add(new ItemContextMenu.Entry(fromFavoritesLabel, () => targetInventory.TryMoveFromSlot(slot, grid, null)));
@@ -257,12 +446,14 @@ namespace Inventory
 
 		// ---------- Действия с предметами ----------
 
-		// Двойной клик — быстрое действие. Своё окно без ящика: использовать (аптечка, еда); у предмета без
-		// быстрого действия — ничего. (С открытым ящиком двойной клик будет переносить предмет между окнами)
+		// Двойной клик — быстрое действие. Открыт ящик — положить предмет в него; без ящика — использовать (аптечка,
+		// еда); у предмета без быстрого действия — ничего
 		private void HandleDoubleClick(GridItemView view)
 		{
 			if (targetInventory == null || view.Item == null) return;
-			if (targetInventory.CanUse(view.Item)) targetInventory.TryUse(view.Item);
+
+			if (IsLootOpen) targetInventory.TryPutTo(_lootGrid, view.Item);
+			else if (targetInventory.CanUse(view.Item)) targetInventory.TryUse(view.Item);
 		}
 
 		// ПКМ — меню под курсором с тем, что можно сделать с этим предметом
@@ -273,6 +464,11 @@ namespace Inventory
 			ItemInstance item = view.Item;
 			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
 
+			ItemGrid loot = _lootGrid;
+			if (loot != null && targetInventory.CanPutTo(loot, item))
+			{
+				entries.Add(new ItemContextMenu.Entry(putLabel, () => targetInventory.TryPutTo(loot, item)));
+			}
 			if (targetInventory.CanUse(item))
 			{
 				entries.Add(new ItemContextMenu.Entry(useLabel, () => targetInventory.TryUse(item)));
@@ -297,6 +493,7 @@ namespace Inventory
 		private void OnEnable()
 		{
 			PlayerStart.PlayerSpawned += HandlePlayerSpawned;
+			LootContainer.OpenRequested += HandleLootRequested;
 
 			if (targetInventory != null)
 			{
@@ -314,6 +511,12 @@ namespace Inventory
 		private void OnDisable()
 		{
 			PlayerStart.PlayerSpawned -= HandlePlayerSpawned;
+			LootContainer.OpenRequested -= HandleLootRequested;
+			// окна здесь не трогаем (во время выключения иерархии их нельзя включать/выключать) — только сообщаем
+			// контейнеру, что его больше не смотрят
+			if (_loot != null) _loot.NotifyClosed();
+			_loot = null;
+			_lootGrid = null;
 			SetFocus(null);
 		}
 
@@ -356,6 +559,12 @@ namespace Inventory
 
 		private void Update()
 		{
+			if (_isOpen)
+			{
+				UpdateLootReach();
+				UpdateDragTab();
+			}
+
 			if (_focus != null && _focus.IsBusy) return;
 			if (PauseMenu.IsPaused) return;
 			// открыто быстрое колесо (зажата Q) — инвентарь поверх не открываем, они делят ввод и само колесо
@@ -392,6 +601,7 @@ namespace Inventory
 			// закрыли посреди перетаскивания — бросок отменяется, предмет остаётся на месте; документ закрывается
 			if (!open)
 			{
+				CloseLoot();
 				ItemDrag.Cancel();
 				if (contextMenu != null) contextMenu.Close();
 				if (documentReader != null) documentReader.Close();

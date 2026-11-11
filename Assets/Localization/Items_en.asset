@@ -26,6 +26,10 @@ MonoBehaviour:
     m_Localized: Medkit
     m_Metadata:
       m_Items: []
+  - m_Id: 17486297829810176
+    m_Localized: Box
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

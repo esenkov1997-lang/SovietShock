@@ -127,6 +127,30 @@ MonoBehaviour:
     m_Key: inventory.action.read
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000012
+    m_Key: inventory.action.take
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000013
+    m_Key: inventory.action.put
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000014
+    m_Key: inventory.loot.takeAll
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000015
+    m_Key: inventory.loot.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000016
+    m_Key: prompt.loot.open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000017
+    m_Key: prompt.loot.search
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

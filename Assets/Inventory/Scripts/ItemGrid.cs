@@ -154,7 +154,7 @@ namespace Inventory
 			return TryAddInternal(data, amount, null);
 		}
 
-		// влезет ли amount штук (ничего не меняя)
+		// влезет ли amount штук (ничего не меняя); для уже существующего экземпляра — CanAdd(ItemInstance)
 		public bool CanAdd(ItemData data, int amount)
 		{
 			if (data == null || amount <= 0) return false;
@@ -321,7 +321,81 @@ namespace Inventory
 			return true;
 		}
 
+		// ---------- Перенос из другой сетки (ящик ↔ инвентарь) ----------
+
+		// Что будет, если положить предмет из сетки source верхним левым углом в клетку position ЭТОЙ сетки
+		// (ничего не меняя) — для подсветки при перетаскивании:
+		//   Move  — место свободно: предмет переходит целиком;
+		//   Merge — бросили на такую же стопку, в которой есть место: доливается сколько влезет, остаток остаётся в source;
+		//   Invalid — занято другим предметом или выходит за край. Обмена местами между разными сетками нет
+		public MoveKind EvaluateTransfer(ItemGrid source, ItemInstance instance, Vector2Int position, out ItemInstance other)
+		{
+			other = null;
+			if (source == null || source == this || instance == null || !source.Contains(instance)) return MoveKind.Invalid;
+
+			RectInt target = new RectInt(position, instance.GridSize);
+			List<int> overlapping = FindOverlapping(target, null, null);
+
+			if (overlapping.Count == 1)
+			{
+				ItemInstance stack = _items[overlapping[0]].Instance;
+				if (stack.CanStackWith(instance) && stack.SpaceLeft > 0)
+				{
+					other = stack;
+					return MoveKind.Merge;
+				}
+			}
+
+			return IsInside(target) && overlapping.Count == 0 ? MoveKind.Move : MoveKind.Invalid;
+		}
+
+		// Перенести предмет из source в клетку этой сетки по правилам EvaluateTransfer
+		public bool TryTransfer(ItemGrid source, ItemInstance instance, Vector2Int position)
+		{
+			switch (EvaluateTransfer(source, instance, position, out ItemInstance other))
+			{
+				case MoveKind.Move:
+					source.Remove(instance);
+					return TryPlace(instance, position);
+
+				case MoveKind.Merge:
+					int moved = Mathf.Min(other.SpaceLeft, instance.Count);
+					other.SetCount(other.Count + moved);
+					Changed?.Invoke();
+					if (moved >= instance.Count) source.Remove(instance);
+					else source.ChangeCount(instance, instance.Count - moved);
+					return true;
+
+				default:
+					return false;
+			}
+		}
+
+		// Влезет ли предмет из другого места целиком (стопки доливаются, остаток — в свободное место) — двойной клик,
+		// "Взять все". Предмет не должен уже лежать в этой сетке
+		public bool CanAdd(ItemInstance instance)
+		{
+			if (instance == null || instance.Data == null || Contains(instance)) return false;
+			return Plan(instance.Data, instance.Count, instance, out _, out _);
+		}
+
+		// Перенести предмет из source целиком куда получится (см. CanAdd). Не влезает целиком — ничего не меняется
+		public bool TryTransferAll(ItemGrid source, ItemInstance instance)
+		{
+			if (source == null || source == this || !source.Contains(instance) || !CanAdd(instance)) return false;
+
+			source.Remove(instance);
+			return TryAdd(instance);
+		}
+
 		// ---------- Удаление ----------
+
+		// часть стопки ушла в другую сетку — меняем количество и сообщаем об изменении
+		private void ChangeCount(ItemInstance instance, int count)
+		{
+			instance.SetCount(count);
+			Changed?.Invoke();
+		}
 
 		public bool Remove(ItemInstance instance)
 		{

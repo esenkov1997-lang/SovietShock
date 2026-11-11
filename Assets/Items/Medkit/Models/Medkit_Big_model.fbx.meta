@@ -8,7 +8,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: Medkit_Big_M
-    second: {fileID: 2100000, guid: 771e5d54882450249991f5a6fb35cfb5, type: 2}
+    second: {fileID: 2100000, guid: 4bb3d4f66b0ae7f498cb82dfc0aa77d9, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
