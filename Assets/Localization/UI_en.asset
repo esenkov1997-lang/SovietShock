@@ -175,6 +175,10 @@ MonoBehaviour:
     m_Localized: Cancel
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000022
+    m_Localized: No room
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

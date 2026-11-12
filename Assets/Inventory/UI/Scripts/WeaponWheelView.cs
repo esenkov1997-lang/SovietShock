@@ -73,6 +73,8 @@ namespace Inventory
 		// что сделали с сектором — решает экран инвентаря
 		public event Action<int, PointerEventData> SlotRightClicked;
 		public event Action<int> SlotDroppedOutside;
+		// курсор перешёл на другой сектор (номер сектора; уход с секторов не сообщается) — для звука
+		public event Action<int> HoverChanged;
 		// предмет бросили на сектор: можно ли / положить. Правила (обмен, нет места) знает экран инвентаря
 		public Func<int, bool> CanAcceptDrop;
 		public Func<int, bool> AcceptDrop;
@@ -229,7 +231,12 @@ namespace Inventory
 			SetHover(direction.Value.magnitude >= deadZone ? SlotFromDirection(direction.Value) : -1);
 		}
 
-		private void SetHover(int slot) => _hoverSlot = slot;
+		private void SetHover(int slot)
+		{
+			if (_hoverSlot == slot) return;
+			_hoverSlot = slot;
+			if (slot >= 0) HoverChanged?.Invoke(slot);
+		}
 
 		// ---------- Мышь (экран инвентаря) ----------
 
@@ -288,9 +295,9 @@ namespace Inventory
 			if (!ItemDrag.IsActive || _directionMode) return;
 
 			// бросили над колесом — не выброс в мир, даже если мимо секторов (в центр) или положить нельзя
-			ItemDrag.MarkHandled();
 			int slot = SlotAt(eventData.position, eventData.pressEventCamera);
-			if (slot >= 0 && CanAcceptDrop != null && CanAcceptDrop(slot)) AcceptDrop?.Invoke(slot);
+			bool placed = slot >= 0 && CanAcceptDrop != null && CanAcceptDrop(slot) && AcceptDrop != null && AcceptDrop(slot);
+			ItemDrag.Resolve(placed);
 		}
 	}
 }

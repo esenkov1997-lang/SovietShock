@@ -27,7 +27,21 @@ namespace Inventory
 
 		// бросок кто-то принял (даже если положить не удалось) — значит, это не выброс в мир
 		public static bool Handled { get; private set; }
-		public static void MarkHandled() => Handled = true;
+		// предмет действительно лёг на новое место
+		public static bool Placed { get; private set; }
+
+		// Цель броска (сетка, колесо, список улик) сообщает, чем кончилось: placed — предмет лёг, false — отказ
+		public static void Resolve(bool placed)
+		{
+			Handled = true;
+			Placed = placed;
+		}
+
+		public enum Result { Placed, Refused, Outside }
+
+		// начало перетаскивания и чем оно кончилось (для звуков); прерванное Cancel перетаскивание Ended не вызывает
+		public static event System.Action Began;
+		public static event System.Action<Result> Ended;
 
 		private static GameObject s_ghost;
 
@@ -45,8 +59,10 @@ namespace Inventory
 			Position = eventData.position;
 			EventCamera = eventData.pressEventCamera;
 			Handled = false;
+			Placed = false;
 
 			CreateGhost(ghostSource, eventData);
+			Began?.Invoke();
 		}
 
 		public static void Move(PointerEventData eventData)
@@ -58,8 +74,12 @@ namespace Inventory
 		// конец жеста: true — бросили мимо всех окон (никто не принял и под курсором нет UI) — выбросить в мир
 		public static bool End(PointerEventData eventData)
 		{
-			bool outside = IsActive && !Handled && eventData.pointerCurrentRaycast.gameObject == null;
+			bool active = IsActive;
+			bool outside = active && !Handled && eventData.pointerCurrentRaycast.gameObject == null;
+			Result result = outside ? Result.Outside : Placed ? Result.Placed : Result.Refused;
 			Cancel();
+
+			if (active) Ended?.Invoke(result);
 			return outside;
 		}
 
@@ -70,6 +90,7 @@ namespace Inventory
 			SourceGrid = null;
 			SourceSlot = -1;
 			Handled = false;
+			Placed = false;
 
 			if (s_ghost != null) Object.Destroy(s_ghost);
 			s_ghost = null;

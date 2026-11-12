@@ -167,6 +167,10 @@ MonoBehaviour:
     m_Key: inventory.amount.cancel
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000022
+    m_Key: inventory.feedback.noSpace
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

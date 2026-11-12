@@ -177,12 +177,14 @@ namespace Inventory
 			if (_grid == null || !ItemDrag.IsActive) return;
 
 			// бросили над сеткой — это точно не выброс в мир, даже если положить сюда нельзя
-			ItemDrag.MarkHandled();
-			if (!ScreenToCell(eventData.position, eventData.pressEventCamera, out Vector2Int cell)) return;
-
-			Vector2Int target = cell - ItemDrag.GrabCell;
-			if (ItemDrag.SourceGrid == this) _grid.TryMove(ItemDrag.Item, target);
-			else AcceptExternal?.Invoke(this, target);
+			bool placed = false;
+			if (ScreenToCell(eventData.position, eventData.pressEventCamera, out Vector2Int cell))
+			{
+				Vector2Int target = cell - ItemDrag.GrabCell;
+				if (ItemDrag.SourceGrid == this) placed = _grid.TryMove(ItemDrag.Item, target);
+				else placed = AcceptExternal != null && AcceptExternal(this, target);
+			}
+			ItemDrag.Resolve(placed);
 		}
 
 		// подсветка места под перетаскиваемым предметом: те же правила, что и у самого броска

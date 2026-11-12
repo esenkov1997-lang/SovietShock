@@ -715,7 +715,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridWidth: 9
-  gridHeight: 12
+  gridHeight: 10
   startingItems: []
 --- !u!114 &5173049059380444019
 MonoBehaviour:
@@ -732,6 +732,7 @@ MonoBehaviour:
   dropPoint: {fileID: 7458044633278248104}
   forwardOffset: 0.5
   force: 3
+  spread: 0.15
 --- !u!114 &8614122012661009152
 MonoBehaviour:
   m_ObjectHideFlags: 0

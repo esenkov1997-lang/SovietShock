@@ -262,5 +262,23 @@ namespace Inventory.Tests
 			Assert.IsFalse(player.TryDrop(medkit, 1));
 			Assert.IsTrue(player.Grid.Contains(medkit));
 		}
+
+		// ---------- События подбора (звук, "Нет места") ----------
+
+		[Test]
+		public void Pickup_RaisesPickedUpOrFailed()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			ItemData medkit = _utils.Item("Medkit");
+			int picked = 0;
+			int failed = 0;
+			player.PickedUp += _ => picked++;
+			player.PickupFailed += _ => failed++;
+
+			Assert.IsTrue(player.TryPickup(medkit, 1));
+			Assert.IsFalse(player.TryPickup(_utils.Item("Box"), 1), "сетка 1×1 уже занята");
+			Assert.AreEqual(1, picked);
+			Assert.AreEqual(1, failed);
+		}
 	}
 }

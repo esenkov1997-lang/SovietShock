@@ -34,7 +34,17 @@ namespace Inventory
 		public event Action<ItemInstance, PointerEventData> EntryClicked;
 		public event Action<ItemInstance, PointerEventData> EntryRightClicked;
 
+		[Header("Drop Highlight")]
+		[Tooltip("Необязательно: подсветка страницы, пока над ней тащат предмет — Image последним ребёнком страницы " +
+			"на всю её площадь (stretch-stretch), Raycast Target ✘. Цвет задаёт код")]
+		[SerializeField] private Graphic dropHighlight;
+		[Tooltip("Цвет, если предмет сюда ляжет (улика из ящика)")]
+		[SerializeField] private Color validColor = new Color(0.3f, 1f, 0.3f, 0.35f);
+		[Tooltip("Цвет, если положить нельзя (не улика)")]
+		[SerializeField] private Color invalidColor = new Color(1f, 0.25f, 0.25f, 0.35f);
+
 		// Бросили перетаскиваемый предмет (улику из ящика) — правила знает экран инвентаря, он их сюда и подставляет
+		public Func<bool> CanAcceptDrop;
 		public Func<bool> AcceptDrop;
 
 		public void OnDrop(PointerEventData eventData)
@@ -42,8 +52,23 @@ namespace Inventory
 			if (!ItemDrag.IsActive) return;
 
 			// бросили над списком — это не выброс в мир, даже если принять нельзя
-			ItemDrag.MarkHandled();
-			AcceptDrop?.Invoke();
+			bool placed = CanAcceptDrop != null && CanAcceptDrop() && AcceptDrop != null && AcceptDrop();
+			ItemDrag.Resolve(placed);
+		}
+
+		private void LateUpdate()
+		{
+			if (dropHighlight == null) return;
+
+			bool show = ItemDrag.IsActive &&
+				RectTransformUtility.RectangleContainsScreenPoint((RectTransform)transform, ItemDrag.Position, ItemDrag.EventCamera);
+			if (dropHighlight.gameObject.activeSelf != show) dropHighlight.gameObject.SetActive(show);
+			if (show) dropHighlight.color = CanAcceptDrop != null && CanAcceptDrop() ? validColor : invalidColor;
+		}
+
+		private void OnDisable()
+		{
+			if (dropHighlight != null) dropHighlight.gameObject.SetActive(false);
 		}
 
 		internal void NotifyClick(ClueEntryView entry, PointerEventData eventData) => EntryClicked?.Invoke(entry.Item, eventData);

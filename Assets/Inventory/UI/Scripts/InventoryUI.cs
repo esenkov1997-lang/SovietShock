@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.Localization;
+using Weapons;
 
 namespace Inventory
 {
@@ -76,6 +77,17 @@ namespace Inventory
 		[SerializeField] private LocalizedString putAmountLabel = new LocalizedString("UI", "inventory.action.putAmount");
 		[SerializeField] private LocalizedString dropAmountLabel = new LocalizedString("UI", "inventory.action.dropAmount");
 
+		[Header("Feedback")]
+		[Tooltip("Звуки инвентаря (InventoryAudio). Пусто — без звуков")]
+		[SerializeField] private InventoryAudio sounds;
+		[Tooltip("Сообщение у курсора в открытом инвентаре (FeedbackMessageView, Follow Pointer ✔) — внутри Panel")]
+		[SerializeField] private FeedbackMessageView cursorMessage;
+		[Tooltip("Сообщение на HUD при закрытом инвентаре — подбор с пола (FeedbackMessageView, Follow Pointer ✘) — ВНЕ Panel")]
+		[SerializeField] private FeedbackMessageView hudMessage;
+		[SerializeField] private LocalizedString noSpaceMessage = new LocalizedString("UI", "inventory.feedback.noSpace");
+		[Tooltip("Закрывать инвентарь, когда игрок получает урон. Позже переедет в настройки игры")]
+		[SerializeField] private bool closeOnDamage = true;
+
 		// номера вкладок в TabGroup
 		public const int ItemsTab = 0;
 		public const int CluesTab = 1;
@@ -96,6 +108,10 @@ namespace Inventory
 		// фокус на терминале/рычаге (см. Interactables.PlayerCameraFocus): пока он идёт, инвентарь закрыт
 		// и не открывается. Необязателен — у игрока без этого компонента инвентарь работает как раньше
 		private PlayerCameraFocus _focus;
+		// здоровье игрока — для закрытия инвентаря при уроне (Close On Damage)
+		private Health _health;
+		// на чьи события подбора подписаны (меняется вместе с targetInventory)
+		private InventoryHolder _subscribedInventory;
 
 		public bool IsOpen => _isOpen;
 
@@ -136,14 +152,18 @@ namespace Inventory
 				wheel.SlotDroppedOutside += HandleSlotDroppedOutside;
 				wheel.CanAcceptDrop = CanAcceptToSlot;
 				wheel.AcceptDrop = AcceptToSlot;
+				// колесо то же и в быстром выборе по Q — звук наведения работает в обоих случаях
+				wheel.HoverChanged += HandleWheelHover;
 			}
 
 			if (clueList != null)
 			{
 				clueList.EntryClicked += HandleClueClick;
 				clueList.EntryRightClicked += HandleClueRightClick;
+				clueList.CanAcceptDrop = CanAcceptToClues;
 				clueList.AcceptDrop = AcceptToClues;
 			}
+			if (tabs != null) tabs.SelectionChanged += HandleTabChanged;
 			if (documentReader != null) documentReader.OpenChanged += HandleReaderOpenChanged;
 
 			if (lootWindow != null)
@@ -178,7 +198,9 @@ namespace Inventory
 			{
 				wheel.SlotRightClicked -= HandleSlotRightClick;
 				wheel.SlotDroppedOutside -= HandleSlotDroppedOutside;
+				wheel.HoverChanged -= HandleWheelHover;
 			}
+			if (tabs != null) tabs.SelectionChanged -= HandleTabChanged;
 			if (clueList != null)
 			{
 				clueList.EntryClicked -= HandleClueClick;
@@ -260,15 +282,17 @@ namespace Inventory
 			if (!reachable) CloseLoot();
 		}
 
+		// "Взять все": не всё влезло — "Нет места"
 		private void HandleTakeAll()
 		{
-			if (targetInventory != null && IsLootOpen) targetInventory.TakeAll(_lootGrid);
+			if (targetInventory == null || !IsLootOpen || _lootGrid.Items.Count == 0) return;
+			Report(targetInventory.TakeAll(_lootGrid));
 		}
 
 		// двойной клик в ящике — забрать (улику — в улики, остальное — в сетку)
 		private void HandleLootDoubleClick(GridItemView view)
 		{
-			if (targetInventory != null && IsLootOpen && view.Item != null) targetInventory.TryTakeFrom(_lootGrid, view.Item);
+			if (targetInventory != null && IsLootOpen && view.Item != null) Report(targetInventory.TryTakeFrom(_lootGrid, view.Item));
 		}
 
 		// ПКМ в ящике: взять, прочитать (документ), в избранное (оружие)
@@ -280,13 +304,11 @@ namespace Inventory
 			ItemGrid loot = _lootGrid;
 			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
 
-			if (targetInventory.CanTakeFrom(loot, item))
-			{
-				entries.Add(new ItemContextMenu.Entry(takeLabel, () => targetInventory.TryTakeFrom(loot, item)));
-			}
+			// пункт есть всегда: не влезает — по нажатию "Нет места" (а не молча пропавший пункт)
+			entries.Add(new ItemContextMenu.Entry(takeLabel, () => Report(targetInventory.TryTakeFrom(loot, item))));
 			AddAmountEntry(eventData, item, takeAmountLabel, takeLabel, true,
 				() => targetInventory.MaxTakeAmount(loot, item),
-				amount => targetInventory.TryTakeAmount(loot, item, amount), entries);
+				amount => Report(targetInventory.TryTakeAmount(loot, item, amount)), entries);
 			if (item.Data is DocumentItemData document && documentReader != null)
 			{
 				entries.Add(new ItemContextMenu.Entry(readLabel, () => documentReader.Open(document)));
@@ -312,14 +334,16 @@ namespace Inventory
 		}
 
 		// улику из ящика бросили на вкладку "Улики"
-		private bool AcceptToClues()
+		private bool CanAcceptToClues()
 		{
 			if (targetInventory == null || !IsLootOpen || !ItemDrag.IsActive) return false;
 			if (ItemDrag.SourceGrid == null || ItemDrag.SourceGrid != LootGridView) return false;
 
 			ItemInstance item = ItemDrag.Item;
-			return item.Data != null && item.Data.IsClue && targetInventory.TryTakeFrom(_lootGrid, item);
+			return item.Data != null && item.Data.IsClue && targetInventory.CanTakeFrom(_lootGrid, item);
 		}
+
+		private bool AcceptToClues() => CanAcceptToClues() && targetInventory.TryTakeFrom(_lootGrid, ItemDrag.Item);
 
 		// тащат предмет над окном инвентаря — показываем вкладку, куда он ляжет
 		private void UpdateDragTab()
@@ -351,7 +375,22 @@ namespace Inventory
 		}
 
 		// документ стоит в центре, на месте колеса — пока он открыт, колесо спрятано
-		private void HandleReaderOpenChanged(bool open) => UpdateWheelVisibility();
+		private void HandleReaderOpenChanged(bool open)
+		{
+			UpdateWheelVisibility();
+			if (open && sounds != null) sounds.PlayRead();
+		}
+
+		// вкладку выбирают и кодом при старте — звучит только в открытом инвентаре
+		private void HandleTabChanged(int index)
+		{
+			if (_isOpen && sounds != null) sounds.PlayTab();
+		}
+
+		private void HandleWheelHover(int slot)
+		{
+			if (sounds != null) sounds.PlayWheelHover();
+		}
 
 		private void UpdateWheelVisibility()
 		{
@@ -406,17 +445,15 @@ namespace Inventory
 			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
 			ItemGrid grid = targetInventory.Grid;
 			ItemGrid loot = _lootGrid;
-			if (loot != null && targetInventory.CanMoveFromSlot(slot, loot, null))
+			// пункты переноса есть всегда: нет места — по нажатию "Нет места"
+			if (loot != null)
 			{
-				entries.Add(new ItemContextMenu.Entry(putLabel, () => targetInventory.TryMoveFromSlot(slot, loot, null)));
+				entries.Add(new ItemContextMenu.Entry(putLabel, () => Report(targetInventory.TryMoveFromSlot(slot, loot, null))));
 			}
-			if (targetInventory.CanMoveFromSlot(slot, grid, null))
-			{
-				entries.Add(new ItemContextMenu.Entry(fromFavoritesLabel, () => targetInventory.TryMoveFromSlot(slot, grid, null)));
-			}
+			entries.Add(new ItemContextMenu.Entry(fromFavoritesLabel, () => Report(targetInventory.TryMoveFromSlot(slot, grid, null))));
 			if (targetInventory.CanDropFromSlot(slot))
 			{
-				entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDropFromSlot(slot)));
+				entries.Add(new ItemContextMenu.Entry(dropLabel, () => ReportDrop(targetInventory.TryDropFromSlot(slot))));
 			}
 
 			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
@@ -424,7 +461,7 @@ namespace Inventory
 
 		private void HandleSlotDroppedOutside(int slot)
 		{
-			if (targetInventory != null) targetInventory.TryDropFromSlot(slot);
+			if (targetInventory != null) ReportDrop(targetInventory.TryDropFromSlot(slot));
 		}
 
 		// "В избранное" для оружия в сетке: в первый пустой сектор; колесо полное — "Заменить N" для каждого сектора
@@ -435,18 +472,17 @@ namespace Inventory
 			int empty = targetInventory.FirstEmptySlot();
 			if (empty >= 0)
 			{
-				entries.Add(new ItemContextMenu.Entry(toFavoritesLabel, () => targetInventory.TryMoveToSlot(grid, item, empty)));
+				entries.Add(new ItemContextMenu.Entry(toFavoritesLabel, () => Report(targetInventory.TryMoveToSlot(grid, item, empty))));
 				return;
 			}
 
+			// все сектора; прежнему оружию некуда вернуться — по нажатию "Нет места"
 			for (int i = 0; i < targetInventory.Loadout.SlotCount; i++)
 			{
 				int slot = i;
-				if (!targetInventory.CanMoveToSlot(grid, item, slot)) continue;
-
 				string number = (slot + 1).ToString();
 				entries.Add(new ItemContextMenu.Entry(replaceFavoriteLabel,
-					() => targetInventory.TryMoveToSlot(grid, item, slot),
+					() => Report(targetInventory.TryMoveToSlot(grid, item, slot)),
 					format => SafeFormat(format, number)));
 			}
 		}
@@ -465,7 +501,7 @@ namespace Inventory
 		{
 			if (targetInventory == null || view.Item == null) return;
 
-			if (IsLootOpen) targetInventory.TryPutTo(_lootGrid, view.Item);
+			if (IsLootOpen) Report(targetInventory.TryPutTo(_lootGrid, view.Item));
 			else if (targetInventory.CanUse(view.Item)) targetInventory.TryUse(view.Item);
 		}
 
@@ -478,15 +514,13 @@ namespace Inventory
 			List<ItemContextMenu.Entry> entries = new List<ItemContextMenu.Entry>();
 
 			ItemGrid loot = _lootGrid;
-			if (loot != null && targetInventory.CanPutTo(loot, item))
-			{
-				entries.Add(new ItemContextMenu.Entry(putLabel, () => targetInventory.TryPutTo(loot, item)));
-			}
 			if (loot != null)
 			{
+				// пункт есть всегда: в ящике нет места — по нажатию "Нет места"
+				entries.Add(new ItemContextMenu.Entry(putLabel, () => Report(targetInventory.TryPutTo(loot, item))));
 				AddAmountEntry(eventData, item, putAmountLabel, putLabel, true,
 					() => targetInventory.MaxPutAmount(loot, item),
-					amount => targetInventory.TryPutAmount(loot, item, amount), entries);
+					amount => Report(targetInventory.TryPutAmount(loot, item, amount)), entries);
 			}
 			if (targetInventory.CanUse(item))
 			{
@@ -496,35 +530,42 @@ namespace Inventory
 			if (targetInventory.CanDrop(item))
 			{
 				// одна штука — просто "Выбросить"; стопка — "Выбросить…" (слайдер) и "Выбросить все"
-				if (item.Count <= 1) entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDrop(item, 1)));
+				if (item.Count <= 1) entries.Add(new ItemContextMenu.Entry(dropLabel, () => ReportDrop(targetInventory.TryDrop(item, 1))));
 				else
 				{
 					AddAmountEntry(eventData, item, dropAmountLabel, dropLabel, false,
 						() => item.Count,
-						amount => targetInventory.TryDrop(item, amount), entries);
-					entries.Add(new ItemContextMenu.Entry(dropAllLabel, () => targetInventory.TryDrop(item, item.Count)));
+						amount => ReportDrop(targetInventory.TryDrop(item, amount)), entries);
+					entries.Add(new ItemContextMenu.Entry(dropAllLabel, () => ReportDrop(targetInventory.TryDrop(item, item.Count))));
 				}
 			}
 
 			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
 		}
 
-		// Пункт меню "… (сколько)" — открывает окно количества на месте меню. Только для стопок больше 1 и если хоть
-		// одна штука переносится. max считается заново при открытии окна; само действие проверяет всё ещё раз
-		// (пока окно открыто, инвентарь мог измениться — тогда действие просто не выполнится)
+		// Пункт меню "… (сколько)" — открывает окно количества на месте меню. Только для стопок больше 1; не влезает
+		// ни одной штуки — по нажатию "Нет места". max считается заново при открытии окна; само действие проверяет всё
+		// ещё раз (пока окно открыто, инвентарь мог измениться — тогда действие просто не выполнится)
 		private void AddAmountEntry(PointerEventData eventData, ItemInstance item, LocalizedString label,
 			LocalizedString confirmLabel, bool forLoot, System.Func<int> max, System.Action<int> apply,
 			List<ItemContextMenu.Entry> entries)
 		{
-			if (amountDialog == null || item == null || item.Count <= 1 || max() <= 0) return;
+			if (amountDialog == null || item == null || item.Count <= 1) return;
 
 			// PointerEventData переиспользуется системой событий — запоминаем позицию сейчас
 			Vector2 position = eventData.position;
 			Camera eventCamera = eventData.pressEventCamera;
 			entries.Add(new ItemContextMenu.Entry(label, () =>
 			{
+				int limit = max();
+				if (limit <= 0)
+				{
+					Report(false);
+					return;
+				}
+
 				_amountForLoot = forLoot;
-				amountDialog.Open(position, eventCamera, item, max(), confirmLabel, apply);
+				amountDialog.Open(position, eventCamera, item, limit, confirmLabel, apply);
 			}));
 		}
 
@@ -532,13 +573,92 @@ namespace Inventory
 		private void HandleDroppedOutside(GridItemView view)
 		{
 			if (targetInventory == null || view.Item == null) return;
-			targetInventory.TryDrop(view.Item, view.Item.Count);
+			ReportDrop(targetInventory.TryDrop(view.Item, view.Item.Count));
+		}
+
+		// ---------- Отклик: звук и "Нет места" ----------
+
+		// результат переноса из меню, двойного клика, "Взять все": лёг — звук; отказ — звук отказа и "Нет места"
+		// у курсора. Перетаскивание сюда не ходит — его звучит HandleDragEnded (там подсветка уже показала отказ)
+		private void Report(bool success)
+		{
+			if (success)
+			{
+				if (sounds != null) sounds.PlayPlace();
+				return;
+			}
+
+			if (sounds != null) sounds.PlayDeny();
+			if (cursorMessage != null) cursorMessage.Show(noSpaceMessage);
+		}
+
+		private void ReportDrop(bool dropped)
+		{
+			if (sounds == null) return;
+			if (dropped) sounds.PlayDropToWorld();
+			else sounds.PlayDeny();
+		}
+
+		private void HandleDragBegan()
+		{
+			if (sounds != null) sounds.PlayGrab();
+		}
+
+		// бросок мимо окон звучит в HandleDroppedOutside / HandleSlotDroppedOutside — там известно, выбросился ли предмет
+		private void HandleDragEnded(ItemDrag.Result result)
+		{
+			if (sounds == null) return;
+			if (result == ItemDrag.Result.Placed) sounds.PlayPlace();
+			else if (result == ItemDrag.Result.Refused) sounds.PlayDeny();
+		}
+
+		// подбор с пола (по E): с открытым инвентарём сообщение у курсора, с закрытым — на HUD
+		private void HandlePickedUp(ItemData item)
+		{
+			if (sounds != null) sounds.PlayPickup();
+		}
+
+		private void HandlePickupFailed(ItemData item)
+		{
+			if (sounds != null) sounds.PlayDeny();
+
+			FeedbackMessageView message = _isOpen ? cursorMessage : hudMessage;
+			if (message != null) message.Show(noSpaceMessage);
+		}
+
+		private void HandleDamaged(int amount, int current)
+		{
+			if (closeOnDamage && _isOpen) SetOpen(false);
+		}
+
+		// подписка на события игрока: подбор (InventoryHolder) и урон (Health). Игрок может смениться (респаун)
+		private void SubscribePlayer(InventoryHolder inventory)
+		{
+			if (_subscribedInventory != null)
+			{
+				_subscribedInventory.PickedUp -= HandlePickedUp;
+				_subscribedInventory.PickupFailed -= HandlePickupFailed;
+			}
+			if (_health != null) _health.OnDamaged.RemoveListener(HandleDamaged);
+
+			_subscribedInventory = inventory;
+			_health = inventory != null ? inventory.GetComponentInParent<Health>() : null;
+			if (inventory != null && _health == null) _health = inventory.GetComponentInChildren<Health>();
+
+			if (_subscribedInventory != null)
+			{
+				_subscribedInventory.PickedUp += HandlePickedUp;
+				_subscribedInventory.PickupFailed += HandlePickupFailed;
+			}
+			if (_health != null) _health.OnDamaged.AddListener(HandleDamaged);
 		}
 
 		private void OnEnable()
 		{
 			PlayerStart.PlayerSpawned += HandlePlayerSpawned;
 			LootContainer.OpenRequested += HandleLootRequested;
+			ItemDrag.Began += HandleDragBegan;
+			ItemDrag.Ended += HandleDragEnded;
 
 			if (targetInventory != null)
 			{
@@ -557,6 +677,9 @@ namespace Inventory
 		{
 			PlayerStart.PlayerSpawned -= HandlePlayerSpawned;
 			LootContainer.OpenRequested -= HandleLootRequested;
+			ItemDrag.Began -= HandleDragBegan;
+			ItemDrag.Ended -= HandleDragEnded;
+			SubscribePlayer(null);
 			// окна здесь не трогаем (во время выключения иерархии их нельзя включать/выключать) — только сообщаем
 			// контейнеру, что его больше не смотрят
 			if (_loot != null) _loot.NotifyClosed();
@@ -577,6 +700,7 @@ namespace Inventory
 		public void SetTarget(InventoryHolder inventory)
 		{
 			targetInventory = inventory;
+			SubscribePlayer(inventory);
 			if (targetInventory == null)
 			{
 				if (gridView != null) gridView.Bind(null);
@@ -641,6 +765,12 @@ namespace Inventory
 
 		private void SetOpen(bool open)
 		{
+			if (open != _isOpen && sounds != null)
+			{
+				if (open) sounds.PlayOpen();
+				else sounds.PlayClose();
+			}
+
 			_isOpen = open;
 			panel.SetActive(open);
 			// закрыли посреди перетаскивания — бросок отменяется, предмет остаётся на месте; документ закрывается
@@ -650,6 +780,7 @@ namespace Inventory
 				ItemDrag.Cancel();
 				if (contextMenu != null) contextMenu.Close();
 				if (amountDialog != null) amountDialog.Close();
+				if (cursorMessage != null) cursorMessage.Hide();
 				if (documentReader != null) documentReader.Close();
 			}
 			UpdateWheelVisibility();

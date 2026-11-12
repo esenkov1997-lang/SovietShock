@@ -108,15 +108,19 @@ namespace Inventory
 
 		// amount — сколько штук. loadedAmmo — только для оружия: патронов в магазине, < 0 — полный.
 		// false — некуда положить, предмет остаётся лежать
+		// подобрали с пола / не смогли (некуда положить) — для звука и сообщения "Нет места"
+		public event Action<ItemData> PickedUp;
+		public event Action<ItemData> PickupFailed;
+
 		public bool TryPickup(ItemData data, int amount, int loadedAmmo = -1)
 		{
 			if (data == null || amount <= 0) return false;
 			EnsureInitialized();
 
-			if (data.IsClue) return _clues.TryAdd(data, amount);
+			if (data.IsClue) return ReportPickup(data, _clues.TryAdd(data, amount));
 
 			ItemInstance probe = new ItemInstance(data, 1, loadedAmmo);
-			if (!probe.HasState) return _grid.TryAdd(data, amount);
+			if (!probe.HasState) return ReportPickup(data, _grid.TryAdd(data, amount));
 
 			// у каждого экземпляра с состоянием (оружия) свой магазин — стопкой их не подобрать
 			if (amount > 1)
@@ -134,9 +138,17 @@ namespace Inventory
 			if (item == null || item.Data == null) return false;
 			EnsureInitialized();
 
-			if (item.Data.IsClue) return _clues.TryAdd(item);
-			if (WeaponLoadout.CanHold(item) && _loadout != null && _loadout.TryAddFromPickup(item)) return true;
-			return _grid.TryAdd(item);
+			bool picked;
+			if (item.Data.IsClue) picked = _clues.TryAdd(item);
+			else picked = (WeaponLoadout.CanHold(item) && _loadout != null && _loadout.TryAddFromPickup(item)) || _grid.TryAdd(item);
+			return ReportPickup(item.Data, picked);
+		}
+
+		private bool ReportPickup(ItemData data, bool picked)
+		{
+			if (picked) PickedUp?.Invoke(data);
+			else PickupFailed?.Invoke(data);
+			return picked;
 		}
 
 		// ---------- Колесо избранного ----------
