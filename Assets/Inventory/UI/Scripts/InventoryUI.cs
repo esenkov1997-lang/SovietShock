@@ -3,6 +3,7 @@ using Interactables;
 using Menus;
 using Player;
 using StarterAssets;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -98,6 +99,20 @@ namespace Inventory
 		[Tooltip("Не обязательно — если задано, при открытом инвентаре камера перестаёт вращаться от мыши")]
 		[SerializeField] private StarterAssetsInputs input;
 
+		[Header("Item Tooltip")]
+		[Tooltip("Подсказка о предмете при наведении (ItemTooltipView) — внутри Panel, изначально выключена. " +
+			"Пусто — подсказок нет")]
+		[SerializeField] private ItemTooltipView tooltip;
+		[Tooltip("Включить/выключить подсказки (StarterAssets → Player/ItemTooltip, по умолчанию Alt). Выбор помнится " +
+			"между запусками")]
+		[SerializeField] private InputActionReference tooltipToggleAction;
+		[Tooltip("Строка внизу инвентаря: какой клавишей включить/выключить подсказки (TextMeshPro). Необязательно")]
+		[SerializeField] private TMP_Text hintText;
+		[Tooltip("{0} — клавиша. Подсказки сейчас включены")]
+		[SerializeField] private LocalizedString tooltipsOnHint = new LocalizedString("UI", "inventory.hint.tooltipsOn");
+		[Tooltip("{0} — клавиша. Подсказки сейчас выключены")]
+		[SerializeField] private LocalizedString tooltipsOffHint = new LocalizedString("UI", "inventory.hint.tooltipsOff");
+
 		private bool _isOpen;
 		// открытый контейнер и его сетка; null — окно лута закрыто (контейнер мог быть уничтожен — тогда _loot
 		// "равен null" по правилам Unity, а _lootGrid — нет: по ней и проверяем, открыт ли лут)
@@ -112,6 +127,13 @@ namespace Inventory
 		private Health _health;
 		// на чьи события подбора подписаны (меняется вместе с targetInventory)
 		private InventoryHolder _subscribedInventory;
+		// смерть игрока: мёртвый инвентарь не открывает (ни по кнопке, ни через контейнер), открытый — закрывается
+		private PlayerDeath _death;
+		// синхронная анимация (собака вцепилась): пока идёт — то же, что смерть
+		private PlayerSyncedAnimation _synced;
+
+		// игрок не может пользоваться инвентарём: погиб или его держит враг
+		private bool IsPlayerLocked => (_death != null && _death.IsDead) || (_synced != null && _synced.IsBusy);
 
 		public bool IsOpen => _isOpen;
 
@@ -230,7 +252,7 @@ namespace Inventory
 			if (targetInventory == null || container == null || interactor == null) return;
 			// контейнер открывает другой игрок (или не игрок) — не наш экран
 			if (interactor.GetComponentInParent<InventoryHolder>() != targetInventory) return;
-			if ((_focus != null && _focus.IsBusy) || PauseMenu.IsPaused || WeaponWheelQuickSelect.IsActive) return;
+			if ((_focus != null && _focus.IsBusy) || PauseMenu.IsPaused || WeaponWheelQuickSelect.IsActive || IsPlayerLocked) return;
 
 			OpenLoot(container);
 		}
@@ -238,7 +260,7 @@ namespace Inventory
 		// Открыть экран инвентаря с окном лута этого контейнера (уже открыт другой — сменится)
 		public void OpenLoot(LootContainer container)
 		{
-			if (container == null) return;
+			if (container == null || IsPlayerLocked) return;
 			if (lootWindow == null)
 			{
 				Debug.LogError("InventoryUI: не назначен Loot Window — контейнер не открыть", this);
@@ -626,6 +648,12 @@ namespace Inventory
 			if (message != null) message.Show(noSpaceMessage);
 		}
 
+		// PlayerDeath / PlayerSyncedAnimation вызывают это ДО своей блокировки ввода — как FocusStarted у PlayerCameraFocus
+		private void HandlePlayerLocked()
+		{
+			if (_isOpen) SetOpen(false);
+		}
+
 		private void HandleDamaged(int amount, int current)
 		{
 			if (closeOnDamage && _isOpen) SetOpen(false);
@@ -640,10 +668,19 @@ namespace Inventory
 				_subscribedInventory.PickupFailed -= HandlePickupFailed;
 			}
 			if (_health != null) _health.OnDamaged.RemoveListener(HandleDamaged);
+			if (_death != null) _death.Dying -= HandlePlayerLocked;
 
 			_subscribedInventory = inventory;
 			_health = inventory != null ? inventory.GetComponentInParent<Health>() : null;
 			if (inventory != null && _health == null) _health = inventory.GetComponentInChildren<Health>();
+			_death = inventory != null ? inventory.GetComponentInParent<PlayerDeath>() : null;
+			if (inventory != null && _death == null) _death = inventory.GetComponentInChildren<PlayerDeath>();
+			if (_death != null) _death.Dying += HandlePlayerLocked;
+
+			if (_synced != null) _synced.Starting -= HandlePlayerLocked;
+			_synced = inventory != null ? inventory.GetComponentInParent<PlayerSyncedAnimation>() : null;
+			if (inventory != null && _synced == null) _synced = inventory.GetComponentInChildren<PlayerSyncedAnimation>();
+			if (_synced != null) _synced.Starting += HandlePlayerLocked;
 
 			if (_subscribedInventory != null)
 			{
@@ -732,14 +769,60 @@ namespace Inventory
 			{
 				UpdateLootReach();
 				UpdateDragTab();
+				UpdateTooltipToggle();
+				UpdateTooltip();
 			}
 
 			if (_focus != null && _focus.IsBusy) return;
 			if (PauseMenu.IsPaused) return;
+			// погиб (экран смерти) или его держит враг — инвентарь не открывается
+			if (IsPlayerLocked) return;
 			// открыто быстрое колесо (зажата Q) — инвентарь поверх не открываем, они делят ввод и само колесо
 			if (WeaponWheelQuickSelect.IsActive) return;
 			// карту Player включает PlayerInput игрока (на паузе выключает) — сами действие не включаем
 			if (toggleAction != null && toggleAction.action.WasPressedThisFrame()) SetOpen(!_isOpen);
+		}
+
+		// ---------- Подсказка о предмете ----------
+
+		// переключатель работает только в открытом инвентаре — в игре Alt свободен для другого
+		private void UpdateTooltipToggle()
+		{
+			if (tooltipToggleAction == null || tooltipToggleAction.action == null) return;
+			if (!tooltipToggleAction.action.WasPressedThisFrame()) return;
+
+			InventoryPrefs.TooltipsEnabled = !InventoryPrefs.TooltipsEnabled;
+			UpdateHint();
+		}
+
+		// подсказка видна, когда навели на предмет и ничем другим не заняты (перетаскивание, меню, окно количества,
+		// чтение документа)
+		private void UpdateTooltip()
+		{
+			if (tooltip == null) return;
+
+			bool busy = ItemDrag.IsActive ||
+				(contextMenu != null && contextMenu.IsOpen) ||
+				(amountDialog != null && amountDialog.IsOpen) ||
+				(documentReader != null && documentReader.IsOpen);
+			ItemInstance item = InventoryPrefs.TooltipsEnabled && !busy ? ItemHover.Item : null;
+
+			if (item != null) tooltip.Show(item, targetInventory);
+			else tooltip.Hide();
+		}
+
+		// "[Alt] Скрыть описание предметов" — клавиша из реального биндинга (после переназначения обновится сама
+		// при следующем открытии инвентаря)
+		private void UpdateHint()
+		{
+			if (hintText == null) return;
+
+			string actionName = tooltipToggleAction != null && tooltipToggleAction.action != null
+				? tooltipToggleAction.action.name
+				: "ItemTooltip";
+			string key = InteractKey.GetDisplayName(actionName, "Alt");
+			LocalizedString label = InventoryPrefs.TooltipsEnabled ? tooltipsOnHint : tooltipsOffHint;
+			LocalizedTextBinding.Bind(hintText, label, format => SafeFormat(format, key));
 		}
 
 		// Menus.PauseMenu закрывает инвентарь по Escape вместо открытия паузы
@@ -782,7 +865,9 @@ namespace Inventory
 				if (amountDialog != null) amountDialog.Close();
 				if (cursorMessage != null) cursorMessage.Hide();
 				if (documentReader != null) documentReader.Close();
+				if (tooltip != null) tooltip.Hide();
 			}
+			else UpdateHint();
 			UpdateWheelVisibility();
 
 			Cursor.lockState = open ? CursorLockMode.None : CursorLockMode.Locked;

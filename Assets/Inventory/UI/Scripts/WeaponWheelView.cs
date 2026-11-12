@@ -236,6 +236,11 @@ namespace Inventory
 			if (_hoverSlot == slot) return;
 			_hoverSlot = slot;
 			if (slot >= 0) HoverChanged?.Invoke(slot);
+
+			// подсказка о предмете — только в инвентаре (мышью), не в быстром выборе по Q
+			ItemInstance item = slot >= 0 && !_directionMode ? ItemAt(slot) : null;
+			if (item != null) ItemHover.Enter(this, item);
+			else ItemHover.Exit(this);
 		}
 
 		// ---------- Мышь (экран инвентаря) ----------

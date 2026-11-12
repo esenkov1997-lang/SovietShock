@@ -23,7 +23,8 @@ namespace Inventory
 	// Клики (ЛКМ дважды — "быстрое действие", ПКМ — контекстное меню) и бросок за пределы окон предмет передаёт своей
 	// сетке (ItemGridView), а что они значат — решает экран инвентаря.
 	[RequireComponent(typeof(RectTransform))]
-	public class GridItemView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
+	public class GridItemView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler,
+		IPointerEnterHandler, IPointerExitHandler
 	{
 		public enum IconFit { NativeSize, FitInside }
 
@@ -105,7 +106,12 @@ namespace Inventory
 			// вид уничтожили посреди перетаскивания (сетка перерисовалась, окно закрыли) — OnEndDrag уже не придёт
 			if (_dragging) ItemDrag.Cancel();
 			_dragging = false;
+			ItemHover.Exit(this);
 		}
+
+		// наведение — для подсказки (ItemTooltipView)
+		public void OnPointerEnter(PointerEventData eventData) => ItemHover.Enter(this, Item);
+		public void OnPointerExit(PointerEventData eventData) => ItemHover.Exit(this);
 
 		public void OnPointerClick(PointerEventData eventData)
 		{

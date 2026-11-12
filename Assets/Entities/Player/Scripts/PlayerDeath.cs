@@ -66,6 +66,9 @@ namespace Player
 
 		// игрок погиб — подписываются экран смерти, звук, эффекты
 		public event Action Died;
+		// самый первый момент смерти, ДО блокировки ввода и курсора: открытые поверх игры окна (инвентарь) закрываются
+		// здесь — их закрытие возвращает игровой ввод, и блокировка смерти тут же его перекрывает
+		public event Action Dying;
 
 		private void Awake()
 		{
@@ -107,6 +110,7 @@ namespace Player
 			if (IsDead) return;
 			IsDead = true;
 			_deathTime = Time.time;
+			Dying?.Invoke();
 
 			// захват врагом прерываем ДО того, как заберём камеру — иначе он вернул бы её в голову капсулы
 			if (_syncedAnimation != null) _syncedAnimation.Abort();
@@ -185,9 +189,6 @@ namespace Player
 			if (_interactor != null) _interactor.enabled = false;
 			foreach (WeaponController weapons in _weapons)
 				if (weapons != null) weapons.AddHolsterRequest(this);
-
-			InventoryUI inventory = FindFirstObjectByType<InventoryUI>();
-			if (inventory != null && inventory.IsOpen) inventory.Close();
 
 			if (_input == null) return;
 			_input.move = Vector2.zero;

@@ -22,6 +22,15 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
+  description:
+    m_TableReference:
+      m_TableCollectionName: GUID:633dbd3df6e6cd9499c42ae7786f76e2
+    m_TableEntryReference:
+      m_KeyId: 17778974588739584
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   icon: {fileID: 770817605, guid: 49be54e3bf45d7648b6466b5c94cac96, type: 3}
   type: 0
   worldPrefab: {fileID: 6662143721343058744, guid: 5cf23530ec2180b4d9527bd3fa3e3d2b, type: 3}

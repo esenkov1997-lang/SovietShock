@@ -171,6 +171,30 @@ MonoBehaviour:
     m_Key: inventory.feedback.noSpace
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000023
+    m_Key: inventory.tooltip.loaded
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000024
+    m_Key: inventory.tooltip.damage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000025
+    m_Key: inventory.tooltip.heal
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000026
+    m_Key: inventory.tooltip.ammoFor
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000027
+    m_Key: inventory.hint.tooltipsOn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000028
+    m_Key: inventory.hint.tooltipsOff
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

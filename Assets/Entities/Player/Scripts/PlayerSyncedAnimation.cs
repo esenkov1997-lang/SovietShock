@@ -76,6 +76,9 @@ namespace Player
 		// куда игрок будет смотреть после разворота — по этому направлению враг считает свою точку стыковки
 		public Quaternion AlignedRotation => _phase == Phase.Idle ? transform.rotation : _yawTo;
 
+		// самый первый момент, ДО блокировки ввода и курсора: открытые поверх игры окна (инвентарь) закрываются здесь —
+		// их закрытие возвращает игровой ввод, и блокировка тут же его перекрывает
+		public event Action Starting;
 		public event Action Started;
 		public event Action Ended;
 
@@ -142,9 +145,7 @@ namespace Player
 		{
 			if (!CanStart || clip == null || _cameraRoot == null) return false;
 
-			InventoryUI inventory = FindFirstObjectByType<InventoryUI>();
-			if (inventory != null && inventory.IsOpen) inventory.Close();
-
+			Starting?.Invoke();
 			LockPlayer();
 
 			_yawFrom = transform.rotation;

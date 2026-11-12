@@ -30,6 +30,16 @@ MonoBehaviour:
     m_Localized: Box
     m_Metadata:
       m_Items: []
+  - m_Id: 17778160067485696
+    m_Localized: syringe for treatment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 17778974588739584
+    m_Localized: "A handmade repair wrench.\nIt can be used both for turning nuts
+      and as a gas welding tool. \nIt\u2019s quite heavy and durable.\nIf you hit
+      someone with it, they won\u2019t be happy."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -179,6 +179,30 @@ MonoBehaviour:
     m_Localized: No room
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000023
+    m_Localized: 'Loaded: {0}/{1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000024
+    m_Localized: 'Damage: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000025
+    m_Localized: 'Heals: +{0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000026
+    m_Localized: 'Fits: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000027
+    m_Localized: '[{0}] Hide item info'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000028
+    m_Localized: '[{0}] Show item info'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

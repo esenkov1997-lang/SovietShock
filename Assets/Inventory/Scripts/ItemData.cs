@@ -13,6 +13,9 @@ namespace Inventory
 		[Tooltip("Название предмета — ключ таблицы локализации (например, таблица Items, ключ item.medkit). " +
 			"Используется и в подсказке подбора, и в ячейке инвентаря")]
 		public LocalizedString itemName = new LocalizedString();
+		[Tooltip("Описание для подсказки в инвентаре (наведение на предмет) — ключ таблицы локализации, например " +
+			"Items / item.medkit.desc. Пусто — в подсказке только название и характеристики")]
+		public LocalizedString description = new LocalizedString();
 		public Sprite icon;
 		public ItemType type;
 

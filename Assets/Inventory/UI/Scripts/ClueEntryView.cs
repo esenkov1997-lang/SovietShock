@@ -9,7 +9,7 @@ namespace Inventory
 	// Строка списка улик (префаб для ClueListView): иконка, название, количество (только если больше одного).
 	// Клик ЛКМ и ПКМ передаёт списку — что они значат (открыть документ, меню), решает экран инвентаря.
 	// Для кликов нужен Graphic с Raycast Target на всю строку (например, фон строки на корне).
-	public class ClueEntryView : MonoBehaviour, IPointerClickHandler
+	public class ClueEntryView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 	{
 		[SerializeField] private Image icon;
 		[SerializeField] private TMP_Text nameText;
@@ -43,6 +43,11 @@ namespace Inventory
 				countText.text = "×" + item.Count;
 			}
 		}
+
+		// наведение — для подсказки (ItemTooltipView)
+		public void OnPointerEnter(PointerEventData eventData) => ItemHover.Enter(this, Item);
+		public void OnPointerExit(PointerEventData eventData) => ItemHover.Exit(this);
+		private void OnDisable() => ItemHover.Exit(this);
 
 		public void OnPointerClick(PointerEventData eventData)
 		{
