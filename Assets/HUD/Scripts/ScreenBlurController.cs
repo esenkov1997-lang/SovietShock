@@ -27,6 +27,14 @@ namespace HUD
 			[Range(0.5f, 3f)] public float spread = 1f;
 			[Tooltip("Размывать и оружие с руками. Выключено — оружие остаётся чётким")]
 			public bool includeWeapon;
+			[Tooltip("Ретро-пикселизация. Выключено — Pixel Size не действует")]
+			public bool pixelate = true;
+			[Tooltip("Размер пикселя в экранных пикселях. 1 — без пикселизации")]
+			[Range(1, 32)] public int pixelSize = 1;
+			[Tooltip("Ретро-палитра. Выключено — Color Steps не действует")]
+			public bool limitColors = true;
+			[Tooltip("Цветов на канал. 0 — без ограничения, 4..16 — заметно, 32+ — едва")]
+			[Range(0, 64)] public int colorSteps;
 			[Tooltip("Время появления размытия, сек")]
 			[Min(0f)] public float fadeIn = 0.15f;
 			[Tooltip("Время исчезновения размытия, сек")]
@@ -115,6 +123,8 @@ namespace HUD
 			state.blur.iterations.value = state.iterations;
 			state.blur.spread.value = state.spread;
 			state.blur.includeWeapon.value = state.includeWeapon;
+			state.blur.pixelSize.value = state.pixelate ? state.pixelSize : 1;
+			state.blur.colorSteps.value = state.limitColors ? state.colorSteps : 0;
 		}
 
 		private static void ResetWeight(BlurState state)

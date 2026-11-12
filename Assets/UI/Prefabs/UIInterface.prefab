@@ -3274,6 +3274,10 @@ MonoBehaviour:
     iterations: 2
     spread: 0.65
     includeWeapon: 0
+    pixelate: 0
+    pixelSize: 1
+    limitColors: 1
+    colorSteps: 0
     fadeIn: 0.15
     fadeOut: 0.25
   blurOnInventory: 1
@@ -3282,6 +3286,10 @@ MonoBehaviour:
     iterations: 2
     spread: 0.65
     includeWeapon: 1
+    pixelate: 1
+    pixelSize: 8
+    limitColors: 1
+    colorSteps: 0
     fadeIn: 0.2
     fadeOut: 0.2
   volumeLayer: 0

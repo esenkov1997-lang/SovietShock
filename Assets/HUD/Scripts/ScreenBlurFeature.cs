@@ -58,6 +58,7 @@ namespace HUD
 
 			private static readonly int OffsetId = Shader.PropertyToID("_ScreenBlurOffset");
 			private static readonly int IntensityId = Shader.PropertyToID("_ScreenBlurIntensity");
+			private static readonly int PixelateId = Shader.PropertyToID("_ScreenBlurPixelate");
 			private static readonly string[] LevelNames =
 				{ "_ScreenBlur0", "_ScreenBlur1", "_ScreenBlur2", "_ScreenBlur3", "_ScreenBlur4", "_ScreenBlur5" };
 
@@ -72,6 +73,7 @@ namespace HUD
 				public int pass;
 				public Vector4 offset;
 				public float intensity;
+				public Vector4 pixelate;
 			}
 
 			public ScreenBlurPass(Material material)
@@ -99,6 +101,7 @@ namespace HUD
 
 				TextureHandle color = resourceData.activeColorTexture;
 				RenderTextureDescriptor desc = cameraData.cameraTargetDescriptor;
+				Vector4 pixelate = Pixelate(blur, desc.width, desc.height);
 				desc.depthBufferBits = 0;
 				desc.msaaSamples = 1;
 
@@ -117,7 +120,7 @@ namespace HUD
 					desc.width = size.x;
 					desc.height = size.y;
 					TextureHandle level = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, LevelNames[i], false, FilterMode.Bilinear);
-					AddBlitPass(renderGraph, "Screen Blur Down", source, level, AccessFlags.WriteAll, DownPass, Offset(sourceSize, spread), 0f);
+					AddBlitPass(renderGraph, "Screen Blur Down", source, level, AccessFlags.WriteAll, DownPass, Offset(sourceSize, spread), 0f, Vector4.zero);
 
 					_levels[i] = level;
 					_sizes[i] = size;
@@ -129,10 +132,10 @@ namespace HUD
 
 				// вверх: обратно по ступеням, последняя ложится прямо на кадр камеры
 				for (int i = count - 1; i > 0; i--)
-					AddBlitPass(renderGraph, "Screen Blur Up", _levels[i], _levels[i - 1], AccessFlags.WriteAll, UpPass, Offset(_sizes[i], spread), 0f);
+					AddBlitPass(renderGraph, "Screen Blur Up", _levels[i], _levels[i - 1], AccessFlags.WriteAll, UpPass, Offset(_sizes[i], spread), 0f, Vector4.zero);
 
 				AddBlitPass(renderGraph, "Screen Blur Composite", _levels[0], color, AccessFlags.ReadWrite, CompositePass,
-					Offset(_sizes[0], spread), blur.intensity.value);
+					Offset(_sizes[0], spread), blur.intensity.value, pixelate);
 			}
 
 			private static Vector4 Offset(Vector2Int sourceSize, float spread)
@@ -140,8 +143,19 @@ namespace HUD
 				return new Vector4(0.5f * spread / sourceSize.x, 0.5f * spread / sourceSize.y, 0f, 0f);
 			}
 
+			// xy — сколько блоков по ширине и высоте кадра, z — пикселизация вкл/выкл, w — цветов на канал (0 — выкл)
+			private static Vector4 Pixelate(ScreenBlur blur, int width, int height)
+			{
+				int pixelSize = blur.pixelSize.value;
+				return new Vector4(
+					Mathf.Max(1f, (float)width / pixelSize),
+					Mathf.Max(1f, (float)height / pixelSize),
+					pixelSize > 1 ? 1f : 0f,
+					blur.colorSteps.value);
+			}
+
 			private void AddBlitPass(RenderGraph renderGraph, string name, TextureHandle source, TextureHandle destination,
-				AccessFlags destinationAccess, int pass, Vector4 offset, float intensity)
+				AccessFlags destinationAccess, int pass, Vector4 offset, float intensity, Vector4 pixelate)
 			{
 				using (var builder = renderGraph.AddRasterRenderPass<PassData>(name, out PassData data, profilingSampler))
 				{
@@ -150,6 +164,7 @@ namespace HUD
 					data.pass = pass;
 					data.offset = offset;
 					data.intensity = intensity;
+					data.pixelate = pixelate;
 
 					builder.UseTexture(source, AccessFlags.Read);
 					builder.SetRenderAttachment(destination, 0, destinationAccess);
@@ -159,6 +174,7 @@ namespace HUD
 					{
 						context.cmd.SetGlobalVector(OffsetId, d.offset);
 						context.cmd.SetGlobalFloat(IntensityId, d.intensity);
+						context.cmd.SetGlobalVector(PixelateId, d.pixelate);
 						Blitter.BlitTexture(context.cmd, d.source, new Vector4(1f, 1f, 0f, 0f), d.material, d.pass);
 					});
 				}

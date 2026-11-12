@@ -1,5 +1,6 @@
 // Размытие экрана (Dual Kawase): цепочка уменьшений картинки и обратных увеличений — мягкое, дешёвое
-// и без "квадратиков" даже при сильном размытии. Рисует его HUD.ScreenBlurFeature (Renderer Feature),
+// и без "квадратиков" даже при сильном размытии. На последнем проходе — опциональное ретро: пикселизация
+// (картинка берётся блоками) и урезанная палитра (меньше уровней яркости на канал). Рисует его HUD.ScreenBlurFeature (Renderer Feature),
 // силу и настройки берёт из Volume-компонента HUD.ScreenBlur. Вручную материал не нужен.
 Shader "Hidden/SovietShock/ScreenBlur"
 {
@@ -16,6 +17,8 @@ Shader "Hidden/SovietShock/ScreenBlur"
 		float4 _ScreenBlurOffset;
 		// 0..1 — насколько размытая картинка перекрывает исходную (последний проход)
 		float _ScreenBlurIntensity;
+		// ретро: xy — блоков по ширине/высоте, z — пикселизация вкл (1) / выкл (0), w — уровней на канал (0 — выкл)
+		float4 _ScreenBlurPixelate;
 
 		half4 SampleSource(float2 uv)
 		{
@@ -61,7 +64,25 @@ Shader "Hidden/SovietShock/ScreenBlur"
 		half4 FragComposite(Varyings input) : SV_Target
 		{
 			UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-			return half4(Up(input.texcoord).rgb, _ScreenBlurIntensity);
+			float2 uv = input.texcoord;
+
+			// пикселизация: все экранные пиксели блока берут цвет из его центра
+			if (_ScreenBlurPixelate.z > 0.5)
+				uv = (floor(uv * _ScreenBlurPixelate.xy) + 0.5) / _ScreenBlurPixelate.xy;
+
+			half3 color = Up(uv).rgb;
+
+			// палитра режется в гамма-пространстве — так ступени яркости ровные на глаз;
+			// кадр здесь ещё в HDR (до тонмаппинга), поэтому значения > 1 не обрезаются
+			if (_ScreenBlurPixelate.w > 0.5)
+			{
+				half steps = _ScreenBlurPixelate.w;
+				half3 gamma = pow(max(color, 0.0), 1.0 / 2.2);
+				gamma = floor(gamma * steps + 0.5) / steps;
+				color = pow(gamma, 2.2);
+			}
+
+			return half4(color, _ScreenBlurIntensity);
 		}
 		ENDHLSL
 

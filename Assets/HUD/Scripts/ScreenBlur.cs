@@ -23,6 +23,14 @@ namespace HUD
 		// включено — размывается вся картинка вместе с оружием
 		public BoolParameter includeWeapon = new BoolParameter(false);
 
+		// ретро-пикселизация: размытая картинка берётся блоками по столько экранных пикселей (1 — выкл).
+		// При плавном появлении Volume размер блока растёт постепенно — пиксели "проступают"
+		public ClampedIntParameter pixelSize = new ClampedIntParameter(1, 1, 32);
+
+		// ретро-палитра: столько уровней на канал (0 — выкл). Без интерполяции: иначе при появлении
+		// Volume число цветов проходило бы через 1..2 и картинка мигала бы плакатом
+		public NoInterpClampedIntParameter colorSteps = new NoInterpClampedIntParameter(0, 0, 64);
+
 		public bool IsActive() => intensity.value > 0f;
 	}
 }
