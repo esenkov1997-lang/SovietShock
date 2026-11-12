@@ -298,6 +298,35 @@ namespace Inventory
 			return CanPutTo(loot, item, cell) && loot.TryTransfer(Grid, item, cell);
 		}
 
+		// Часть стопки (окно количества со слайдером: "Взять…", "Положить…"). Max* — сколько штук можно перенести
+		// (столько, сколько влезет); Try*Amount — перенести amount штук, вся стопка — как обычные TryTakeFrom/TryPutTo
+
+		public int MaxTakeAmount(ItemGrid loot, ItemInstance item)
+		{
+			if (!IsLoot(loot) || item?.Data == null || !loot.Contains(item)) return 0;
+			return item.Data.IsClue ? item.Count : Grid.MaxAddable(item.Data, item.Count);
+		}
+
+		public bool TryTakeAmount(ItemGrid loot, ItemInstance item, int amount)
+		{
+			if (!IsLoot(loot) || item?.Data == null || !loot.Contains(item) || amount <= 0) return false;
+			if (amount >= item.Count) return TryTakeFrom(loot, item);
+			if (!item.Data.IsClue) return Grid.TryTransferPart(loot, item, amount);
+
+			return loot.TryTake(item, amount, out ItemInstance taken) && Clues.TryAdd(taken);
+		}
+
+		public int MaxPutAmount(ItemGrid loot, ItemInstance item)
+		{
+			if (!IsLoot(loot) || item?.Data == null || !Grid.Contains(item)) return 0;
+			return loot.MaxAddable(item.Data, item.Count);
+		}
+
+		public bool TryPutAmount(ItemGrid loot, ItemInstance item, int amount)
+		{
+			return IsLoot(loot) && Grid.Contains(item) && loot.TryTransferPart(Grid, item, amount);
+		}
+
 		private bool IsLoot(ItemGrid loot) => loot != null && loot != Grid;
 
 		// ---------- Использование и выброс ----------

@@ -388,6 +388,36 @@ namespace Inventory
 			return TryAdd(instance);
 		}
 
+		// Сколько штук предмета влезет в эту сетку, но не больше limit (стопки доливаются, остаток — новыми стопками) —
+		// предел слайдера в окне количества
+		public int MaxAddable(ItemData data, int limit)
+		{
+			if (data == null || limit <= 0) return 0;
+
+			// влезает n штук — влезет и меньше: ищем границу делением пополам
+			int low = 0;
+			int high = limit;
+			while (low < high)
+			{
+				int middle = (low + high + 1) / 2;
+				if (CanAdd(data, middle)) low = middle;
+				else high = middle - 1;
+			}
+			return low;
+		}
+
+		// Перенести из source часть стопки — amount штук куда получится (вся стопка — как TryTransferAll, переходит
+		// сам экземпляр). Не влезает — ничего не меняется
+		public bool TryTransferPart(ItemGrid source, ItemInstance instance, int amount)
+		{
+			if (source == null || source == this || instance == null || !source.Contains(instance) || amount <= 0) return false;
+			if (amount >= instance.Count) return TryTransferAll(source, instance);
+			if (!CanAdd(instance.Data, amount)) return false;
+
+			source.TryTake(instance, amount, out ItemInstance taken);
+			return TryAdd(taken);
+		}
+
 		// ---------- Удаление ----------
 
 		// часть стопки ушла в другую сетку — меняем количество и сообщаем об изменении

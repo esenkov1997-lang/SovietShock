@@ -159,6 +159,22 @@ MonoBehaviour:
     m_Localized: Search
     m_Metadata:
       m_Items: []
+  - m_Id: 8200000000018
+    m_Localized: "Take…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000019
+    m_Localized: "Put…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000020
+    m_Localized: "Drop…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8200000000021
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

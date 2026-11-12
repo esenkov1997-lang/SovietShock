@@ -73,7 +73,7 @@ namespace Inventory
 
 			// размер меню известен только после раскладки кнопок
 			LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
-			PlaceAt(screenPosition, eventCamera);
+			PopupPlacement.PlaceAt((RectTransform)transform, panel, screenPosition, eventCamera);
 		}
 
 		public void Close()
@@ -91,24 +91,6 @@ namespace Inventory
 		public void OnPointerDown(PointerEventData eventData)
 		{
 			if (blocker != null && eventData.pointerCurrentRaycast.gameObject == blocker.gameObject) Close();
-		}
-
-		private void PlaceAt(Vector2 screenPosition, Camera eventCamera)
-		{
-			RectTransform area = (RectTransform)transform;
-			if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(area, screenPosition, eventCamera, out Vector2 local)) return;
-
-			Rect bounds = area.rect;
-			Vector2 size = panel.rect.size;
-
-			// угол меню — под курсором; не влезает вправо/вниз — прижимаем к краю, на целый пиксель
-			float x = Mathf.Clamp(local.x, bounds.xMin, bounds.xMax - size.x);
-			float y = Mathf.Clamp(local.y, bounds.yMin + size.y, bounds.yMax);
-
-			panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
-			panel.pivot = new Vector2(0f, 1f);
-			Vector2 center = bounds.center;
-			panel.anchoredPosition = new Vector2(Mathf.Round(x - center.x), Mathf.Round(y - center.y));
 		}
 	}
 }

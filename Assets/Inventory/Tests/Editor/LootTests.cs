@@ -171,6 +171,94 @@ namespace Inventory.Tests
 			Assert.IsTrue(loot.Contains(lootAmmo), "не влезшее осталось в ящике");
 		}
 
+		// ---------- Часть стопки (окно количества) ----------
+
+		[Test]
+		public void MaxTakeAmount_LimitedByFreeSpace()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			ItemData ammo = _utils.Item("Ammo", maxStack: 30);
+			player.Grid.TryAdd(ammo, 25);
+			ItemGrid loot = new ItemGrid(4, 4);
+			ItemInstance lootAmmo = new ItemInstance(ammo, 20);
+			loot.TryAdd(lootAmmo);
+
+			Assert.AreEqual(5, player.MaxTakeAmount(loot, lootAmmo), "в стопке игрока осталось место на 5");
+		}
+
+		[Test]
+		public void TakeAmount_Part_SplitsStack()
+		{
+			InventoryHolder player = _utils.Player(2, 2);
+			ItemData ammo = _utils.Item("Ammo", maxStack: 30);
+			ItemGrid loot = new ItemGrid(4, 4);
+			ItemInstance lootAmmo = new ItemInstance(ammo, 20);
+			loot.TryAdd(lootAmmo);
+
+			Assert.IsTrue(player.TryTakeAmount(loot, lootAmmo, 7));
+			Assert.AreEqual(7, player.GetTotalCount(ammo));
+			Assert.AreEqual(13, lootAmmo.Count);
+			Assert.IsTrue(loot.Contains(lootAmmo));
+		}
+
+		[Test]
+		public void TakeAmount_Whole_MovesSameInstance()
+		{
+			InventoryHolder player = _utils.Player(2, 2);
+			ItemGrid loot = new ItemGrid(4, 4);
+			ItemInstance lootAmmo = new ItemInstance(_utils.Item("Ammo", maxStack: 30), 20);
+			loot.TryAdd(lootAmmo);
+
+			Assert.IsTrue(player.TryTakeAmount(loot, lootAmmo, 20));
+			Assert.IsTrue(player.Grid.Contains(lootAmmo));
+			Assert.AreEqual(0, loot.Items.Count);
+		}
+
+		[Test]
+		public void TakeAmount_MoreThanFits_RefusedAndNothingChanges()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			ItemData ammo = _utils.Item("Ammo", maxStack: 30);
+			player.Grid.TryAdd(ammo, 25);
+			ItemGrid loot = new ItemGrid(4, 4);
+			ItemInstance lootAmmo = new ItemInstance(ammo, 20);
+			loot.TryAdd(lootAmmo);
+
+			Assert.IsFalse(player.TryTakeAmount(loot, lootAmmo, 6));
+			Assert.AreEqual(25, player.GetTotalCount(ammo));
+			Assert.AreEqual(20, lootAmmo.Count);
+		}
+
+		[Test]
+		public void TakeAmount_ClueStack_Part()
+		{
+			InventoryHolder player = _utils.Player(1, 1);
+			ItemData key = _utils.Clue("Key");
+			ItemGrid loot = new ItemGrid(4, 4);
+			ItemInstance keys = new ItemInstance(key, 3);
+			loot.TryAdd(keys);
+
+			Assert.AreEqual(3, player.MaxTakeAmount(loot, keys));
+			Assert.IsTrue(player.TryTakeAmount(loot, keys, 2));
+			Assert.AreEqual(2, player.GetTotalCount(key));
+			Assert.AreEqual(1, keys.Count);
+		}
+
+		[Test]
+		public void PutAmount_Part_SplitsStack()
+		{
+			InventoryHolder player = _utils.Player(2, 2);
+			ItemData ammo = _utils.Item("Ammo", maxStack: 30);
+			ItemInstance playerAmmo = new ItemInstance(ammo, 30);
+			player.Grid.TryAdd(playerAmmo);
+			ItemGrid loot = new ItemGrid(4, 4);
+
+			Assert.AreEqual(30, player.MaxPutAmount(loot, playerAmmo));
+			Assert.IsTrue(player.TryPutAmount(loot, playerAmmo, 10));
+			Assert.AreEqual(20, playerAmmo.Count);
+			Assert.AreEqual(10, loot.CountOf(ammo));
+		}
+
 		// ---------- Колесо ↔ ящик ----------
 
 		[Test]

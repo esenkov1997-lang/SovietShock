@@ -34,6 +34,9 @@ namespace Inventory
 		[SerializeField] private ItemGridView gridView;
 		[Tooltip("Меню действий по ПКМ (ItemContextMenu) — последним ребёнком Panel, поверх окон")]
 		[SerializeField] private ItemContextMenu contextMenu;
+		[Tooltip("Окно количества со слайдером (ItemAmountDialog) — для \"Взять…\", \"Положить…\", \"Выбросить…\". " +
+			"Внутри Panel, изначально выключено. Пусто — этих пунктов в меню не будет")]
+		[SerializeField] private ItemAmountDialog amountDialog;
 		[Tooltip("Колесо избранного оружия (WeaponWheelView). Лежит ВНЕ Panel: его же показывает быстрый выбор по Q " +
 			"(WeaponWheelQuickSelect), а экран инвентаря включает его вместе с собой")]
 		[SerializeField] private WeaponWheelView wheel;
@@ -68,6 +71,10 @@ namespace Inventory
 		[SerializeField] private LocalizedString replaceFavoriteLabel = new LocalizedString("UI", "inventory.action.replaceFavorite");
 		[SerializeField] private LocalizedString fromFavoritesLabel = new LocalizedString("UI", "inventory.action.fromFavorites");
 		[SerializeField] private LocalizedString readLabel = new LocalizedString("UI", "inventory.action.read");
+		[Tooltip("Пункты с выбором количества (открывают окно со слайдером) — только для стопок больше 1")]
+		[SerializeField] private LocalizedString takeAmountLabel = new LocalizedString("UI", "inventory.action.takeAmount");
+		[SerializeField] private LocalizedString putAmountLabel = new LocalizedString("UI", "inventory.action.putAmount");
+		[SerializeField] private LocalizedString dropAmountLabel = new LocalizedString("UI", "inventory.action.dropAmount");
 
 		// номера вкладок в TabGroup
 		public const int ItemsTab = 0;
@@ -84,6 +91,8 @@ namespace Inventory
 		// "равен null" по правилам Unity, а _lootGrid — нет: по ней и проверяем, открыт ли лут)
 		private LootContainer _loot;
 		private ItemGrid _lootGrid;
+		// окно количества открыто для обмена с ящиком — закрывается вместе с окном лута
+		private bool _amountForLoot;
 		// фокус на терминале/рычаге (см. Interactables.PlayerCameraFocus): пока он идёт, инвентарь закрыт
 		// и не открывается. Необязателен — у игрока без этого компонента инвентарь работает как раньше
 		private PlayerCameraFocus _focus;
@@ -232,6 +241,7 @@ namespace Inventory
 			// тащили предмет из ящика — бросок отменяется
 			if (ItemDrag.IsActive && ItemDrag.SourceGrid != null && ItemDrag.SourceGrid == LootGridView) ItemDrag.Cancel();
 			if (contextMenu != null) contextMenu.Close();
+			if (amountDialog != null && amountDialog.IsOpen && _amountForLoot) amountDialog.Close();
 
 			LootContainer container = _loot;
 			_loot = null;
@@ -274,6 +284,9 @@ namespace Inventory
 			{
 				entries.Add(new ItemContextMenu.Entry(takeLabel, () => targetInventory.TryTakeFrom(loot, item)));
 			}
+			AddAmountEntry(eventData, item, takeAmountLabel, takeLabel, true,
+				() => targetInventory.MaxTakeAmount(loot, item),
+				amount => targetInventory.TryTakeAmount(loot, item, amount), entries);
 			if (item.Data is DocumentItemData document && documentReader != null)
 			{
 				entries.Add(new ItemContextMenu.Entry(readLabel, () => documentReader.Open(document)));
@@ -469,6 +482,12 @@ namespace Inventory
 			{
 				entries.Add(new ItemContextMenu.Entry(putLabel, () => targetInventory.TryPutTo(loot, item)));
 			}
+			if (loot != null)
+			{
+				AddAmountEntry(eventData, item, putAmountLabel, putLabel, true,
+					() => targetInventory.MaxPutAmount(loot, item),
+					amount => targetInventory.TryPutAmount(loot, item, amount), entries);
+			}
 			if (targetInventory.CanUse(item))
 			{
 				entries.Add(new ItemContextMenu.Entry(useLabel, () => targetInventory.TryUse(item)));
@@ -476,11 +495,37 @@ namespace Inventory
 			AddFavoriteEntries(view.Owner.Grid, item, entries);
 			if (targetInventory.CanDrop(item))
 			{
-				entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDrop(item, 1)));
-				if (item.Count > 1) entries.Add(new ItemContextMenu.Entry(dropAllLabel, () => targetInventory.TryDrop(item, item.Count)));
+				// одна штука — просто "Выбросить"; стопка — "Выбросить…" (слайдер) и "Выбросить все"
+				if (item.Count <= 1) entries.Add(new ItemContextMenu.Entry(dropLabel, () => targetInventory.TryDrop(item, 1)));
+				else
+				{
+					AddAmountEntry(eventData, item, dropAmountLabel, dropLabel, false,
+						() => item.Count,
+						amount => targetInventory.TryDrop(item, amount), entries);
+					entries.Add(new ItemContextMenu.Entry(dropAllLabel, () => targetInventory.TryDrop(item, item.Count)));
+				}
 			}
 
 			contextMenu.Open(eventData.position, eventData.pressEventCamera, entries);
+		}
+
+		// Пункт меню "… (сколько)" — открывает окно количества на месте меню. Только для стопок больше 1 и если хоть
+		// одна штука переносится. max считается заново при открытии окна; само действие проверяет всё ещё раз
+		// (пока окно открыто, инвентарь мог измениться — тогда действие просто не выполнится)
+		private void AddAmountEntry(PointerEventData eventData, ItemInstance item, LocalizedString label,
+			LocalizedString confirmLabel, bool forLoot, System.Func<int> max, System.Action<int> apply,
+			List<ItemContextMenu.Entry> entries)
+		{
+			if (amountDialog == null || item == null || item.Count <= 1 || max() <= 0) return;
+
+			// PointerEventData переиспользуется системой событий — запоминаем позицию сейчас
+			Vector2 position = eventData.position;
+			Camera eventCamera = eventData.pressEventCamera;
+			entries.Add(new ItemContextMenu.Entry(label, () =>
+			{
+				_amountForLoot = forLoot;
+				amountDialog.Open(position, eventCamera, item, max(), confirmLabel, apply);
+			}));
 		}
 
 		// бросили мимо окон — выбросить всю стопку
@@ -604,6 +649,7 @@ namespace Inventory
 				CloseLoot();
 				ItemDrag.Cancel();
 				if (contextMenu != null) contextMenu.Close();
+				if (amountDialog != null) amountDialog.Close();
 				if (documentReader != null) documentReader.Close();
 			}
 			UpdateWheelVisibility();
