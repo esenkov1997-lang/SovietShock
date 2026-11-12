@@ -2568,8 +2568,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 22
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
-  m_sharedMaterial: {fileID: 8806399889118609116, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 09f96be379db35f4cb4ec29d70e0d2fa, type: 2}
+  m_sharedMaterial: {fileID: 5358399207691112013, guid: 09f96be379db35f4cb4ec29d70e0d2fa, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2593,8 +2593,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 24
-  m_fontSizeBase: 24
+  m_fontSize: 32
+  m_fontSizeBase: 32
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2783,6 +2783,7 @@ GameObject:
   - component: {fileID: 3840721799482834283}
   - component: {fileID: 4485533606045641288}
   - component: {fileID: 2736990224506678965}
+  - component: {fileID: 6119903864404346093}
   m_Layer: 5
   m_Name: UIInterface
   m_TagString: Untagged
@@ -3254,6 +3255,37 @@ MonoBehaviour:
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
   voices: 4
+--- !u!114 &6119903864404346093
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1878798092307976740}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 000a5ecef4bce0f4685af9de0c44b2ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inventory: {fileID: 2772779114306323140}
+  blurOnReload: 1
+  reload:
+    intensity: 1
+    iterations: 2
+    spread: 0.65
+    includeWeapon: 0
+    fadeIn: 0.15
+    fadeOut: 0.25
+  blurOnInventory: 1
+  inventoryOpen:
+    intensity: 1
+    iterations: 2
+    spread: 0.65
+    includeWeapon: 1
+    fadeIn: 0.2
+    fadeOut: 0.2
+  volumeLayer: 0
+  volumePriority: 100
 --- !u!1 &2289633508923636781
 GameObject:
   m_ObjectHideFlags: 0
@@ -5658,7 +5690,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 288, y: 384}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &5822303237819268108
 CanvasRenderer:
@@ -11269,7 +11301,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_UiScaleMode: 0
   m_ReferencePixelsPerUnit: 100
-  m_ScaleFactor: 1
+  m_ScaleFactor: 2
   m_ReferenceResolution: {x: 800, y: 600}
   m_ScreenMatchMode: 0
   m_MatchWidthOrHeight: 0
@@ -13455,8 +13487,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 11
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
-  m_sharedMaterial: {fileID: 8806399889118609116, guid: 889f2bcc15b807b4482f5295ca676309, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 09f96be379db35f4cb4ec29d70e0d2fa, type: 2}
+  m_sharedMaterial: {fileID: 5358399207691112013, guid: 09f96be379db35f4cb4ec29d70e0d2fa, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -13480,8 +13512,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 48
-  m_fontSizeBase: 48
+  m_fontSize: 64
+  m_fontSizeBase: 64
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18

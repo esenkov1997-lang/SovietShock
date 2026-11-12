@@ -1,5 +1,20 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8043202666832287673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dd50e92e82ab7846a09d4c859188534, type: 3}
+  m_Name: ScreenBlurFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  shader: {fileID: 4800000, guid: 72bc0a0ba7df09149836c1992f610f76, type: 3}
+  renderPassEvent: 550
 --- !u!114 &-2412856318490062395
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -50,7 +65,8 @@ MonoBehaviour:
   - {fileID: -2412856318490062395}
   - {fileID: 8055031473796426878}
   - {fileID: 3858542074385039351}
-  m_RendererFeatureMap: af6acaed0c6f6139c5d15752f6cf83de7e2c3ab27238c96ff77f9ebe924b8c35
+  - {fileID: -8043202666832287673}
+  m_RendererFeatureMap: af6acaed0c6f6139c5d15752f6cf83de7e2c3ab27238c96ff77f9ebe924b8c3547a8fc0acacd6090
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}

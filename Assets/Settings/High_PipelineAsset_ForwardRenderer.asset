@@ -14,6 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   m_Shader: {fileID: 4800000, guid: 0f854b35a0cf61a429bd5dcfea30eddd, type: 3}
+--- !u!114 &-7172129820649305381
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dd50e92e82ab7846a09d4c859188534, type: 3}
+  m_Name: ScreenBlurFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  shader: {fileID: 4800000, guid: 72bc0a0ba7df09149836c1992f610f76, type: 3}
+  renderPassEvent: 550
 --- !u!114 &-3528886420875805317
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -57,7 +72,8 @@ MonoBehaviour:
   - {fileID: 3915660446649970455}
   - {fileID: 2105615157317309876}
   - {fileID: -8509596812488244111}
-  m_RendererFeatureMap: 176f9e1f6e385736b495935dd4a5381d7184d7e9c8d6e789
+  - {fileID: -7172129820649305381}
+  m_RendererFeatureMap: 176f9e1f6e385736b495935dd4a5381d7184d7e9c8d6e789db4a367ded79779c
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
