@@ -22917,12 +22917,12 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 503097389754208567, guid: 96a274d5da0add243866a0d42dfe02c3, type: 3}
       propertyPath: startingItems.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 503097389754208567, guid: 96a274d5da0add243866a0d42dfe02c3, type: 3}
       propertyPath: startingItems.Array.data[1].item
       value: 
-      objectReference: {fileID: 11400000, guid: 9f4a390417f27424b9962f67158e4cce, type: 2}
+      objectReference: {fileID: 11400000, guid: 09324709ff4ca234f8fed1819ae2a0f7, type: 2}
     - target: {fileID: 503097389754208567, guid: 96a274d5da0add243866a0d42dfe02c3, type: 3}
       propertyPath: startingItems.Array.data[2].item
       value: 
@@ -23001,7 +23001,7 @@ PrefabInstance:
       objectReference: {fileID: 11400000, guid: 9f4a390417f27424b9962f67158e4cce, type: 2}
     - target: {fileID: 503097389754208567, guid: 96a274d5da0add243866a0d42dfe02c3, type: 3}
       propertyPath: startingItems.Array.data[1].count
-      value: 10
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 503097389754208567, guid: 96a274d5da0add243866a0d42dfe02c3, type: 3}
       propertyPath: startingItems.Array.data[20].item
